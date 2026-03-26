@@ -15,7 +15,15 @@
   ] as const;
 
   let open = $state(false);
-  const current = $derived(options.find((o) => o.code === $locale) ?? { code: 'en', label: 'EN', flag: 'gb' });
+  function localeCode(input: string | null | undefined) {
+    const v = String(input ?? '').trim().toLowerCase();
+    if (!v) return 'en';
+    if (v.includes('-')) return v.split('-')[0] || 'en';
+    if (v.includes('_')) return v.split('_')[0] || 'en';
+    return v;
+  }
+  const uiLocale = $derived(localeCode($locale));
+  const current = $derived(options.find((o) => o.code === uiLocale) ?? { code: 'en', label: 'EN', flag: 'gb' });
   let rootEl: HTMLDivElement | null = $state(null);
 
   function toggle() {
@@ -56,9 +64,9 @@
         <button
           type="button"
           class="lang-opt"
-          class:active={$locale === opt.code}
+          class:active={uiLocale === opt.code}
           role="option"
-          aria-selected={$locale === opt.code}
+          aria-selected={uiLocale === opt.code}
           onclick={() => {
             setLocale(opt.code);
             close();

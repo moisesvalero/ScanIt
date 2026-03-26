@@ -1267,7 +1267,7 @@
     // Cabecera terminal legible
     doc.setFillColor(245, 245, 245);
     doc.rect(28, 28, 540, 64, 'F');
-    line('##  _JAMALAJAM_TERMINAL_FORENSE_v1', BLACK, 12, true);
+    line('##  _SCANIT_TERMINAL_FORENSE_v1', BLACK, 12, true);
     line('##  INFORME PERICIAL DE INTEGRIDAD ACADEMICA', BLACK, 14, true);
     line('> INFORME PERICIAL / TERMINAL FORENSE', BLACK);
     separator();
@@ -1432,7 +1432,9 @@
 
   <section class="workspace">
     <aside class="mode-rail glass">
-      <p class="rail-title">Modulos</p>
+      <p class="rail-title">
+        {l({ es: 'Modulos', en: 'Modules', fr: 'Modules', de: 'Module', pt: 'Modulos', ru: 'Модули', zh: '模块', ar: 'الوحدات', hi: 'मॉड्यूल' })}
+      </p>
       <button class:active={mode === 'document'} onclick={() => (mode = 'document')}>
         <span class="module-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
@@ -1456,7 +1458,19 @@
         </span>
         <span>
           <strong>{$t('scanit.modules.reviewCapture')}</strong>
-          <small>Imagen o captura</small>
+          <small>
+            {l({
+              es: 'Imagen o captura',
+              en: 'Image or screenshot',
+              fr: 'Image ou capture',
+              de: 'Bild oder Screenshot',
+              pt: 'Imagem ou captura',
+              ru: 'Изображение или скриншот',
+              zh: '图像或截图',
+              ar: 'صورة أو لقطة شاشة',
+              hi: 'छवि या स्क्रीनशॉट'
+            })}
+          </small>
         </span>
       </button>
     </aside>
@@ -1471,6 +1485,7 @@
           <div
             class="viewer glass"
             class:active-zone={mode === 'document'}
+            class:empty-zone={!documentFile}
             class:drag={dragActive}
             ondragover={onDragOver}
             ondragleave={onDragLeave}
@@ -1484,9 +1499,23 @@
             <div class="viewer-head">
               <div class="viewer-title">
                 <span class="dot"></span>
-                <span>Visor Forense</span>
+                <span>
+                  {l({
+                    es: 'Visor Forense',
+                    en: 'Forensic Viewer',
+                    fr: 'Visionneuse technique',
+                    de: 'Forensischer Viewer',
+                    pt: 'Visualizador Forense',
+                    ru: 'Технический просмотр',
+                    zh: '取证查看器',
+                    ar: 'عارض التحليل',
+                    hi: 'फॉरेंसिक व्यूअर'
+                  })}
+                </span>
               </div>
-              <div class="viewer-meta">{documentFile ? documentFile.name : $t('scanit.dropzone.document')}</div>
+              {#if documentFile}
+                <div class="viewer-meta">{documentFile.name}</div>
+              {/if}
             </div>
 
             <input
@@ -1524,12 +1553,28 @@
                     {/if}
                   </div>
                 {:else}
-                  <div class="doc-icon">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
-                      <path d="M14 3.5v4h4" />
-                      <path d="M9 12h6M9 16h6" />
-                    </svg>
+                  <div class="dropzone-callout">
+                    <div class="doc-icon">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+                        <path d="M14 3.5v4h4" />
+                        <path d="M9 12h6M9 16h6" />
+                      </svg>
+                    </div>
+                    <p class="dropzone-primary">{$t('scanit.dropzone.document')}</p>
+                    <p class="dropzone-secondary">
+                      {l({
+                        es: 'Haz clic aqui o arrastra el archivo para abrirlo.',
+                        en: 'Click here or drag the file to open it.',
+                        fr: 'Cliquez ici ou glissez le fichier pour l ouvrir.',
+                        de: 'Hier klicken oder Datei hierher ziehen, um sie zu oeffnen.',
+                        pt: 'Clique aqui ou arraste o arquivo para abrir.',
+                        ru: 'Нажмите здесь или перетащите файл, чтобы открыть.',
+                        zh: '点击此处或拖拽文件到这里打开。',
+                        ar: 'انقر هنا أو اسحب الملف إلى هنا لفتحه.',
+                        hi: 'फ़ाइल खोलने के लिए यहां क्लिक करें या ड्रैग करें।'
+                      })}
+                    </p>
                   </div>
                 {/if}
                 <div class="doc-glow"></div>
@@ -1551,10 +1596,10 @@
             </div>
           </div>
 
-          <aside class="telemetry glass" aria-label="Telemetria en vivo">
+          <aside class="telemetry glass" aria-label={l({ es: 'Telemetria en vivo', en: 'Live telemetry', fr: 'Telemetrie en direct', de: 'Live-Telemetrie', pt: 'Telemetria em tempo real', ru: 'Телеметрия в реальном времени', zh: '实时遥测', ar: 'قياس عن بُعد مباشر', hi: 'लाइव टेलीमेट्री' })}>
             <div class="telemetry-head">
-              <span class="telemetry-title">Telemetria</span>
-              <span class="telemetry-state">{busy || visualScanning ? 'EN PROCESO' : 'LISTO'}</span>
+              <span class="telemetry-title">{l({ es: 'Telemetria', en: 'Telemetry', fr: 'Telemetrie', de: 'Telemetrie', pt: 'Telemetria', ru: 'Телеметрия', zh: '遥测', ar: 'القياس عن بُعد', hi: 'टेलीमेट्री' })}</span>
+              <span class="telemetry-state">{busy || visualScanning ? l({ es: 'EN PROCESO', en: 'IN PROGRESS', fr: 'EN COURS', de: 'IN ARBEIT', pt: 'EM PROCESSO', ru: 'В ПРОЦЕССЕ', zh: '进行中', ar: 'قيد التنفيذ', hi: 'प्रगति में' }) : l({ es: 'LISTO', en: 'READY', fr: 'PRET', de: 'BEREIT', pt: 'PRONTO', ru: 'ГОТОВО', zh: '就绪', ar: 'جاهز', hi: 'तैयार' })}</span>
             </div>
             <div class="telemetry-action">
               {#if documentFile}
@@ -1562,7 +1607,19 @@
                   {busy ? 'Auditando...' : 'Iniciar Auditoria Forense'}
                 </button>
               {:else}
-                <p class="telemetry-hint">Sube un archivo para iniciar la auditoria.</p>
+                <p class="telemetry-hint">
+                  {l({
+                    es: 'Sube un archivo para iniciar la auditoria.',
+                    en: 'Upload a file to start the audit.',
+                    fr: 'Importez un fichier pour lancer l audit.',
+                    de: 'Laden Sie eine Datei hoch, um die Pruefung zu starten.',
+                    pt: 'Envie um arquivo para iniciar a auditoria.',
+                    ru: 'Загрузите файл, чтобы начать проверку.',
+                    zh: '上传文件以开始审查。',
+                    ar: 'ارفع ملفا لبدء التدقيق.',
+                    hi: 'ऑडिट शुरू करने के लिए फ़ाइल अपलोड करें।'
+                  })}
+                </p>
               {/if}
               {#if documentResult && showResult && !busy && !visualScanning}
                 <button class="ghost reopen-result" onclick={reopenResultModal}>Ver resultado</button>
@@ -1610,6 +1667,7 @@
           <div
             class="viewer glass"
             class:active-zone={mode === 'image'}
+            class:empty-zone={!imagePreview}
             class:drag={dragActive}
             ondragover={onDragOver}
             ondragleave={onDragLeave}
@@ -1623,9 +1681,23 @@
             <div class="viewer-head">
               <div class="viewer-title">
                 <span class="dot"></span>
-                <span>Visor de Evidencia</span>
+                <span>
+                  {l({
+                    es: 'Visor de Evidencia',
+                    en: 'Evidence Viewer',
+                    fr: 'Visionneuse des preuves',
+                    de: 'Beweis-Viewer',
+                    pt: 'Visualizador de Evidencias',
+                    ru: 'Просмотр доказательств',
+                    zh: '证据查看器',
+                    ar: 'عارض الأدلة',
+                    hi: 'साक्ष्य व्यूअर'
+                  })}
+                </span>
               </div>
-              <div class="viewer-meta">{imageFile ? imageFile.name : l({ es: 'Arrastra una imagen', en: 'Drop an image', fr: 'Deposez une image', de: 'Bild hier ablegen', pt: 'Arraste uma imagem', ru: 'Перетащите изображение', zh: '拖放一张图片', ar: 'اسحب صورة', hi: 'एक छवि ड्रैग करें' })}</div>
+              {#if imageFile}
+                <div class="viewer-meta">{imageFile.name}</div>
+              {/if}
             </div>
 
             <input
@@ -1643,12 +1715,40 @@
                 </div>
               {:else}
                 <div class="img-placeholder" aria-hidden="true">
-                  <div class="doc-icon">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
-                      <path d="M8 15l2.2-2.2a1 1 0 0 1 1.4 0l1.2 1.2 2.4-2.4a1 1 0 0 1 1.4 0L19 14" />
-                      <circle cx="9" cy="9.5" r="1.4" />
-                    </svg>
+                  <div class="dropzone-callout">
+                    <div class="doc-icon">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
+                        <path d="M8 15l2.2-2.2a1 1 0 0 1 1.4 0l1.2 1.2 2.4-2.4a1 1 0 0 1 1.4 0L19 14" />
+                        <circle cx="9" cy="9.5" r="1.4" />
+                      </svg>
+                    </div>
+                    <p class="dropzone-primary">
+                      {l({
+                        es: 'Arrastra una imagen',
+                        en: 'Drop an image',
+                        fr: 'Deposez une image',
+                        de: 'Bild hier ablegen',
+                        pt: 'Arraste uma imagem',
+                        ru: 'Перетащите изображение',
+                        zh: '拖放一张图片',
+                        ar: 'اسحب صورة',
+                        hi: 'एक छवि ड्रैग करें'
+                      })}
+                    </p>
+                    <p class="dropzone-secondary">
+                      {l({
+                        es: 'Haz clic aqui o arrastra la imagen para abrirla.',
+                        en: 'Click here or drag the image to open it.',
+                        fr: 'Cliquez ici ou glissez l image pour l ouvrir.',
+                        de: 'Hier klicken oder Bild hierher ziehen, um es zu oeffnen.',
+                        pt: 'Clique aqui ou arraste a imagem para abrir.',
+                        ru: 'Нажмите здесь или перетащите изображение, чтобы открыть.',
+                        zh: '点击此处或拖拽图片到这里打开。',
+                        ar: 'انقر هنا أو اسحب الصورة إلى هنا لفتحها.',
+                        hi: 'छवि खोलने के लिए यहां क्लिक करें या ड्रैग करें।'
+                      })}
+                    </p>
                   </div>
                 </div>
               {/if}
@@ -1662,10 +1762,10 @@
             </div>
           </div>
 
-          <aside class="telemetry glass" aria-label="Telemetria en vivo">
+          <aside class="telemetry glass" aria-label={l({ es: 'Telemetria en vivo', en: 'Live telemetry', fr: 'Telemetrie en direct', de: 'Live-Telemetrie', pt: 'Telemetria em tempo real', ru: 'Телеметрия в реальном времени', zh: '实时遥测', ar: 'قياس عن بُعد مباشر', hi: 'लाइव टेलीमेट्री' })}>
             <div class="telemetry-head">
-              <span class="telemetry-title">Telemetria</span>
-              <span class="telemetry-state">{busy || visualScanning ? 'EN PROCESO' : 'LISTO'}</span>
+              <span class="telemetry-title">{l({ es: 'Telemetria', en: 'Telemetry', fr: 'Telemetrie', de: 'Telemetrie', pt: 'Telemetria', ru: 'Телеметрия', zh: '遥测', ar: 'القياس عن بُعد', hi: 'टेलीमेट्री' })}</span>
+              <span class="telemetry-state">{busy || visualScanning ? l({ es: 'EN PROCESO', en: 'IN PROGRESS', fr: 'EN COURS', de: 'IN ARBEIT', pt: 'EM PROCESSO', ru: 'В ПРОЦЕССЕ', zh: '进行中', ar: 'قيد التنفيذ', hi: 'प्रगति में' }) : l({ es: 'LISTO', en: 'READY', fr: 'PRET', de: 'BEREIT', pt: 'PRONTO', ru: 'ГОТОВО', zh: '就绪', ar: 'جاهز', hi: 'तैयार' })}</span>
             </div>
             <div class="telemetry-action">
               {#if imageFile}
@@ -1734,7 +1834,20 @@
       <span class="kf-clock">{footerGeo} — {footerClock}</span>
     </div>
     <div class="kf-right">
-      <span class="kf-copy">© 2026 · Desarrollado por</span>
+      <span class="kf-copy">
+        © 2026 ·
+        {l({
+          es: 'Desarrollado por',
+          en: 'Developed by',
+          fr: 'Developpe par',
+          de: 'Entwickelt von',
+          pt: 'Desenvolvido por',
+          ru: 'Разработано',
+          zh: '开发者',
+          ar: 'تم التطوير بواسطة',
+          hi: 'द्वारा विकसित'
+        })}
+      </span>
       <a class="kf-author" href="https://moisesvalero.es/" target="_blank" rel="noopener noreferrer">Moisés Valero</a>
     </div>
   </footer>
@@ -1763,31 +1876,81 @@
         </div>
         <div class="science-modal-body">
           <p>
-            ScanIt ejecuta una verificacion multicapa para estimar integridad y originalidad del archivo. El proceso
-            combina huella SHA-256, timeline de creacion/modificacion, metadatos internos, estructura del formato y
-            consistencia del contenido. En documentos, revisa velocidad de escritura, señales de edicion y coherencia
-            entre autoria y tiempos; en imagenes, revisa patrones de compresion, ruido y consistencia visual por zonas.
+            {l({
+              es: 'ScanIt ejecuta una verificacion multicapa para estimar integridad y originalidad del archivo. El proceso combina huella SHA-256, timeline de creacion/modificacion, metadatos internos, estructura del formato y consistencia del contenido. En documentos, revisa velocidad de escritura, señales de edicion y coherencia entre autoria y tiempos; en imagenes, revisa patrones de compresion, ruido y consistencia visual por zonas.',
+              en: 'ScanIt runs a multilayer verification to estimate file integrity and originality. The process combines SHA-256 fingerprint, creation/modification timeline, internal metadata, format structure, and content consistency. For documents, it checks writing speed, editing signals, and consistency between authorship and timing; for images, it checks compression patterns, noise, and regional visual consistency.',
+              fr: 'ScanIt execute une verification multicouche pour estimer l integrite et l originalite du fichier. Le processus combine l empreinte SHA-256, la timeline de creation/modification, les metadonnees internes, la structure du format et la coherence du contenu. Pour les documents, il verifie la vitesse d ecriture, les signaux d edition et la coherence entre auteur et temps ; pour les images, il verifie les motifs de compression, le bruit et la coherence visuelle par zones.',
+              de: 'ScanIt fuehrt eine mehrschichtige Pruefung durch, um Integritaet und Originalitaet der Datei einzuschaetzen. Der Prozess kombiniert SHA-256-Fingerabdruck, Erstellungs-/Aenderungs-Timeline, interne Metadaten, Formatstruktur und Inhaltskonsistenz. Bei Dokumenten werden Schreibgeschwindigkeit, Bearbeitungssignale und die Konsistenz zwischen Autorenschaft und Zeit geprueft; bei Bildern Komprimierungsmuster, Rauschen und visuelle Konsistenz nach Bereichen.',
+              pt: 'O ScanIt executa uma verificacao multicamadas para estimar a integridade e a originalidade do arquivo. O processo combina impressao SHA-256, timeline de criacao/modificacao, metadados internos, estrutura do formato e consistencia do conteudo. Em documentos, verifica velocidade de escrita, sinais de edicao e coerencia entre autoria e tempos; em imagens, verifica padroes de compressao, ruido e consistencia visual por zonas.',
+              ru: 'ScanIt выполняет многоуровневую проверку для оценки целостности и оригинальности файла. Процесс объединяет хэш SHA-256, временную линию создания/изменения, внутренние метаданные, структуру формата и согласованность содержания. Для документов проверяются скорость набора, признаки редактирования и согласованность авторства со временем; для изображений - паттерны сжатия, шум и визуальная согласованность по зонам.',
+              zh: 'ScanIt 采用多层验证来评估文件完整性和原创性。该流程结合 SHA-256 指纹、创建/修改时间线、内部元数据、格式结构以及内容一致性。对于文档，会检查写作速度、编辑信号以及作者与时间的一致性；对于图像，会检查压缩模式、噪声和分区视觉一致性。',
+              ar: 'ينفذ ScanIt تحققا متعدد الطبقات لتقدير سلامة الملف وأصالته. تجمع العملية بصمة SHA-256 والخط الزمني للإنشاء/التعديل والبيانات الوصفية الداخلية وبنية التنسيق واتساق المحتوى. في المستندات، يراجع سرعة الكتابة وإشارات التعديل واتساق التأليف مع الزمن؛ وفي الصور، يراجع أنماط الضغط والضوضاء والاتساق البصري حسب المناطق.',
+              hi: 'ScanIt फ़ाइल की अखंडता और मौलिकता का आकलन करने के लिए मल्टी-लेयर सत्यापन चलाता है। यह प्रक्रिया SHA-256 फिंगरप्रिंट, निर्माण/संशोधन टाइमलाइन, आंतरिक मेटाडेटा, फ़ॉर्मेट संरचना और सामग्री संगति को मिलाकर देखती है। दस्तावेज़ों में यह लेखन गति, एडिट संकेत और लेखकीय समय-संगति जांचता है; छवियों में कंप्रेशन पैटर्न, नॉइज़ और क्षेत्रीय दृश्य संगति जांचता है।'
+            })}
           </p>
           <p>
-            La plataforma prioriza evidencia comprobable frente a suposiciones. Por eso, cada resultado incluye tres
-            indicadores operativos: veredicto, confianza del informe y semaforo de cobertura. La confianza no es una
-            promesa absoluta: es una medida tecnica de cuanta evidencia util se pudo validar en esa sesion concreta.
-            Cuanta mas cobertura y mas consistencia entre señales independientes, mayor fiabilidad del resultado.
+            {l({
+              es: 'La plataforma prioriza evidencia comprobable frente a suposiciones. Por eso, cada resultado incluye tres indicadores operativos: veredicto, confianza del informe y semaforo de cobertura. La confianza no es una promesa absoluta: es una medida tecnica de cuanta evidencia util se pudo validar en esa sesion concreta. Cuanta mas cobertura y mas consistencia entre señales independientes, mayor fiabilidad del resultado.',
+              en: 'The platform prioritizes verifiable evidence over assumptions. That is why each result includes three operational indicators: verdict, report confidence, and coverage traffic light. Confidence is not an absolute promise: it is a technical measure of how much useful evidence could be validated in that specific session. The higher the coverage and consistency across independent signals, the more reliable the outcome.',
+              fr: 'La plateforme privilegie les preuves verifiables plutot que les suppositions. C est pourquoi chaque resultat inclut trois indicateurs operationnels : verdict, confiance du rapport et feu de couverture. La confiance n est pas une promesse absolue : c est une mesure technique de la quantite de preuves utiles validees dans cette session. Plus la couverture et la coherence entre signaux independants sont elevees, plus le resultat est fiable.',
+              de: 'Die Plattform priorisiert nachpruefbare Belege statt Annahmen. Deshalb enthaelt jedes Ergebnis drei operative Indikatoren: Urteil, Berichtsvertrauen und Abdeckungsampel. Vertrauen ist kein absolutes Versprechen, sondern ein technisches Mass dafuer, wie viele nuetzliche Belege in dieser Sitzung validiert werden konnten. Je hoeher Abdeckung und Konsistenz unabhaengiger Signale, desto verlaesslicher das Ergebnis.',
+              pt: 'A plataforma prioriza evidencia verificavel em vez de suposicoes. Por isso, cada resultado inclui tres indicadores operacionais: veredito, confianca do relatorio e semaforo de cobertura. A confianca nao e promessa absoluta: e uma medida tecnica de quanta evidencia util foi validada naquela sessao. Quanto maior a cobertura e a consistencia entre sinais independentes, maior a confiabilidade do resultado.',
+              ru: 'Платформа отдает приоритет проверяемым доказательствам, а не предположениям. Поэтому каждый результат включает три рабочих индикатора: вердикт, доверие к отчету и индикатор покрытия. Доверие не является абсолютной гарантией: это техническая мера того, сколько полезных доказательств удалось подтвердить в конкретной сессии. Чем выше покрытие и согласованность независимых сигналов, тем надежнее результат.',
+              zh: '平台优先采用可验证证据，而不是主观推测。因此每个结果都包含三个操作指标：结论、报告置信度和覆盖度信号灯。置信度并非绝对承诺，而是衡量该次会话中可验证有效证据数量的技术指标。覆盖度越高、独立信号越一致，结果越可靠。',
+              ar: 'تعطي المنصة الاولوية للادلة القابلة للتحقق بدلا من الافتراضات. لذلك يتضمن كل نتيجة ثلاثة مؤشرات تشغيلية: الحكم وثقة التقرير واشارة التغطية. الثقة ليست وعدا مطلقا؛ بل هي مقياس تقني لكمية الادلة المفيدة التي امكن التحقق منها في تلك الجلسة. كلما زادت التغطية واتساق الاشارات المستقلة، زادت موثوقية النتيجة.',
+              hi: 'प्लेटफ़ॉर्म अनुमानों की बजाय सत्यापित किए जा सकने वाले साक्ष्य को प्राथमिकता देता है। इसलिए हर परिणाम में तीन ऑपरेशनल संकेतक होते हैं: निर्णय, रिपोर्ट कॉन्फिडेंस और कवरेज सिग्नल। कॉन्फिडेंस कोई पूर्ण वादा नहीं है; यह उस सत्र में सत्यापित उपयोगी साक्ष्य की तकनीकी मात्रा है। कवरेज और स्वतंत्र संकेतों की संगति जितनी अधिक होगी, परिणाम उतना विश्वसनीय होगा।'
+            })}
           </p>
           <p>
-            Tambien incorpora controles de seguridad para reducir falsos positivos: si faltan datos clave o hay
-            contradicciones entre señales, ScanIt bloquea veredictos optimistas y aplica
-            <strong> No concluyente</strong>. Esta regla evita conclusiones fuertes con evidencia parcial y mantiene un
-            enfoque prudente para entornos academicos y profesionales.
+            {l({
+              es: 'Tambien incorpora controles de seguridad para reducir falsos positivos: si faltan datos clave o hay contradicciones entre señales, ScanIt bloquea veredictos optimistas y aplica',
+              en: 'It also includes safety controls to reduce false positives: if key data is missing or signals conflict, ScanIt blocks optimistic verdicts and applies',
+              fr: 'La plateforme integre aussi des controles de securite pour reduire les faux positifs : si des donnees cles manquent ou si les signaux se contredisent, ScanIt bloque les verdicts optimistes et applique',
+              de: 'Zusaetzlich umfasst die Plattform Sicherheitskontrollen zur Reduzierung von Fehlalarmen: Wenn Schluesseldaten fehlen oder Signale sich widersprechen, blockiert ScanIt optimistische Urteile und setzt',
+              pt: 'Tambem incorpora controles de seguranca para reduzir falsos positivos: se faltarem dados-chave ou houver contradicoes entre sinais, o ScanIt bloqueia vereditos otimistas e aplica',
+              ru: 'Также предусмотрены защитные механизмы для снижения ложноположительных срабатываний: если не хватает ключевых данных или сигналы противоречат друг другу, ScanIt блокирует оптимистичные вердикты и применяет',
+              zh: '平台还内置安全控制以减少误报：当关键数据缺失或信号相互矛盾时，ScanIt 会阻止过于乐观的结论，并应用',
+              ar: 'تتضمن المنصة ايضا ضوابط امان لتقليل النتائج الايجابية الكاذبة: اذا غابت بيانات مهمة او ظهرت تناقضات بين الاشارات، يقوم ScanIt بحظر الاحكام المتفائلة ويطبق',
+              hi: 'फॉल्स पॉज़िटिव कम करने के लिए इसमें सुरक्षा नियंत्रण भी हैं: यदि महत्वपूर्ण डेटा गायब हो या संकेत आपस में विरोधी हों, तो ScanIt आशावादी निर्णय रोककर'
+            })}
+            <strong> {l({ es: 'No concluyente', en: 'Inconclusive', fr: 'Non concluant', de: 'Nicht schluessig', pt: 'Nao conclusivo', ru: 'Неконклюзивно', zh: '不确定', ar: 'غير حاسم', hi: 'निष्कर्षहीन' })}</strong>.
+            {l({
+              es: ' Esta regla evita conclusiones fuertes con evidencia parcial y mantiene un enfoque prudente para entornos academicos y profesionales.',
+              en: ' This rule prevents strong conclusions with partial evidence and keeps a prudent approach for academic and professional environments.',
+              fr: ' Cette regle evite les conclusions fortes avec des preuves partielles et maintient une approche prudente pour les environnements academiques et professionnels.',
+              de: ' Diese Regel verhindert starke Schlussfolgerungen bei unvollstaendiger Evidenz und bewahrt einen vorsichtigen Ansatz fuer akademische und professionelle Umgebungen.',
+              pt: ' Esta regra evita conclusoes fortes com evidencia parcial e mantem uma abordagem prudente para ambientes academicos e profissionais.',
+              ru: ' Это правило предотвращает жесткие выводы при частичных доказательствах и сохраняет осторожный подход для академических и профессиональных сред.',
+              zh: ' 该规则可避免在证据不完整时给出强结论，并在学术与专业场景中保持审慎。',
+              ar: ' تمنع هذه القاعدة الاستنتاجات القاطعة عند وجود ادلة جزئية وتحافظ على نهج متحفظ في البيئات الاكاديمية والمهنية.',
+              hi: ' यह नियम आंशिक साक्ष्य पर कठोर निष्कर्षों को रोकता है और शैक्षणिक व पेशेवर संदर्भों में सतर्क दृष्टिकोण बनाए रखता है।'
+            })}
           </p>
           <p>
-            Sobre tasas de exito: no existe un porcentaje universal valido para todos los tipos de archivo y todos los
-            contextos. Por transparencia, ScanIt reporta calidad del analisis en cada caso (cobertura + confianza) en
-            lugar de ocultarlo tras una cifra fija global.
+            {l({
+              es: 'Sobre tasas de exito: no existe un porcentaje universal valido para todos los tipos de archivo y todos los contextos. Por transparencia, ScanIt reporta calidad del analisis en cada caso (cobertura + confianza) en lugar de ocultarlo tras una cifra fija global.',
+              en: 'About success rates: there is no universal percentage valid for every file type and context. For transparency, ScanIt reports analysis quality in each case (coverage + confidence) instead of hiding it behind a fixed global figure.',
+              fr: 'Concernant les taux de reussite : il n existe pas de pourcentage universel valable pour tous les types de fichiers et tous les contextes. Par transparence, ScanIt affiche la qualite de l analyse dans chaque cas (couverture + confiance) plutot que de la masquer derriere un chiffre global fixe.',
+              de: 'Zu Erfolgsquoten: Es gibt keinen universellen Prozentsatz, der fuer alle Dateitypen und Kontexte gueltig ist. Aus Transparenzgruenden meldet ScanIt die Analysequalitaet pro Fall (Abdeckung + Vertrauen), statt sie hinter einer festen globalen Zahl zu verbergen.',
+              pt: 'Sobre taxas de sucesso: nao existe uma percentagem universal valida para todos os tipos de arquivo e contextos. Por transparencia, o ScanIt reporta a qualidade da analise em cada caso (cobertura + confianca) em vez de esconder isso atras de um numero global fixo.',
+              ru: 'О показателях успешности: не существует универсального процента, подходящего для всех типов файлов и контекстов. Для прозрачности ScanIt показывает качество анализа в каждом случае (покрытие + уверенность), а не скрывает его за одной фиксированной общей цифрой.',
+              zh: '关于成功率：不存在适用于所有文件类型和场景的统一百分比。为保持透明，ScanIt 会在每次分析中报告质量（覆盖度 + 置信度），而不是用一个固定总数值掩盖差异。',
+              ar: 'بالنسبة لمعدلات النجاح: لا توجد نسبة عالمية صالحة لكل انواع الملفات والسياقات. ومن باب الشفافية، يعرض ScanIt جودة التحليل في كل حالة (التغطية + الثقة) بدلا من اخفائها خلف رقم عالمي ثابت.',
+              hi: 'सक्सेस रेट के बारे में: ऐसा कोई एक सार्वभौमिक प्रतिशत नहीं है जो हर फ़ाइल प्रकार और हर संदर्भ पर लागू हो। पारदर्शिता के लिए, ScanIt हर केस में विश्लेषण गुणवत्ता (कवरेज + कॉन्फिडेंस) दिखाता है, न कि एक स्थिर वैश्विक संख्या के पीछे छिपाता है।'
+            })}
           </p>
           <p class="science-disclaimer">
-            ScanIt es una herramienta de verificacion tecnica y soporte a la decision. La conclusion final siempre debe
-            tomarla una persona responsable del proceso.
+            {l({
+              es: 'ScanIt es una herramienta de verificacion tecnica y soporte a la decision. La conclusion final siempre debe tomarla una persona responsable del proceso.',
+              en: 'ScanIt is a technical verification and decision-support tool. The final conclusion must always be made by a responsible person.',
+              fr: 'ScanIt est un outil de verification technique et d aide a la decision. La conclusion finale doit toujours etre prise par une personne responsable.',
+              de: 'ScanIt ist ein Werkzeug fuer technische Verifikation und Entscheidungsunterstuetzung. Die endgueltige Schlussfolgerung muss immer von einer verantwortlichen Person getroffen werden.',
+              pt: 'O ScanIt e uma ferramenta de verificacao tecnica e apoio a decisao. A conclusao final deve ser sempre tomada por uma pessoa responsavel.',
+              ru: 'ScanIt - это инструмент технической проверки и поддержки принятия решений. Окончательный вывод всегда должен делать ответственный человек.',
+              zh: 'ScanIt 是技术核验与决策支持工具。最终结论应始终由负责人员作出。',
+              ar: 'ScanIt اداة للتحقق التقني ودعم القرار. يجب دائما ان يتخذ الاستنتاج النهائي شخص مسؤول عن العملية.',
+              hi: 'ScanIt तकनीकी सत्यापन और निर्णय-सहायता का उपकरण है। अंतिम निष्कर्ष हमेशा प्रक्रिया के जिम्मेदार व्यक्ति को ही लेना चाहिए।'
+            })}
           </p>
         </div>
       </div>
@@ -2023,10 +2186,11 @@
     font-family: 'JetBrains Mono', monospace;
     margin: 0;
   }
-  h1 {
-    font-size: clamp(1.15rem, 1.9vw, 1.55rem);
+  .hero-left h1 {
+    font-size: clamp(2.05rem, 4.6vw, 3.2rem);
     margin: 0;
     letter-spacing: -0.01em;
+    line-height: 1.02;
     background: linear-gradient(120deg, #f3f8ff 20%, #76dcff 55%, #4f74ff 100%);
     -webkit-background-clip: text;
     background-clip: text;
@@ -2271,6 +2435,42 @@
     place-items: center;
     position: relative;
     overflow: hidden;
+  }
+  .viewer.empty-zone .viewer-body {
+    place-items: center;
+    align-content: center;
+    padding-top: 0;
+  }
+  .viewer.empty-zone .doc-frame,
+  .viewer.empty-zone .img-placeholder {
+    border-style: dashed;
+    border-width: 2px;
+    border-color: rgba(0, 229, 255, 0.58);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+      0 0 52px rgba(0, 229, 255, 0.2);
+  }
+  .dropzone-callout {
+    display: grid;
+    place-items: center;
+    gap: 0.38rem;
+    text-align: center;
+    padding: 0.9rem 1rem;
+    max-width: 90%;
+    z-index: 2;
+  }
+  .dropzone-primary {
+    margin: 0;
+    color: rgba(230, 245, 255, 0.98);
+    font-size: clamp(0.95rem, 1.3vw, 1.14rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .dropzone-secondary {
+    margin: 0;
+    color: rgba(192, 222, 246, 0.9);
+    font-size: clamp(0.74rem, 1vw, 0.86rem);
+    line-height: 1.28;
   }
   .pdf-frame {
     width: 100%;
