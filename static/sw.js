@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scanit-pwa-v1';
+const CACHE_NAME = 'scanit-pwa-v2';
 const STATIC_ASSETS = ['/', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
