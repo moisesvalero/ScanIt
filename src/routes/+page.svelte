@@ -123,6 +123,7 @@
   let scanStartedAt = $state(0);
   const MIN_CINEMATIC_MS = 15_000;
   const MAX_LOG_LINES = 42;
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
   let documentInputRef: HTMLInputElement | null = $state(null);
   let imageInputRef: HTMLInputElement | null = $state(null);
@@ -139,6 +140,7 @@
   let idleTelemetryTimer: ReturnType<typeof setInterval> | null = null;
   let showScienceModal = $state(false);
   let showResultModal = $state(false);
+  let showPdfResizeHelpModal = $state(false);
   let cursorX = $state(0);
   let cursorY = $state(0);
   let cursorVisible = $state(false);
@@ -674,7 +676,24 @@
 
   function onSelectDocument(event: Event) {
     const target = event.currentTarget as HTMLInputElement;
-    documentFile = target.files?.[0] ?? null;
+    const picked = target.files?.[0] ?? null;
+    if (picked && picked.size > MAX_UPLOAD_BYTES) {
+      const maxMb = (MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0);
+      error = l({
+        es: `El archivo supera el limite de ${maxMb} MB para analisis web. Comprimelo o exportalo en menor tamaño.`,
+        en: `File exceeds the ${maxMb} MB web analysis limit. Compress or export a smaller file.`,
+        fr: `Le fichier depasse la limite web de ${maxMb} Mo. Compressez-le ou exportez un fichier plus petit.`,
+        de: `Die Datei ueberschreitet das Web-Limit von ${maxMb} MB. Bitte komprimieren oder kleiner exportieren.`,
+        pt: `O arquivo excede o limite web de ${maxMb} MB. Comprima ou exporte menor.`,
+        ru: `Файл превышает веб-лимит ${maxMb} МБ. Сожмите его или экспортируйте меньшую версию.`,
+        zh: `文件超过 ${maxMb} MB 的网页分析限制，请压缩或导出更小版本。`,
+        ar: `الملف يتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطه أو تصديره بحجم أصغر.`,
+        hi: `फ़ाइल ${maxMb} MB वेब सीमा से बड़ी है। इसे compress करें या छोटा export करें।`
+      });
+      documentFile = null;
+      return;
+    }
+    documentFile = picked;
     documentResult = null;
     error = '';
     showResult = false;
@@ -684,7 +703,24 @@
 
   function onSelectImage(event: Event) {
     const target = event.currentTarget as HTMLInputElement;
-    imageFile = target.files?.[0] ?? null;
+    const picked = target.files?.[0] ?? null;
+    if (picked && picked.size > MAX_UPLOAD_BYTES) {
+      const maxMb = (MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0);
+      error = l({
+        es: `La imagen supera el limite de ${maxMb} MB para analisis web. Comprimela antes de subirla.`,
+        en: `Image exceeds the ${maxMb} MB web analysis limit. Compress it before upload.`,
+        fr: `L image depasse la limite web de ${maxMb} Mo. Compressez-la avant l envoi.`,
+        de: `Das Bild ueberschreitet das Web-Limit von ${maxMb} MB. Vor dem Upload komprimieren.`,
+        pt: `A imagem excede o limite web de ${maxMb} MB. Comprima antes de enviar.`,
+        ru: `Изображение превышает веб-лимит ${maxMb} МБ. Сожмите перед загрузкой.`,
+        zh: `图片超过 ${maxMb} MB 的网页分析限制，请先压缩后上传。`,
+        ar: `الصورة تتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطها قبل الرفع.`,
+        hi: `छवि ${maxMb} MB वेब सीमा से बड़ी है। अपलोड से पहले compress करें।`
+      });
+      imageFile = null;
+      return;
+    }
+    imageFile = picked;
     imageResult = null;
     error = '';
     showResult = false;
@@ -711,6 +747,21 @@
         error = 'Formato no soportado. Usa .docx o .pdf.';
         return;
       }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        const maxMb = (MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0);
+        error = l({
+          es: `El archivo supera el limite de ${maxMb} MB para analisis web. Comprimelo o exportalo en menor tamaño.`,
+          en: `File exceeds the ${maxMb} MB web analysis limit. Compress or export a smaller file.`,
+          fr: `Le fichier depasse la limite web de ${maxMb} Mo. Compressez-le ou exportez un fichier plus petit.`,
+          de: `Die Datei ueberschreitet das Web-Limit von ${maxMb} MB. Bitte komprimieren oder kleiner exportieren.`,
+          pt: `O arquivo excede o limite web de ${maxMb} MB. Comprima ou exporte menor.`,
+          ru: `Файл превышает веб-лимит ${maxMb} МБ. Сожмите его или экспортируйте меньшую версию.`,
+          zh: `文件超过 ${maxMb} MB 的网页分析限制，请压缩或导出更小版本。`,
+          ar: `الملف يتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطه أو تصديره بحجم أصغر.`,
+          hi: `फ़ाइल ${maxMb} MB वेब सीमा से बड़ी है। इसे compress करें या छोटा export करें।`
+        });
+        return;
+      }
       documentFile = file;
       documentResult = null;
       showResult = false;
@@ -723,6 +774,21 @@
       error = 'Formato no soportado. Usa una imagen.';
       return;
     }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      const maxMb = (MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0);
+      error = l({
+        es: `La imagen supera el limite de ${maxMb} MB para analisis web. Comprimela antes de subirla.`,
+        en: `Image exceeds the ${maxMb} MB web analysis limit. Compress it before upload.`,
+        fr: `L image depasse la limite web de ${maxMb} Mo. Compressez-la avant l envoi.`,
+        de: `Das Bild ueberschreitet das Web-Limit von ${maxMb} MB. Vor dem Upload komprimieren.`,
+        pt: `A imagem excede o limite web de ${maxMb} MB. Comprima antes de enviar.`,
+        ru: `Изображение превышает веб-лимит ${maxMb} МБ. Сожмите перед загрузкой.`,
+        zh: `图片超过 ${maxMb} MB 的网页分析限制，请先压缩后上传。`,
+        ar: `الصورة تتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطها قبل الرفع.`,
+        hi: `छवि ${maxMb} MB वेब सीमा से बड़ी है। अपलोड से पहले compress करें।`
+      });
+      return;
+    }
     imageFile = file;
     imageResult = null;
     showResult = false;
@@ -730,6 +796,20 @@
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     imagePreview = URL.createObjectURL(file);
     startIdleTelemetry();
+  }
+
+  function shouldShowPdfResizeHelp() {
+    if (mode !== 'document' || !error) return false;
+    const lower = error.toLowerCase();
+    return (
+      lower.includes('payload') ||
+      lower.includes('too large') ||
+      lower.includes('request entity') ||
+      lower.includes('413') ||
+      lower.includes('limite') ||
+      lower.includes('limit') ||
+      lower.includes('mb')
+    );
   }
 
   async function auditDocument() {
@@ -748,7 +828,9 @@
         let serverMsg = '';
         try {
           const body = await response.clone().json();
-          serverMsg = String(body?.error || body?.message || '').trim();
+          const baseError = String(body?.error || body?.message || '').trim();
+          const detailsShort = body?.details ? String(body.details).slice(0, 180) : '';
+          serverMsg = detailsShort ? `${baseError} (${detailsShort})` : baseError;
           if (body?.details)
             scanLogs = [...scanLogs, `Diagnostico: ${String(body.details).slice(0, 160)}`].slice(-MAX_LOG_LINES);
         } catch {
@@ -757,6 +839,23 @@
           } catch {
             serverMsg = 'No se pudo leer la respuesta de error del servidor.';
           }
+        }
+        const upper = serverMsg.toUpperCase();
+        if (response.status === 413 || upper.includes('FUNCTION_PAYLOAD_TOO_LARGE') || upper.includes('REQUEST ENTITY TOO LARGE')) {
+          const maxMb = (MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0);
+          throw new Error(
+            l({
+              es: `El archivo supera el limite de carga del servidor (${maxMb} MB aprox.). Comprimelo o exportalo con menor tamaño.`,
+              en: `File exceeds the server upload limit (about ${maxMb} MB). Compress or export a smaller version.`,
+              fr: `Le fichier depasse la limite d envoi serveur (environ ${maxMb} Mo). Compressez-le ou exportez une version plus petite.`,
+              de: `Die Datei ueberschreitet das Upload-Limit des Servers (ca. ${maxMb} MB). Bitte komprimieren oder kleiner exportieren.`,
+              pt: `O arquivo excede o limite de envio do servidor (cerca de ${maxMb} MB). Comprima ou exporte menor.`,
+              ru: `Файл превышает лимит загрузки сервера (около ${maxMb} МБ). Сожмите его или экспортируйте меньшую версию.`,
+              zh: `文件超过服务器上传限制（约 ${maxMb} MB），请压缩或导出更小版本。`,
+              ar: `الملف يتجاوز حد رفع الخادم (حوالي ${maxMb} ميغابايت). قم بضغطه أو تصديره بحجم أصغر.`,
+              hi: `फ़ाइल सर्वर अपलोड सीमा (लगभग ${maxMb} MB) से बड़ी है। इसे compress करें या छोटा export करें।`
+            })
+          );
         }
         throw new Error(serverMsg || 'No se pudo auditar el documento.');
       }
@@ -1663,6 +1762,21 @@
             </div>
             {#if error}
               <p class="error">{error}</p>
+              {#if shouldShowPdfResizeHelp()}
+                <button class="ghost pdf-help-btn" onclick={() => (showPdfResizeHelpModal = true)}>
+                  {l({
+                    es: 'Como reducir PDF',
+                    en: 'How to reduce PDF',
+                    fr: 'Comment reduire un PDF',
+                    de: 'PDF verkleinern',
+                    pt: 'Como reduzir PDF',
+                    ru: 'Как уменьшить PDF',
+                    zh: '如何压缩 PDF',
+                    ar: 'كيفية تقليل حجم PDF',
+                    hi: 'PDF का आकार कैसे कम करें'
+                  })}
+                </button>
+              {/if}
             {/if}
           </aside>
         </section>
@@ -1819,6 +1933,21 @@
             </div>
             {#if error}
               <p class="error">{error}</p>
+              {#if shouldShowPdfResizeHelp()}
+                <button class="ghost pdf-help-btn" onclick={() => (showPdfResizeHelpModal = true)}>
+                  {l({
+                    es: 'Como reducir PDF',
+                    en: 'How to reduce PDF',
+                    fr: 'Comment reduire un PDF',
+                    de: 'PDF verkleinern',
+                    pt: 'Como reduzir PDF',
+                    ru: 'Как уменьшить PDF',
+                    zh: '如何压缩 PDF',
+                    ar: 'كيفية تقليل حجم PDF',
+                    hi: 'PDF का आकार कैसे कम करें'
+                  })}
+                </button>
+              {/if}
             {/if}
           </aside>
         </section>
@@ -2073,6 +2202,51 @@
         <button class={`download ${downloadToneClass()}`} onclick={downloadCertificate}>
           {l({ es: 'Descargar Informe Completo', en: 'Download Full Report', fr: 'Telecharger le rapport complet', de: 'Vollbericht herunterladen', pt: 'Baixar relatorio completo', ru: 'Скачать полный отчет', zh: '下载完整报告', ar: 'تنزيل التقرير الكامل', hi: 'पूर्ण रिपोर्ट डाउनलोड करें' })}
         </button>
+      </div>
+    </div>
+  {/if}
+  {#if showPdfResizeHelpModal}
+    <div
+      class="science-modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label={l({ es: 'Cerrar ayuda para PDF', en: 'Close PDF help', fr: 'Fermer aide PDF', de: 'PDF-Hilfe schliessen', pt: 'Fechar ajuda de PDF', ru: 'Закрыть помощь по PDF', zh: '关闭 PDF 帮助', ar: 'إغلاق مساعدة PDF', hi: 'PDF सहायता बंद करें' })}
+      onclick={() => (showPdfResizeHelpModal = false)}
+      onkeydown={(e) => e.key === 'Enter' && (showPdfResizeHelpModal = false)}
+    >
+      <div
+        class="science-modal glass"
+        role="dialog"
+        aria-modal="true"
+        aria-label={l({ es: 'Guia para reducir PDF', en: 'PDF size guide', fr: 'Guide de reduction PDF', de: 'Anleitung PDF verkleinern', pt: 'Guia para reduzir PDF', ru: 'Инструкция по уменьшению PDF', zh: 'PDF 压缩指南', ar: 'دليل تقليل حجم PDF', hi: 'PDF आकार गाइड' })}
+        tabindex="0"
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.key === 'Escape' && (showPdfResizeHelpModal = false)}
+      >
+        <div class="science-modal-head">
+          <h3>{l({ es: 'Como reducir PDF compatible con ScanIt', en: 'How to reduce PDF for ScanIt', fr: 'Comment reduire un PDF pour ScanIt', de: 'PDF fuer ScanIt verkleinern', pt: 'Como reduzir PDF para o ScanIt', ru: 'Как уменьшить PDF для ScanIt', zh: 'ScanIt 兼容 PDF 压缩方法', ar: 'كيفية تقليل PDF المتوافق مع ScanIt', hi: 'ScanIt के लिए PDF कम कैसे करें' })}</h3>
+          <button class="ghost science-close" onclick={() => (showPdfResizeHelpModal = false)}>{l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}</button>
+        </div>
+        <div class="science-modal-body">
+          <p>
+            {l({
+              es: 'Si aparece un error de tamaño, reduce el archivo por debajo de 4 MB y vuelve a subirlo.',
+              en: 'If you see a size error, reduce the file below 4 MB and upload again.',
+              fr: 'Si vous voyez une erreur de taille, reduisez le fichier sous 4 Mo puis reimportez.',
+              de: 'Bei Groessenfehler Datei unter 4 MB reduzieren und erneut hochladen.',
+              pt: 'Se aparecer erro de tamanho, reduza o arquivo para menos de 4 MB e envie novamente.',
+              ru: 'Если появилась ошибка размера, уменьшите файл до 4 МБ и загрузите снова.',
+              zh: '若出现大小错误，请将文件压缩到 4 MB 以下后重新上传。',
+              ar: 'إذا ظهر خطأ الحجم، قلل الملف إلى أقل من 4 ميغابايت ثم ارفعه مجددا.',
+              hi: 'यदि आकार त्रुटि आए, फ़ाइल को 4 MB से कम करें और फिर अपलोड करें।'
+            })}
+          </p>
+          <ul class="modal-list">
+            <li>{l({ es: 'Windows: Imprimir -> Microsoft Print to PDF -> Calidad estandar.', en: 'Windows: Print -> Microsoft Print to PDF -> Standard quality.', fr: 'Windows : Imprimer -> Microsoft Print to PDF -> Qualite standard.', de: 'Windows: Drucken -> Microsoft Print to PDF -> Standardqualitaet.', pt: 'Windows: Imprimir -> Microsoft Print to PDF -> Qualidade padrao.', ru: 'Windows: Печать -> Microsoft Print to PDF -> Стандартное качество.', zh: 'Windows：打印 -> Microsoft Print to PDF -> 标准质量。', ar: 'Windows: طباعة -> Microsoft Print to PDF -> جودة قياسية.', hi: 'Windows: Print -> Microsoft Print to PDF -> Standard quality.' })}</li>
+            <li>{l({ es: 'Google Drive: abrir PDF -> Imprimir -> Guardar como PDF (suele optimizar peso).', en: 'Google Drive: open PDF -> Print -> Save as PDF (often reduces size).', fr: 'Google Drive : ouvrir PDF -> Imprimer -> Enregistrer en PDF (souvent plus leger).', de: 'Google Drive: PDF oeffnen -> Drucken -> Als PDF speichern (oft kleiner).', pt: 'Google Drive: abrir PDF -> Imprimir -> Salvar como PDF (geralmente reduz).', ru: 'Google Drive: открыть PDF -> Печать -> Сохранить как PDF (часто уменьшает размер).', zh: 'Google Drive：打开 PDF -> 打印 -> 另存为 PDF（通常更小）。', ar: 'Google Drive: افتح PDF -> طباعة -> حفظ كـ PDF (غالبا يقل الحجم).', hi: 'Google Drive: PDF खोलें -> Print -> Save as PDF (अक्सर आकार घटता है)।' })}</li>
+            <li>{l({ es: 'Si tiene muchas imagenes: exporta en 150-200 DPI para mantener legibilidad con menos peso.', en: 'If it has many images: export at 150-200 DPI to keep readability with lower size.', fr: 'S il contient beaucoup d images : exportez en 150-200 DPI pour garder la lisibilite avec moins de poids.', de: 'Bei vielen Bildern: mit 150-200 DPI exportieren fuer Lesbarkeit bei kleinerer Datei.', pt: 'Se tiver muitas imagens: exporte em 150-200 DPI para manter legibilidade com menor tamanho.', ru: 'Если много изображений: экспортируйте в 150-200 DPI для читаемости и меньшего размера.', zh: '若包含大量图片：以 150-200 DPI 导出，可兼顾清晰度和体积。', ar: 'إذا كان يحتوي على صور كثيرة: صدّره بدقة 150-200 DPI للحفاظ على الوضوح مع حجم أقل.', hi: 'यदि इसमें कई छवियां हैं: 150-200 DPI पर export करें ताकि पठनीयता रहे और आकार कम हो।' })}</li>
+          </ul>
+        </div>
       </div>
     </div>
   {/if}
@@ -3098,6 +3272,17 @@
   .error {
     color: var(--danger);
     margin-top: 0.7rem;
+  }
+  .pdf-help-btn {
+    margin-top: 0.45rem;
+    border-color: rgba(0, 229, 255, 0.45);
+    color: #bff8ff;
+    font-size: 0.8rem;
+    padding: 0.38rem 0.62rem;
+  }
+  .pdf-help-btn:hover {
+    border-color: rgba(0, 229, 255, 0.75);
+    background: rgba(0, 229, 255, 0.08);
   }
   @media (max-width: 760px) {
     .workspace {

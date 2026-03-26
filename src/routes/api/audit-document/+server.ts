@@ -843,11 +843,22 @@ export const POST: RequestHandler = async ({ request }) => {
         lower.includes('encrypted') ||
         lower.includes('encryption') ||
         lower.includes('secure'));
+    const isPdfStructureIssue =
+      extension === 'pdf' &&
+      (lower.includes('formaterror') ||
+        lower.includes('invalid pdf') ||
+        lower.includes('bad xref') ||
+        lower.includes('xref') ||
+        lower.includes('unexpected eof') ||
+        lower.includes('startxref') ||
+        lower.includes('trailer'));
 
-    const status = isEncrypted ? 422 : 500;
+    const status = isEncrypted || isPdfStructureIssue ? 422 : 500;
     const userMessage = isEncrypted
       ? 'El PDF parece estar protegido/cifrado. Exportalo sin contraseña y vuelve a intentarlo.'
-      : 'Fallo al auditar el documento. El archivo podria estar dañado, ser un PDF no estandar o estar corrupto.';
+      : isPdfStructureIssue
+        ? 'El PDF usa una estructura no estandar para analisis tecnico (compresion/xref). Reexportalo como "PDF estandar" o "Imprimir a PDF".'
+        : 'Fallo al auditar el documento. El archivo podria estar dañado, ser un PDF no estandar o estar corrupto.';
 
     return new Response(
       JSON.stringify({
