@@ -1012,8 +1012,12 @@
       } else {
         const reason =
           documentResult?.linguisticAiStatus?.reason ?? 'Analisis lingüistico opcional omitido en esta auditoria.';
-        scanLogs = [...scanLogs, `Analisis lingüistico omitido: ${reason}`].slice(-MAX_LOG_LINES);
         const lowerReason = reason.toLowerCase();
+        if (lowerReason.includes('safe mode')) {
+          scanLogs = [...scanLogs, `[CHECK] Modo estabilidad activo: ${reason}`].slice(-MAX_LOG_LINES);
+        } else {
+          scanLogs = [...scanLogs, `Analisis lingüistico omitido: ${reason}`].slice(-MAX_LOG_LINES);
+        }
         if (lowerReason.includes('dibujo') || lowerReason.includes('no textual') || lowerReason.includes('insuficiente')) {
           scanLogs = [...scanLogs, 'ERROR: Contenido no apto para auditoría académica.'].slice(-MAX_LOG_LINES);
         }

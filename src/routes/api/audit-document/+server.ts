@@ -680,17 +680,13 @@ export const POST: RequestHandler = async ({ request }) => {
       reason: 'No se ejecuto el analisis lingüistico.'
     };
     const hasGroqKey = Boolean(env.GROQ_API_KEY || process.env.GROQ_API_KEY);
-    const isProdRuntime =
-      process.env.NODE_ENV === 'production' ||
-      Boolean(process.env.VERCEL) ||
-      Boolean(process.env.VERCEL_ENV);
-    const safeModeEnabled = (process.env.SCANIT_SAFE_MODE ?? '').toLowerCase() === 'true' || isProdRuntime;
+    const safeModeEnabled = (process.env.SCANIT_SAFE_MODE ?? '').toLowerCase() === 'true';
     const trimmedText = parsed.text.trim();
 
     if (safeModeEnabled && extension === 'pdf') {
       linguisticAiStatus = {
         state: 'omitted',
-        reason: 'Safe mode activo en produccion para PDF: analisis lingüistico IA desactivado para priorizar estabilidad.'
+        reason: 'Safe mode activo en produccion para PDF: capa lingüistica IA en pausa para priorizar estabilidad del servicio.'
       };
     } else if (!hasGroqKey) {
       linguisticAiStatus = {
