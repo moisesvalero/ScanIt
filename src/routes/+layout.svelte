@@ -1,11 +1,9 @@
 <script lang="ts">
-  import "../app.css"; // Importamos los estilos globales
-  import { t } from '$lib/i18n/index.js';
-
+  import '../app.css';
 </script>
-  
-  <svelte:head>
-	<title>{$t('layout.title')}</title>
-  </svelte:head>
 
-  <slot />
+<svelte:head>
+  <title>Jamalajam | Suite Forense de Integridad Academica</title>
+</svelte:head>
+
+<slot />
