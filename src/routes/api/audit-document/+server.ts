@@ -24,6 +24,12 @@ type Anomaly = {
   message: string;
 };
 
+type PdfSignatureCheck = {
+  hasSignature: boolean;
+  status: 'unsigned' | 'structural_valid' | 'structural_tampered' | 'unknown';
+  reason: string;
+};
+
 function xmlDecode(value: string) {
   return value
     .replaceAll('&amp;', '&')
@@ -103,6 +109,7 @@ async function parseDocx(buffer: Buffer) {
   const lastModifiedBy = xmlTag(coreXml, 'cp:lastModifiedBy');
   const application = xmlTag(appXml, 'Application');
   const company = xmlTag(appXml, 'Company');
+  const appAuthor = xmlTag(appXml, 'AppVersion') ?? xmlTag(appXml, 'Manager');
 
   return {
     text,
@@ -116,10 +123,40 @@ async function parseDocx(buffer: Buffer) {
       lastModifiedBy,
       application,
       company,
+      appAuthor,
       producer: null,
       hasDigitalSignature: false
     }
   };
+}
+
+function inspectPdfSignature(buffer: Buffer): PdfSignatureCheck {
+  const raw = buffer.toString('latin1');
+  const hasSigMarkers = raw.includes('/Type/Sig') || raw.includes('/ByteRange[') || raw.includes('/SubFilter');
+  if (!hasSigMarkers) {
+    return { hasSignature: false, status: 'unsigned', reason: 'No se detecta contenedor de firma digital en el PDF.' };
+  }
+  const m = raw.match(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
+  if (!m) {
+    return { hasSignature: true, status: 'unknown', reason: 'Firma detectada sin ByteRange parseable.' };
+  }
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  const c = Number(m[3]);
+  const d = Number(m[4]);
+  const len = buffer.length;
+  const structuralOk = Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c) && Number.isFinite(d) && a === 0 && a + b <= c;
+  if (!structuralOk) {
+    return { hasSignature: true, status: 'structural_tampered', reason: 'ByteRange inconsistente: posible alteracion del wrapper de firma.' };
+  }
+  if (c + d < len) {
+    return {
+      hasSignature: true,
+      status: 'structural_tampered',
+      reason: 'Existen bytes fuera del rango firmado: posible modificacion posterior a la firma.'
+    };
+  }
+  return { hasSignature: true, status: 'structural_valid', reason: 'Estructura de firma coherente (verificacion estructural).' };
 }
 
 async function parsePdf(buffer: Buffer) {
@@ -182,7 +219,10 @@ async function parsePdf(buffer: Buffer) {
       created,
       modified,
       creator,
+      lastModifiedBy: null,
       application: producer,
+      company: null,
+      appAuthor: null,
       producer,
       hasDigitalSignature
     }
@@ -210,6 +250,8 @@ function buildAnomalies(input: {
   uniformity: { mean: number; coefficient: number } | null;
   metadata: Record<string, unknown>;
   lexicalDiversity?: number;
+  metadataConsistency?: { docxAuthorMismatch: boolean; docxTimelineMismatch: boolean };
+  pdfSignature?: PdfSignatureCheck;
 }) {
   const anomalies: Anomaly[] = [];
   const ratio = input.editingMinutes && input.editingMinutes > 0 ? input.wordCount / input.editingMinutes : null;
@@ -270,6 +312,27 @@ function buildAnomalies(input: {
       code: 'LOW_LEXICAL_DIVERSITY',
       severity: 'amber',
       message: 'Diversidad lexical baja para la longitud observada; posible uniformidad estilistica excesiva.'
+    });
+  }
+  if (input.extension === 'docx' && input.metadataConsistency?.docxAuthorMismatch) {
+    anomalies.push({
+      code: 'DOCX_AUTHOR_MISMATCH',
+      severity: 'amber',
+      message: 'Inconsistencia en metadatos internos DOCX: autor original y ultimo editor no coinciden.'
+    });
+  }
+  if (input.extension === 'docx' && input.metadataConsistency?.docxTimelineMismatch) {
+    anomalies.push({
+      code: 'DOCX_TIMELINE_MISMATCH',
+      severity: 'red',
+      message: 'Inconsistencia temporal interna DOCX: saltos de fechas ilogicos entre metadatos.'
+    });
+  }
+  if (input.extension === 'pdf' && input.pdfSignature?.status === 'structural_tampered') {
+    anomalies.push({
+      code: 'PDF_SIGNATURE_TAMPERED',
+      severity: 'red',
+      message: 'Wrapper de firma PDF inconsistente: posible manipulacion posterior al firmado.'
     });
   }
 
@@ -471,6 +534,16 @@ export const POST: RequestHandler = async ({ request }) => {
         Math.min(100, ((uniformity ? Math.max(0, 1 - uniformity.coefficient) : 0.42) * 60 + Math.min(1, entropy / 4.5) * 25 + diversity * 15) * 100 / 100)
       ).toFixed(1)
     );
+    const docxAuthorMismatch =
+      extension === 'docx' &&
+      Boolean(parsed.metadata.creator) &&
+      Boolean(parsed.metadata.lastModifiedBy) &&
+      String(parsed.metadata.creator).trim().toLowerCase() !== String(parsed.metadata.lastModifiedBy).trim().toLowerCase();
+    const createdTs = parsed.metadata.created ? Date.parse(String(parsed.metadata.created).replace(/^D:/, '')) : NaN;
+    const modifiedTs = parsed.metadata.modified ? Date.parse(String(parsed.metadata.modified).replace(/^D:/, '')) : NaN;
+    const docxTimelineMismatch = extension === 'docx' && Number.isFinite(createdTs) && Number.isFinite(modifiedTs) && modifiedTs < createdTs;
+    const pdfSignature = extension === 'pdf' ? inspectPdfSignature(buffer) : undefined;
+
     const decision = buildAnomalies({
       extension,
       wordCount: parsed.wordCount,
@@ -478,7 +551,9 @@ export const POST: RequestHandler = async ({ request }) => {
       entropy,
       uniformity,
       metadata: parsed.metadata,
-      lexicalDiversity: diversity
+      lexicalDiversity: diversity,
+      metadataConsistency: { docxAuthorMismatch, docxTimelineMismatch },
+      pdfSignature
     });
     let linguisticAi: GroqLinguisticVerdict | null = null;
     let linguisticAiStatus: LinguisticAiStatus = {
@@ -550,6 +625,13 @@ export const POST: RequestHandler = async ({ request }) => {
           )}%); se desaconseja clasificar el documento como íntegro.`
         });
       }
+    }
+    if (parsed.wordCount > 1000 && parsed.editingMinutes !== null && parsed.editingMinutes < 20) {
+      mergedAnomalies.push({
+        code: 'TIMELINE_SPEED_MISMATCH',
+        severity: 'red',
+        message: `Correlacion obligatoria: ${parsed.wordCount} palabras en ${parsed.editingMinutes} min es inconsistente para veredicto integro.`
+      });
     }
     const finalDecision =
       mergedAnomalies.length === decision.anomalies.length
@@ -626,8 +708,11 @@ export const POST: RequestHandler = async ({ request }) => {
           textualSampleSufficient: parsed.wordCount >= 180,
           linguisticAiAvailable: linguisticAiStatus.state === 'ok',
           digitalSignature: hasDigitalSignature,
-          officialPdfSource
+          officialPdfSource,
+          docxInternalMetadataConsistent: !(docxAuthorMismatch || docxTimelineMismatch),
+          pdfSignatureStatus: pdfSignature?.status ?? 'unsigned'
         },
+        pdfSignature,
         ocrStatus:
           extension === 'pdf' && parsed.wordCount < 40
             ? {

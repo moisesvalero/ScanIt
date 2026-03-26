@@ -39,8 +39,12 @@
       ratioAvailable: boolean;
       textualSampleSufficient: boolean;
       linguisticAiAvailable: boolean;
+      docxInternalMetadataConsistent?: boolean;
+      pdfSignatureStatus?: string;
     };
     ocrStatus?: { state: 'recommended' | 'not_required'; reason: string };
+    pdfSignature?: { hasSignature: boolean; status: string; reason: string };
+    ocrProbe?: { sample: string; chars: number; source: 'tesseract-first-page' };
     confidence?: { score: number; reasons: string[] };
     linguisticAi: { suspicionPercent: number; reasons: string[] } | null;
     linguisticAiStatus?: { state: 'ok' | 'omitted' | 'error'; reason: string } | null;
@@ -259,9 +263,18 @@
 
   function telemetryLevel(line: string) {
     const l = line.toLowerCase();
-    if (l.startsWith('error:') || l.includes('alerta') || l.includes('sospecha') || l.includes('anomalia') || l.includes('anomal')) {
+    if (
+      l.startsWith('error:') ||
+      l.includes('[fail]') ||
+      l.includes('alerta') ||
+      l.includes('sospecha') ||
+      l.includes('anomalia') ||
+      l.includes('anomal')
+    ) {
       return 'ALERT';
     }
+    if (l.includes('[check]')) return 'CHECK';
+    if (l.includes('[audit]')) return 'AUDIT';
     if (l.includes('groq') || l.includes('ia')) return 'AI';
     return 'SYSTEM';
   }
@@ -274,6 +287,14 @@
   function isAnomalyTelemetryLine(line: string) {
     const l = line.toLowerCase();
     return l.includes('alerta') || l.includes('sospecha') || l.includes('timeline') || l.includes('ratio');
+  }
+
+  function telemetryPrefixClass(line: string) {
+    const l = line.toLowerCase();
+    if (l.includes('[fail]') || l.startsWith('error:')) return 'telemetry-line-fail';
+    if (l.includes('[check]')) return 'telemetry-line-check';
+    if (l.includes('[audit]')) return 'telemetry-line-audit';
+    return '';
   }
 
   function startDataGlitch(finalSha: string, finalPercent: string) {
@@ -629,6 +650,15 @@
       }
       scanLogs = [...scanLogs, 'Verificando consistencia de respuesta...'];
       documentResult = await response.json();
+      scanLogs = [...scanLogs, '[AUDIT] Correlacion de metadatos y firma interna completada.'].slice(-MAX_LOG_LINES);
+      if (documentResult?.anomalies?.some((a) => a.code === 'DOCX_AUTHOR_MISMATCH' || a.code === 'DOCX_TIMELINE_MISMATCH')) {
+        scanLogs = [...scanLogs, '[ALERTA] Inconsistencia en metadatos internos DOCX.'].slice(-MAX_LOG_LINES);
+      }
+      if (documentResult?.pdfSignature) {
+        const sigStatus = String(documentResult.pdfSignature.status || 'unknown');
+        const sigPrefix = sigStatus === 'structural_tampered' ? '[FAIL]' : '[CHECK]';
+        scanLogs = [...scanLogs, `${sigPrefix} Firma PDF: ${documentResult.pdfSignature.reason}`].slice(-MAX_LOG_LINES);
+      }
       scanLogs = [...scanLogs, 'CAPA 2: evaluando consistencia de estilo y entropia textual...'].slice(-MAX_LOG_LINES);
       if (documentResult?.extension === 'pdf') {
         const pages = documentResult.metrics?.pageCount;
@@ -660,7 +690,52 @@
         scanLogs = [...scanLogs, `CAPA 4: cobertura de evidencia ${documentResult.confidence.score}/100`].slice(-MAX_LOG_LINES);
       }
       if (documentResult?.ocrStatus?.state === 'recommended') {
-        scanLogs = [...scanLogs, `CAPA 2 OCR: ${documentResult.ocrStatus.reason}`].slice(-MAX_LOG_LINES);
+        scanLogs = [...scanLogs, `[AUDIT] OCR requerido: ${documentResult.ocrStatus.reason}`].slice(-MAX_LOG_LINES);
+        const ocrProbe = await runBasicPdfOcrProbe(documentFile, (line) => {
+          scanLogs = [...scanLogs, line].slice(-MAX_LOG_LINES);
+        });
+        if (ocrProbe) {
+          documentResult.ocrProbe = ocrProbe;
+          if (ocrProbe.chars < 20) {
+            scanLogs = [...scanLogs, '[FAIL] OCR detecta contenido insuficiente en portada/bloque inicial.'].slice(-MAX_LOG_LINES);
+            documentResult.anomalies = [
+              ...documentResult.anomalies,
+              {
+                code: 'PDF_OCR_EMPTY',
+                severity: 'red',
+                message: 'OCR basico: portada y primer bloque con texto insuficiente para sostener veredicto positivo.'
+              }
+            ];
+            documentResult.verdict = 'no_concluyente';
+            documentResult.policy = {
+              zeroGuessing: true,
+              forcedNoConclusive: true,
+              reason: 'Zero Guessing Policy: OCR basico no encuentra contenido textual suficiente en el PDF sin capa de texto.'
+            };
+          } else {
+            scanLogs = [...scanLogs, `[CHECK] OCR basico OK (${ocrProbe.chars} caracteres estimados).`].slice(-MAX_LOG_LINES);
+          }
+        } else {
+          scanLogs = [...scanLogs, '[FAIL] OCR basico no pudo ejecutarse.'].slice(-MAX_LOG_LINES);
+        }
+      }
+      if (
+        documentResult &&
+        documentResult.metrics.wordCount > 1000 &&
+        typeof documentResult.metrics.editingMinutes === 'number' &&
+        documentResult.metrics.editingMinutes < 20 &&
+        documentResult.verdict === 'integro'
+      ) {
+        scanLogs = [...scanLogs, '[FAIL] Correlacion obligatoria: ratio temporal incompatible con veredicto integro.'].slice(-MAX_LOG_LINES);
+        documentResult.verdict = 'no_concluyente';
+        documentResult.policy = {
+          zeroGuessing: true,
+          forcedNoConclusive: true,
+          reason:
+            'Correlacion obligatoria: texto extenso generado en ventana temporal anomala para una sesion nueva; se bloquea veredicto positivo.'
+        };
+      } else {
+        scanLogs = [...scanLogs, '[CHECK] Correlacion obligatoria de timeline/volumen completada.'].slice(-MAX_LOG_LINES);
       }
       if (documentResult) {
         appendCustodyRecord({
@@ -869,6 +944,34 @@
       img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
       img.src = url;
     });
+  }
+
+  async function runBasicPdfOcrProbe(file: File, pushLog: (line: string) => void) {
+    try {
+      pushLog('[AUDIT] OCR basico: render de portada PDF.');
+      const [{ getDocument }, tesseract] = await Promise.all([
+        import('pdfjs-dist'),
+        import('tesseract.js')
+      ]);
+      const data = new Uint8Array(await file.arrayBuffer());
+      const loadingTask = getDocument({ data, useWorkerFetch: false, isEvalSupported: false, disableFontFace: true });
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.35 });
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      await page.render({ canvasContext: ctx as any, viewport, canvas } as any).promise;
+      pushLog('[CHECK] OCR basico: reconocimiento primer bloque.');
+      const result = await tesseract.recognize(canvas, 'spa');
+      const text = String(result?.data?.text ?? '').replace(/\s+/g, ' ').trim();
+      const sample = text.slice(0, 220);
+      return { sample, chars: text.length, source: 'tesseract-first-page' as const };
+    } catch {
+      return null;
+    }
   }
 
   function runEla(img: HTMLImageElement, quality: number) {
@@ -1136,6 +1239,12 @@
       line(`> Palabras: ${documentResult.metrics.wordCount}`);
       line(`> Tiempo de edicion (min): ${documentResult.metrics.editingMinutes ?? 'N/D'}`);
       line(`> Ratio palabras/min: ${documentResult.metrics.ratioWordsPerMinute?.toFixed(2) ?? 'N/D'}`);
+      if (documentResult.anomalies.some((a) => a.code === 'TIMELINE_SPEED_MISMATCH')) {
+        line('> [ALERTA ROJA] CORRELACION OBLIGATORIA: velocidad de generacion textual incompatible con veredicto positivo.', BLACK, 14, true);
+      }
+      if (documentResult.anomalies.some((a) => a.code === 'DOCX_AUTHOR_MISMATCH' || a.code === 'DOCX_TIMELINE_MISMATCH')) {
+        line('> [ALERTA] DOCX FORENSICS: inconsistencia detectada en metadatos internos (autor/fechas).', BLACK, 14, true);
+      }
       if (!documentResult.anomalies.length) line('[+] Sin anomalias relevantes');
       for (const a of documentResult.anomalies) {
         const prefix = a.severity === 'red' ? '[ALERTA ROJA] ' : '';
@@ -1366,7 +1475,7 @@
               {:else}
                 {#each scanLogs as line, i (i)}
                   <p
-                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
+                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${telemetryPrefixClass(line)} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
                     in:fade={{ duration: 160 }}
                   >
                     {telemetryRenderLine(line)}
@@ -1467,7 +1576,7 @@
               {:else}
                 {#each scanLogs as line, i (i)}
                   <p
-                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
+                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${telemetryPrefixClass(line)} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
                     in:fade={{ duration: 160 }}
                   >
                     {telemetryRenderLine(line)}
@@ -2267,6 +2376,18 @@
     color: #ff6b6b;
     text-shadow: 0 0 10px rgba(255, 0, 0, 0.45);
     animation: telemetryErrorBlink 0.82s step-end 1;
+  }
+  .telemetry-line-audit {
+    color: #95d9ff;
+    text-shadow: 0 0 10px rgba(64, 198, 255, 0.28);
+  }
+  .telemetry-line-check {
+    color: #bfffe0;
+    text-shadow: 0 0 10px rgba(60, 235, 170, 0.26);
+  }
+  .telemetry-line-fail {
+    color: #ff9a9a;
+    text-shadow: 0 0 12px rgba(255, 72, 72, 0.34);
   }
   @keyframes telemetryErrorBlink {
     0%,
