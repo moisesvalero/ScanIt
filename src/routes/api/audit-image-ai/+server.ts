@@ -68,27 +68,98 @@ function normalizeCategory(raw: unknown): VisualPrecheck['category'] {
   return 'irrelevante';
 }
 
+function parseGroqJsonTolerant(content: string): any | null {
+  const s = String(content ?? '').trim();
+  if (!s) return null;
+  // 1) Si es JSON puro, lo parseamos directo.
+  try {
+    return JSON.parse(s);
+  } catch {
+    // 2) Si Groq mete texto alrededor, intentamos extraer el primer objeto JSON.
+    const jsonCandidate = s.match(/\{[\s\S]*\}/)?.[0] ?? '';
+    if (!jsonCandidate) return null;
+    try {
+      return JSON.parse(jsonCandidate);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function parseGroqReasonsSection(reasonsSection: string): string[] {
+  const section = String(reasonsSection ?? '').trim();
+  if (!section) return [];
+  if (section.includes('|')) {
+    return section
+      .split('|')
+      .map((r) => r.trim().replace(/^["']|["']$/g, ''))
+      .filter(Boolean);
+  }
+  // razones como lista JSON simple: ["a","b","c"]
+  if (section.startsWith('[')) {
+    const listCandidate = section.match(/^\[[\s\S]*\]/)?.[0] ?? '';
+    if (!listCandidate) return [];
+    const parsed = parseGroqJsonTolerant(listCandidate);
+    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+  }
+  // razones en texto con comillas
+  const quoted = section.match(/"([^"]+)"|'([^']+)'/g) ?? [];
+  if (quoted.length) {
+    return quoted.map((q) => q.replace(/^["']|["']$/g, '')).filter(Boolean);
+  }
+  return [];
+}
+
 async function runVisualPrecheck(groq: Groq, dataUrl: string): Promise<VisualPrecheck> {
-  const response = await groq.chat.completions.create({
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    temperature: 0,
-    max_tokens: 130,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Clasificador visual estricto para ScanIt. Determina si la imagen es evidencia documental válida. SOLO devuelve JSON con: allowed (boolean), category ("documento"|"captura_software"|"texto_academico"|"irrelevante"), reason (string breve). Marca irrelevante cuando detectes personas, paisajes, selfies, objetos cotidianos, memes, dibujos/ilustraciones o contenido no académico/documental.'
-      },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Valida si esta imagen es evidencia documental académica apta para análisis forense.' },
-          { type: 'image_url', image_url: { url: dataUrl } }
-        ] as any
-      }
-    ]
-  });
+  let response: any;
+  try {
+    response = await groq.chat.completions.create({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      temperature: 0,
+      max_tokens: 130,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Clasificador visual estricto para ScanIt. Determina si la imagen es evidencia documental válida. SOLO devuelve JSON con: allowed (boolean), category ("documento"|"captura_software"|"texto_academico"|"irrelevante"), reason (string breve). Marca irrelevante cuando detectes personas, paisajes, selfies, objetos cotidianos, memes, dibujos/ilustraciones o contenido no académico/documental.'
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Valida si esta imagen es evidencia documental académica apta para análisis forense.' },
+            { type: 'image_url', image_url: { url: dataUrl } }
+          ] as any
+        }
+      ]
+    });
+  } catch (e) {
+    const msg = String((e as any)?.message ?? '').toLowerCase();
+    // Si Groq falla al generar JSON estricto, reintentamos sin response_format.
+    if (msg.includes('failed to generate json') || msg.includes('invalid_request_error')) {
+      response = await groq.chat.completions.create({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        temperature: 0,
+        max_tokens: 130,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Clasificador visual estricto para ScanIt. Devuelve SOLO un JSON válido en una sola respuesta con: allowed (boolean), category ("documento"|"captura_software"|"texto_academico"|"irrelevante"), reason (string breve).'
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Valida si esta imagen es evidencia documental académica apta para análisis forense.' },
+              { type: 'image_url', image_url: { url: dataUrl } }
+            ] as any
+          }
+        ]
+      });
+    } else {
+      throw e;
+    }
+  }
 
   const content = response?.choices?.[0]?.message?.content ?? '';
   if (!content) {
@@ -99,8 +170,16 @@ async function runVisualPrecheck(groq: Groq, dataUrl: string): Promise<VisualPre
     };
   }
 
+  const parsed = parseGroqJsonTolerant(content);
+  if (!parsed) {
+    return {
+      allowed: false,
+      category: 'irrelevante',
+      reason: 'Respuesta de prevalidación visual no interpretable.'
+    };
+  }
+
   try {
-    const parsed = JSON.parse(content);
     const category = normalizeCategory(parsed?.category);
     const allowed = Boolean(parsed?.allowed) && category !== 'irrelevante';
     return {
@@ -112,7 +191,7 @@ async function runVisualPrecheck(groq: Groq, dataUrl: string): Promise<VisualPre
     return {
       allowed: false,
       category: 'irrelevante',
-      reason: 'Respuesta de prevalidacion visual no parseable.'
+      reason: 'Respuesta de prevalidación visual inválida.'
     };
   }
 }
@@ -216,6 +295,29 @@ export const POST: RequestHandler = async ({ request }) => {
         });
         break;
       } catch (e) {
+        const msg = String((e as any)?.message ?? '').toLowerCase();
+        if (msg.includes('failed to generate json') || msg.includes('invalid_request_error')) {
+          response = await groq.chat.completions.create({
+            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+            temperature: 0.2,
+            max_tokens: 280,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'Eres un perito forense de documentos académicos visuales. Devuelve SOLO un JSON válido en una sola respuesta con: suspicionPercent (0-100), origin ("Origen: Dispositivo Digital (Captura)" o "Origen: Captura Óptica (Cámara)"), reasons (array de 3 strings técnicas), ocrTextSample (string), ocrEstimatedChars (número), styleConsistency (0-100).'
+              },
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: 'Analiza esta evidencia visual para detección forense de manipulación/sintético.' },
+                  { type: 'image_url', image_url: { url: dataUrl } }
+                ] as any
+              }
+            ]
+          });
+          break;
+        }
         if (!isRateLimitError(e) || attempt >= maxAttempts) throw e;
         const waitMs = 5000 * 2 ** (attempt - 1); // 5s, 10s...
         await sleep(waitMs);
@@ -234,16 +336,31 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      return new Response(
-        JSON.stringify({
-          verdict: null,
-          status: { state: 'error', reason: 'Respuesta de Groq no parseable como JSON.' } satisfies ImageAiStatus
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } }
-      );
+    parsed = parseGroqJsonTolerant(content);
+    if (!parsed) {
+      // Último recurso: regex muy básica para seguir el flujo sin romper.
+      const pctStr = content.match(/suspicionPercent\s*[:=]\s*(\d{1,3})/i)?.[1];
+      const originRaw = content.match(/origin\s*[:=]\s*["']?([^,"']+)["']?/i)?.[1] ?? '';
+      const reasonsSection = content.split(/reasons\s*[:=]/i)[1] ?? '';
+      const reasons = parseGroqReasonsSection(reasonsSection).slice(0, 3);
+      const suspicionPercent = pctStr ? clamp01to100(Number(pctStr)) : 0;
+      const origin = normalizeOrigin(originRaw);
+      while (reasons.length < 3) reasons.push('No concluyente: evidencia visual insuficiente en la muestra.');
+
+      const ocrTextSample = content.match(/ocrTextSample\s*[:=]\s*["']([\s\S]*?)["']/)?.[1] ?? '';
+      const ocrEstimatedCharsStr = content.match(/ocrEstimatedChars\s*[:=]\s*(\d+)/i)?.[1];
+      const ocrEstimatedChars = ocrEstimatedCharsStr ? Math.max(0, Math.round(Number(ocrEstimatedCharsStr))) : ocrTextSample.length;
+      const styleConsistencyStr = content.match(/styleConsistency\s*[:=]\s*(\d{1,3})/i)?.[1];
+      const styleConsistency = styleConsistencyStr ? clamp01to100(Number(styleConsistencyStr)) : 50;
+
+      parsed = {
+        suspicionPercent,
+        origin,
+        reasons,
+        ocrTextSample,
+        ocrEstimatedChars,
+        styleConsistency
+      };
     }
 
     const suspicionPercent = clamp01to100(Number(parsed?.suspicionPercent ?? parsed?.porcentaje ?? 0));
