@@ -142,6 +142,9 @@
   let showScienceModal = $state(false);
   let showResultModal = $state(false);
   let showPdfResizeHelpModal = $state(false);
+  let showInstallModal = $state(false);
+  let showInstallPrompt = $state(false);
+  let installPlatform = $state<'ios' | 'android' | 'other'>('other');
   let telemetryPhase = $state('');
   let telemetryPhaseSeconds = $state(0);
   let telemetrySlowPhase = $state(false);
@@ -585,6 +588,30 @@
     updateFooterClock();
     footerTimer = setInterval(updateFooterClock, 1000);
     customCursorEnabled = !('ontouchstart' in window) && (navigator.maxTouchPoints ?? 0) === 0;
+
+    // PWA: mostramos ayuda de instalacion solo en movil y solo si NO estamos ya en modo app.
+    try {
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPad|iPhone|iPod/i.test(ua);
+      const isAndroid = /Android/i.test(ua);
+      const isMobile = window.matchMedia?.('(max-width: 820px)')?.matches ?? false;
+      const isStandalone =
+        // iOS Safari (web app mode)
+        Boolean((navigator as any).standalone) ||
+        // General
+        Boolean(window.matchMedia?.('(display-mode: standalone)')?.matches);
+
+      installPlatform = isIOS ? 'ios' : isAndroid ? 'android' : 'other';
+      showInstallPrompt = isMobile && !isStandalone && (installPlatform === 'ios' || installPlatform === 'android');
+      try {
+        if (localStorage.getItem(INSTALL_HINT_LS_KEY) === '1') showInstallPrompt = false;
+      } catch {
+        // Ignorar si localStorage no esta disponible.
+      }
+    } catch {
+      showInstallPrompt = false;
+    }
+
     startIdleTelemetry();
     const isInteractive = (el: EventTarget | null) =>
       el instanceof Element && Boolean(el.closest('button, a, input, [role="button"]'));
@@ -1498,6 +1525,18 @@
     return Math.max(0, Math.min(1, Math.abs(m8 - mO) / (mO + 0.0001)));
   }
 
+  const INSTALL_HINT_LS_KEY = 'scanit_pwa_install_seen_v1';
+
+  function dismissInstallHint() {
+    showInstallPrompt = false;
+    showInstallModal = false;
+    try {
+      localStorage.setItem(INSTALL_HINT_LS_KEY, '1');
+    } catch {
+      // No rompe la app si localStorage falla.
+    }
+  }
+
   function resetAll() {
     resetTelemetry();
     if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -1712,6 +1751,21 @@
     <div class="hero-right">
       <div class="hero-actions">
         <LanguageSelect />
+          {#if showInstallPrompt}
+            <button class="ghost ghost-info" onclick={() => (showInstallModal = true)}>
+              {l({
+                es: 'Instalar app',
+                en: 'Install app',
+                fr: 'Installer l application',
+                de: 'App installieren',
+                pt: 'Instalar app',
+                ru: 'Установить приложение',
+                zh: '安装应用',
+                ar: 'تثبيت التطبيق',
+                hi: 'ऐप इंस्टॉल करें'
+              })}
+            </button>
+          {/if}
         <button class="ghost ghost-info" onclick={() => (showScienceModal = true)}>
           {l({ es: 'Como funciona', en: 'How it works', fr: 'Comment ca marche', de: 'So funktioniert es', pt: 'Como funciona', ru: 'Как это работает', zh: '工作原理', ar: 'كيف يعمل', hi: 'यह कैसे काम करता है' })}
         </button>
@@ -2314,6 +2368,92 @@
               hi: 'ScanIt तकनीकी सत्यापन और निर्णय-सहायता का उपकरण है। अंतिम निष्कर्ष हमेशा प्रक्रिया के जिम्मेदार व्यक्ति को ही लेना चाहिए।'
             })}
           </p>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showInstallModal}
+    <div
+      class="science-modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label={l({ es: 'Cerrar instalacion de app', en: 'Close install help', fr: 'Fermer l installation', de: 'App-Installation schliessen', pt: 'Fechar instalacao', ru: 'Закрыть подсказку установки', zh: '关闭安装提示', ar: 'اغلاق تلميح التثبيت', hi: 'इंस्टॉल सहायता बंद करें' })}
+      onclick={() => dismissInstallHint()}
+      onkeydown={(e) => e.key === 'Enter' && dismissInstallHint()}
+    >
+      <div
+        class="science-modal glass"
+        role="dialog"
+        aria-modal="true"
+        aria-label={l({ es: 'Instalar ScanIt', en: 'Install ScanIt', fr: 'Installer ScanIt', de: 'ScanIt installieren', pt: 'Instalar ScanIt', ru: 'Установить ScanIt', zh: '安装 ScanIt', ar: 'تثبيت ScanIt', hi: 'ScanIt इंस्टॉल करें' })}
+        tabindex="0"
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.key === 'Escape' && dismissInstallHint()}
+      >
+        <div class="science-modal-head">
+          <h3>
+            {l({
+              es: 'Instalar ScanIt como app',
+              en: 'Install ScanIt as an app',
+              fr: 'Installer ScanIt en application',
+              de: 'ScanIt als App installieren',
+              pt: 'Instalar o ScanIt como app',
+              ru: 'Установить ScanIt как приложение',
+              zh: '将 ScanIt 安装为应用',
+              ar: 'قم بتثبيت ScanIt كتطبيق',
+              hi: 'ScanIt को ऐप की तरह इंस्टॉल करें'
+            })}
+          </h3>
+          <button class="ghost science-close" onclick={() => dismissInstallHint()}>
+            {l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}
+          </button>
+        </div>
+
+        <div class="science-modal-body">
+          {#if installPlatform === 'ios'}
+            <p>
+              {l({
+                es: 'En iPhone/iPad (Safari):',
+                en: 'On iPhone/iPad (Safari):',
+                fr: 'Sur iPhone/iPad (Safari):',
+                de: 'Auf iPhone/iPad (Safari):',
+                pt: 'No iPhone/iPad (Safari):',
+                ru: 'На iPhone/iPad (Safari):',
+                zh: '在 iPhone/iPad（Safari）上：',
+                ar: 'على iPhone/iPad (Safari):',
+                hi: 'iPhone/iPad (Safari) पर:'
+              })}
+            </p>
+            <p>{l({ es: '1) Pulsa “Compartir” (cuadrado con flecha hacia arriba).', en: '1) Tap “Share” (square with an up arrow).', fr: '1) Touchez “Partager” (carré avec flèche vers le haut).', de: '1) Tippe auf „Teilen“ (Quadrat mit nach oben zeigendem Pfeil).', pt: '1) Toque em “Compartilhar” (quadrado com seta para cima).', ru: '1) Нажмите “Поделиться” (квадрат со стрелкой вверх).', zh: '1) 点击“分享”（带向上箭头的方块）。', ar: '1) اضغط “مشاركة” (مربع مع سهم للأعلى).', hi: '1) “Share” टैप करें (ऊपर की ओर तीर वाला चौकोर आइकन)।' })}</p>
+            <p>{l({ es: '2) Elige “Añadir a pantalla de inicio”.', en: '2) Choose “Add to Home Screen”.', fr: '2) Choisissez “Ajouter a l ecran d accueil”.', de: '2) Wähle „Zum Home-Bildschirm hinzufügen“.', pt: '2) Selecione “Adicionar a pantalla inicial”.', ru: '2) Выберите “Добавить на экран Домой”.', zh: '2) 选择“添加到主屏幕”。', ar: '2) اختر “إضافة إلى الشاشة الرئيسية”.', hi: '2) “Add to Home Screen” चुनें।' })}</p>
+            <p>{l({ es: '3) Confirma con “Añadir”.', en: '3) Confirm with “Add”.', fr: '3) Confirmez avec “Ajouter”.', de: '3) Bestätige mit „Hinzufügen“.', pt: '3) Confirme com “Adicionar”.', ru: '3) Подтвердите “Добавить”.', zh: '3) 点击“添加”。', ar: '3) أكد عبر “إضافة”.', hi: '3) “Add” से पुष्टि करें।' })}</p>
+            <p class="science-disclaimer">
+              {l({ es: 'Consejo: abre ScanIt desde Safari y luego instala desde ahi.', en: 'Tip: open ScanIt from Safari, then install from there.', fr: 'Astuce : ouvrez ScanIt depuis Safari puis installez depuis la.', de: 'Tipp: ScanIt in Safari öffnen und dann von dort installieren.', pt: 'Dica: abra o ScanIt no Safari e instale a partir daí.', ru: 'Совет: откройте ScanIt в Safari, затем установите оттуда.', zh: '提示：从 Safari 打开 ScanIt，然后在那里安装。', ar: 'نصيحة: افتح ScanIt من Safari ثم ثبته من هناك.', hi: 'टिप: Safari में ScanIt खोलें और फिर वहीं से इंस्टॉल करें।' })}
+            </p>
+          {:else if installPlatform === 'android'}
+            <p>
+              {l({
+                es: 'En Android (Chrome/Samsung Internet):',
+                en: 'On Android (Chrome/Samsung Internet):',
+                fr: 'Sur Android (Chrome/Samsung Internet):',
+                de: 'Auf Android (Chrome/Samsung Internet):',
+                pt: 'No Android (Chrome/Samsung Internet):',
+                ru: 'На Android (Chrome/Samsung Internet):',
+                zh: '在 Android（Chrome/三星浏览器）：',
+                ar: 'على Android (Chrome/إنترنت سامسونج):',
+                hi: 'Android (Chrome/Samsung Internet) पर:'
+              })}
+            </p>
+            <p>{l({ es: '1) Pulsa el menu (⋮) del navegador.', en: '1) Tap the browser menu (⋮).', fr: '1) Touchez le menu (⋮) du navigateur.', de: '1) Tippe auf das Browser-Menü (⋮).', pt: '1) Toque no menu do navegador (⋮).', ru: '1) Нажмите меню браузера (⋮).', zh: '1) 点击浏览器菜单（⋮）。', ar: '1) اضغط قائمة المتصفح (⋮).', hi: '1) ब्राउज़र मेनू (⋮) टैप करें।' })}</p>
+            <p>{l({ es: '2) Elige “Instalar app” o “Añadir a pantalla de inicio”.', en: '2) Choose “Install app” or “Add to Home Screen”.', fr: '2) Choisissez “Installer l application” ou “Ajouter a l ecran d accueil”.', de: '2) Wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.', pt: '2) Selecione “Instalar app” ou “Adicionar a tela inicial”.', ru: '2) Выберите “Установить приложение” или “Добавить на главный экран”.', zh: '2) 选择“安装应用”或“添加到主屏幕”。', ar: '2) اختر “تثبيت التطبيق” أو “إضافة إلى الشاشة الرئيسية”.', hi: '2) “Install app” या “Add to Home Screen” चुनें।' })}</p>
+            <p>{l({ es: '3) Confirma y espera a que se añada el icono.', en: '3) Confirm and wait for the icon to appear.', fr: '3) Confirmez et attendez que l icône apparaisse.', de: '3) Bestätige und warte, bis das Symbol erscheint.', pt: '3) Confirme e espere o icone aparecer.', ru: '3) Подтвердите и дождитесь появления значка.', zh: '3) 确认并等待图标出现。', ar: '3) أكد وانتظر ظهور الأيقونة.', hi: '3) पुष्टि करें और आइकन आने तक प्रतीक्षा करें।' })}</p>
+            <p class="science-disclaimer">
+              {l({ es: 'Si no ves “Instalar”, busca “Añadir a pantalla de inicio”.', en: 'If you don’t see “Install”, look for “Add to Home Screen”.', fr: 'Si vous ne voyez pas “Installer”, cherchez “Ajouter a l ecran d accueil”.', de: 'Wenn du „Installieren“ nicht siehst, suche nach „Zum Startbildschirm hinzufügen“.', pt: 'Se não aparecer “Instalar”, procure “Adicionar a tela inicial”.', ru: 'Если не видите “Установить”, ищите “Добавить на главный экран”.', zh: '如果没有“安装”，请选择“添加到主屏幕”。', ar: 'إذا لم تر “تثبيت”، ابحث عن “إضافة إلى الشاشة الرئيسية”.', hi: 'अगर “Install” नहीं दिखता, तो “Add to Home Screen” देखें।' })}
+            </p>
+          {:else}
+            <p>{l({ es: 'Abre el navegador en modo normal y usa el menu para instalar como app.', en: 'Open the browser normally and use the menu to install as an app.', fr: 'Ouvrez le navigateur normalement et utilisez le menu pour installer comme appli.', de: 'Öffne den Browser normal und nutze das Menü zum Installieren als App.', pt: 'Abra o navegador normalmente e use o menu para instalar como app.', ru: 'Откройте браузер нормально и используйте меню, чтобы установить как приложение.', zh: '在浏览器正常模式下打开，然后用菜单安装为应用。', ar: 'افتح المتصفح بشكل طبيعي واستخدم القائمة للتثبيت كتطبيق.', hi: 'ब्राउज़र को सामान्य मोड में खोलें और मेनू से इंस्टॉल करें।' })}</p>
+          {/if}
         </div>
       </div>
     </div>
