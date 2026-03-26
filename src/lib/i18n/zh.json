@@ -1,0 +1,86 @@
+{
+  "layout": {
+    "title": "KRONOS | Deepfake Defense Suite"
+  },
+  "kronos": {
+    "hero": {
+      "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",
+      "subtitle": "身份与数字内容验证。"
+    },
+    "ticker": {
+      "aria": "技术检测流",
+      "items": [
+        { "pre": ">> 分析 MP4 压缩伪影", "tail": "[OK]" },
+        { "pre": ">> 验证视频生命体征模式", "tail": "[OK]" },
+        { "pre": ">> 音频中检测到 AI 模式", "tail": "[已拦截]" },
+        { "pre": ">> 声纹身份验证已启动", "tail": "[进行中]" },
+        { "pre": ">> 审计元数据与编码器指纹", "tail": "[运行中]" },
+        { "pre": ">> 评估 landmarks 的时间一致性", "tail": "[OK]" }
+      ]
+    },
+    "footer": {
+      "aria": "作者署名",
+      "socialAria": "社交链接",
+      "developedBy": "© 2026 KRONOS // 开发者",
+      "name": "MOISES VALERO"
+    }
+  },
+  "scanner": {
+    "chip": "KRONOS · Deepfake Defense Suite",
+    "titles": {
+      "video": "视频验证",
+      "image": "图像验证",
+      "audio": "音频验证",
+      "text": "文本验证",
+      "link": "链接验证"
+    },
+    "tabs": {
+      "video": "视频",
+      "image": "图像",
+      "audio": "音频",
+      "text": "文本",
+      "link": "链接"
+    },
+    "dropzone": {
+      "strongVideo": "拖拽视频到此处或点击上传",
+      "strongImage": "拖拽图像到此处或点击上传",
+      "strongAudio": "拖拽音频到此处或点击上传",
+      "formatsVideo": "支持格式：MP4、MOV（最大 150MB）。本地生物特征分析。",
+      "formatsImage": "支持格式：JPG、PNG（最大 150MB）。本地视觉审计。",
+      "formatsAudio": "支持格式：MP3、WAV、M4A/AAC、OGG（最大 150MB）。本地声学审计。也可上传视频以提取音轨。"
+    },
+    "status": {
+      "scanning": "扫描中"
+    },
+    "buttons": {
+      "reset": "重置会话",
+      "exportJson": "导出分析 JSON"
+    },
+    "telemetry": {
+      "title": "验证详情",
+      "sub": "本地分析指标与可追溯性"
+    },
+    "details": {
+      "state": "验证状态",
+      "confidence": "置信度",
+      "score": "Score (0–100)",
+      "file": "文件",
+      "weight": "大小"
+    },
+    "text": {
+      "analyze": "分析文本",
+      "hint": "在面板中粘贴文本，然后点击“分析文本”。"
+    },
+    "link": {
+      "chip": "LINK INTAKE · 隐私与合规",
+      "invalid": "链接无效。请检查格式（https://...）。",
+      "invalidShort": "链接无效",
+      "directFile": "直接文件",
+      "body": "粘贴链接。出于隐私原因，KRONOS 不会下载内容——请上传文件进行分析。"
+    },
+    "empty": {
+      "image": "拖拽文件以启动神经扫描。",
+      "audio": "拖拽音频（或上传视频以提取音轨）以启动声学审计。"
+    }
+  }
+}

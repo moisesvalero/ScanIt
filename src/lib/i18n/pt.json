@@ -1,0 +1,86 @@
+{
+  "layout": {
+    "title": "KRONOS | Deepfake Defense Suite"
+  },
+  "kronos": {
+    "hero": {
+      "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",
+      "subtitle": "Verificação de identidade e conteúdo digital."
+    },
+    "ticker": {
+      "aria": "Fluxo técnico de detecções",
+      "items": [
+        { "pre": ">> Analisando artefatos de compressão MP4", "tail": "[OK]" },
+        { "pre": ">> Verificando padrão de vida no vídeo", "tail": "[OK]" },
+        { "pre": ">> Padrão de IA detectado no áudio", "tail": "[BLOQUEADO]" },
+        { "pre": ">> Validação de identidade acústica iniciada", "tail": "[EM PROGRESSO]" },
+        { "pre": ">> Auditoria de metadados e impressões do encoder", "tail": "[EM CURSO]" },
+        { "pre": ">> Avaliando consistência temporal de landmarks", "tail": "[OK]" }
+      ]
+    },
+    "footer": {
+      "aria": "Assinatura do autor",
+      "socialAria": "Links sociais",
+      "developedBy": "© 2026 KRONOS // DESENVOLVIDO POR",
+      "name": "MOISES VALERO"
+    }
+  },
+  "scanner": {
+    "chip": "KRONOS · Deepfake Defense Suite",
+    "titles": {
+      "video": "Verificação de vídeo",
+      "image": "Verificação de imagem",
+      "audio": "Verificação de áudio",
+      "text": "Verificação de texto",
+      "link": "Verificação por link"
+    },
+    "tabs": {
+      "video": "VÍDEO",
+      "image": "IMAGEM",
+      "audio": "ÁUDIO",
+      "text": "TEXTO",
+      "link": "LINK"
+    },
+    "dropzone": {
+      "strongVideo": "Arraste um vídeo aqui ou clique para enviar",
+      "strongImage": "Arraste uma imagem aqui ou clique para enviar",
+      "strongAudio": "Arraste um áudio aqui ou clique para enviar",
+      "formatsVideo": "Formatos suportados: MP4, MOV (Máx: 150MB). Análise biométrica local.",
+      "formatsImage": "Formatos suportados: JPG, PNG (Máx: 150MB). Auditoria visual local.",
+      "formatsAudio": "Formatos suportados: MP3, WAV, M4A/AAC, OGG (Máx: 150MB). Auditoria acústica local. Você também pode enviar um vídeo para extrair a faixa."
+    },
+    "status": {
+      "scanning": "Escaneando"
+    },
+    "buttons": {
+      "reset": "Reiniciar sessão",
+      "exportJson": "Exportar JSON de análise"
+    },
+    "telemetry": {
+      "title": "Detalhes de validação",
+      "sub": "Indicadores e rastreabilidade da análise local"
+    },
+    "details": {
+      "state": "Estado de validação",
+      "confidence": "Nível de confiança",
+      "score": "Score (0–100)",
+      "file": "Arquivo",
+      "weight": "Tamanho"
+    },
+    "text": {
+      "analyze": "Analisar texto",
+      "hint": "Cole um texto no painel e clique em “Analisar texto”."
+    },
+    "link": {
+      "chip": "LINK INTAKE · PRIVACIDADE & CONFORMIDADE",
+      "invalid": "Link inválido. Verifique o formato (https://...).",
+      "invalidShort": "Link inválido",
+      "directFile": "Arquivo direto",
+      "body": "Cole um link. Por privacidade, o KRONOS não baixa conteúdo — envie o arquivo para analisar."
+    },
+    "empty": {
+      "image": "Arraste um arquivo para iniciar o escaneamento neural.",
+      "audio": "Arraste um áudio (ou um vídeo para extrair a faixa) para iniciar a auditoria acústica."
+    }
+  }
+}

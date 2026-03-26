@@ -1,0 +1,446 @@
+{
+  "layout": {
+    "title": "NovaKit — Creative UI Toolkit",
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "testimonials": "Testimonials",
+      "components": "Details",
+      "contact": "Contact",
+      "getStarted": "Get Started"
+    },
+    "aria": {
+      "toggleMenu": "Toggle menu",
+      "closeMenuOverlay": "Close menu overlay"
+    },
+    "lang": {
+      "toSpanish": "🇪🇸 ES",
+      "toEnglish": "🇬🇧 EN"
+    }
+  },
+  "hero": {
+    "pill": "NovaKit · Creative UI Toolkit",
+    "titleLine1": "Creative UI Toolkit",
+    "titleLine2": "for Modern Web Apps",
+    "subtitle": "Design and ship clean, fast, elegant interfaces with a premium visual system and a modern product experience.",
+    "ctaPrimary": "Get NovaKit",
+    "ctaSecondary": "Explore components",
+    "footnote": "No generic templates. Modern product sections ready to combine, animate, and ship to production."
+  },
+  "socialProof": {
+    "eyebrow": "Trusted by teams using",
+    "stats": {
+      "components": "Premium components",
+      "delivery": "Faster delivery",
+      "support": "Priority support"
+    }
+  },
+  "workflow": {
+    "eyebrow": "How NovaKit fits your flow",
+    "title": "From wireframe to <span class='gradient-text'>polished interface</span><br>in hours, not weeks.",
+    "subtitle": "Combine ready-made blocks, tweak tokens, and ship product-ready UI kits without drowning in Figma files.",
+    "step1_num": "01 — DESIGN",
+    "step1_title": "Define your UI blocks",
+    "step1_desc": "Pick spacing, style tokens and layout patterns from a curated design system.",
+    "step2_num": "02 — BUILD",
+    "step2_title": "Compose in Svelte",
+    "step2_desc": "Drop reusable components directly into your project. No config hell.",
+    "step3_num": "03 — SHIP",
+    "step3_title": "Launch polished screens",
+    "step3_desc": "Deploy pixel-perfect interfaces with ready-to-use motion and interactions."
+  },
+  "componentGallery": {
+    "eyebrow": "A KIT, NOT JUST A TEMPLATE",
+    "title": "Craft full product experiences with <span class='gradient-text'>ready-made UI blocks.</span>",
+    "subtitle": "Swap sections, tweak tokens, and keep everything on-brand without touching a design tool every single time.",
+    "ui1": {
+      "title": "Analytics Dashboard",
+      "live": "Live",
+      "users": "Users",
+      "revenue": "Revenue",
+      "uptime": "Uptime",
+      "dayMon": "Mon",
+      "dayTue": "Tue",
+      "dayWed": "Wed",
+      "dayThu": "Thu",
+      "dayFri": "Fri",
+      "daySat": "Sat",
+      "daySun": "Sun"
+    },
+    "ui2": {
+      "title": "Product Catalog",
+      "item1": "UI Kit Pro",
+      "item2": "Icon Set",
+      "item3": "Forms",
+      "new": "New",
+      "sale": "Sale",
+      "free": "Free",
+      "addToCart": "Add to cart"
+    },
+    "ui3": {
+      "title": "Choose your plan",
+      "monthly": "Monthly",
+      "annual": "Annual",
+      "starter": "Starter",
+      "pro": "Pro",
+      "team": "Team",
+      "starterBtn": "Get started",
+      "proBtn": "Get Pro",
+      "teamBtn": "Contact",
+      "perMonth": "/ month",
+      "starterFeat1": "5 components",
+      "starterFeat2": "Basic support",
+      "proFeat1": "All components",
+      "proFeat2": "Priority support",
+      "proFeat3": "Updates",
+      "teamFeat1": "Unlimited",
+      "teamFeat2": "Team access"
+    },
+    "ui4": {
+      "name": "Sarah Design",
+      "online": "Online",
+      "msg1": "Hey! The new components look amazing 🎉",
+      "msg2": "Thanks! Just pushed the update ✨",
+      "placeholder": "Type a message..."
+    },
+    "ui5": {
+      "month": "March 2026",
+      "day1": "S",
+      "day2": "M",
+      "day3": "T",
+      "day4": "W",
+      "day5": "T",
+      "day6": "F",
+      "day7": "S",
+      "event1": "Design Review",
+      "event2": "Team Standup"
+    },
+    "ui6": {
+      "name": "Jane Doe",
+      "role": "Product Designer · Pro",
+      "preferences": "Preferences",
+      "darkMode": "Dark Mode",
+      "notifications": "Notifications",
+      "storageUsed": "Storage used"
+    },
+    "cards": {
+      "dashboardTitle": "Dashboard Overview",
+      "dashboardTag": "Layout",
+      "productTitle": "Product Highlights",
+      "productTag": "Commerce",
+      "pricingTitle": "Pricing Module",
+      "pricingTag": "Commerce",
+      "messagingTitle": "Messaging UI",
+      "messagingTag": "Navigation",
+      "calendarTitle": "Calendar Block",
+      "calendarTag": "Data",
+      "workspaceTitle": "User Workspace",
+      "workspaceTag": "Navigation"
+    }
+  },
+  "useCases": {
+    "eyebrow": "Built for busy product teams",
+    "title": "Use NovaKit wherever clean, fast UI really matters.",
+    "case1Title": "SaaS dashboards",
+    "case1Desc": "Compose analytics views, settings areas, and billing pages that feel consistent across your product.",
+    "case2Title": "Internal tools",
+    "case2Desc": "Give your ops and support teams interfaces that feel as polished as the public-facing product.",
+    "case3Title": "Client projects",
+    "case3Desc": "Reuse a dependable SvelteKit foundation on every engagement, while each brand still feels unique.",
+    "case4Title": "Design handoffs",
+    "case4Desc": "Bridge the gap between Figma and code with sections that mirror modern product UI patterns."
+  },
+  "usecases": {
+    "eyebrow": "The UI toolkit that changes everything",
+    "line1": "Build interfaces",
+    "line2": "that feel",
+    "line2_accent": "alive.",
+    "line3": "Ship",
+    "word1": "faster.",
+    "word2": "smarter.",
+    "word3": "better.",
+    "word4": "today.",
+    "stat1": "UI Components",
+    "stat2": "Developers worldwide",
+    "stat3": "Average rating",
+    "cta": "Get NovaKit"
+  },
+  "superpowers": {
+    "eyebrow": "Explore NovaKit in a whole new way.",
+    "title": "Everyday superpowers for modern product interfaces.",
+    "card1Title": "Ready-to-use design tokens",
+    "card1Desc": "Typography, spacing, and radius scales that stay consistent from day one, without wrestling a massive design system.",
+    "card2Title": "Motion without the overhead",
+    "card2Desc": "Scroll reveal, hover states, and polished micro-interactions are already wired and easy to tune.",
+    "card3Title": "Composable components",
+    "card3Desc": "Sections designed like building blocks: hero, pricing, FAQ, and more, all fitting together without breaking layout rhythm.",
+    "card4Title": "Ready for Svelte 5",
+    "card4Desc": "Runes-based state, actions, and TypeScript typing so developer experience feels as modern as the UI.",
+    "card5Title": "Opinionated, never rigid",
+    "card5Desc": "Strong defaults for spacing and visual rhythm, with clean CSS you can adapt to your brand in minutes.",
+    "card6Title": "Production-ready patterns",
+    "card6Desc": "Built for real products, not just portfolios: loading states, empty states, and error messaging included."
+  },
+  "features": {
+    "title": "Designed for <span class='gradient-text'>Modern Interfaces</span>",
+    "subtitle": "Production-ready components with polished aesthetics, modern performance, and a consistent visual experience across your product.",
+    "cards": {
+      "cleanTitle": "Clean Components",
+      "cleanDesc": "Build clean, modern interfaces with simple, reusable components.",
+      "fastTitle": "Fast by Default",
+      "fastDesc": "Svelte compiles your code for speed, so your UI stays fast by default.",
+      "premiumTitle": "Premium Design",
+      "premiumDesc": "Minimal visual style, expressive typography, and refined micro-interactions.",
+      "customTitle": "Fully Customizable",
+      "customDesc": "Adapt color, typography, and spacing with design tokens in seconds."
+    },
+    "mockup": {
+      "storeTitle": "NovaKit Store",
+      "storeSub": "247 components available",
+      "searchPlaceholder": "Dashboard components...",
+      "segAll": "All",
+      "segLayout": "Layout",
+      "segForms": "Forms",
+      "segCharts": "Charts",
+      "new": "NEW",
+      "hot": "HOT",
+      "dashboardKit": "Dashboard Kit",
+      "analyticsUi": "Analytics UI",
+      "popular": "Popular Components",
+      "seeAll": "See All",
+      "recent": "Recently Added",
+      "grid": "Grid",
+      "list": "List",
+      "form": "Form",
+      "chart": "Chart",
+      "free": "Free",
+      "heroSection": "Hero Section",
+      "landingSvelte": "Landing · Svelte",
+      "pricingTable": "Pricing Table",
+      "commerceReact": "Commerce · React",
+      "home": "Home",
+      "browse": "Browse",
+      "library": "Library",
+      "profile": "Profile"
+    }
+  },
+  "pricing": {
+    "title": "Simple, Transparent Pricing",
+    "subtitle": "Choose the plan that fits your team and growth stage.",
+    "starterTitle": "Starter",
+    "proTitle": "Pro",
+    "teamsTitle": "Teams",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "starterDesc": "Perfect for side projects and early MVPs.",
+    "starterBtn": "Start with Starter",
+    "starterFeat1": "✓ 10 active projects",
+    "starterFeat2": "✓ Access to core layouts",
+    "starterFeat3": "✓ Monthly updates",
+    "proDesc": "The best plan for teams shipping production products.",
+    "proBtn": "Get Pro",
+    "proFeat1": "✓ Unlimited Projects",
+    "proFeat2": "✓ Premium Components",
+    "proFeat3": "✓ 24/7 Priority Support",
+    "teamsDesc": "For product teams moving fast across multiple products.",
+    "teamsBtn": "Talk to sales",
+    "teamsFeat1": "✓ Up to 10 seats",
+    "teamsFeat2": "✓ Shared design tokens",
+    "teamsFeat3": "✓ Dedicated priority support"
+  },
+  "testimonials": {
+    "eyebrow": "Loved by designers and builders",
+    "title": "Start bringing balance back to your interface work.",
+    "cta": "Download NovaKit preview",
+    "roles": {
+      "r1": "Product Designer at Brightlabs",
+      "r2": "Frontend freelancer",
+      "r3": "Head of Product at Flowstack",
+      "r4": "Growth Lead at Shiply",
+      "r5": "Design Engineer",
+      "r6": "Product Manager at LinearOps",
+      "r7": "Remote Lead Designer",
+      "r8": "Design Systems Partner",
+      "r9": "Freelance Product Designer",
+      "r10": "Design Lead at Pixelwave",
+      "r11": "CTO at RelayOS",
+      "r12": "Design Systems Lead",
+      "r13": "Frontend Engineer",
+      "r14": "UX Engineer",
+      "r15": "Full-stack Developer",
+      "r16": "Senior Frontend",
+      "r17": "Sales Engineer",
+      "r18": "Founder at Orbit Kit",
+      "r19": "Staff Engineer",
+      "r20": "Founder at Orbit Kit",
+      "r21": "Staff Frontend at Northwind",
+      "r22": "VP of Engineering",
+      "r23": "Founder at Launchly",
+      "r24": "Solutions Architect",
+      "r25": "Analytics Lead",
+      "r26": "Software Engineer"
+    },
+    "quotes": {
+      "q1": "We moved from static marketing pages to complete SvelteKit flows in days. NovaKit gave us a consistent visual language without fighting Figma in every iteration.",
+      "q2": "As a freelancer, I finally have a serious starting point. I reuse the same foundation across clients, while each project still feels unique through sections and tokens.",
+      "q3": "Our product team can prototype new ideas directly in SvelteKit without waiting for hand-coded HTML every time. The micro-interactions feel right out of the box.",
+      "q4": "Since migrating our marketing site to NovaKit, the team stopped saying 'we will build it tomorrow' and started saying 'we can ship it today 🚀'.",
+      "q5": "We use it as the foundation for three different products and almost nobody notices. We swap tokens, logos, and copy, and it just works. It feels like a living design system ✨.",
+      "q6": "Every sprint starts by cloning a NovaKit layout instead of reusing an old page. That alone saves hours of design debates 🙌.",
+      "q7": "Our remote team shares landing screenshots in Slack like they are new Dribbble shots. The best part is that everything is live in production 😍.",
+      "q8": "We built a lightweight design system on top of NovaKit and, for the first time, design and code move at the same speed. No more endless pixel-perfect loops 🧩.",
+      "q9": "The client thought we hired an expensive agency. In reality, it was NovaKit layouts with a few brand customizations 😏.",
+      "q10": "NovaKit lets us keep a coherent component library across product, marketing, and internal dashboards without duplicating work ⚙️.",
+      "q11": "It feels like opening a mature app from day one. We only had to plug in our data and start iterating.",
+      "q12": "We used to have four versions of the same button. Now everything comes from one kit, and support sends us hearts in Slack 💜.",
+      "q13": "I never thought I would enjoy building tables and settings screens this much. NovaKit makes even routine screens feel premium 😅.",
+      "q14": "We moved from 'do not touch that fragile view' to 'clone the NovaKit pattern and adapt it.' It is a completely different mindset 💡.",
+      "q15": "Backend handoff is now just sharing components. Fewer tickets, fewer screenshots, and many more happy pull requests 🤝.",
+      "q16": "Some motion details feel straight out of apps like Linear or Superlist. Best of all, the CSS stays clean and readable 👀.",
+      "q17": "We turned a Figma prototype into a navigable demo in one afternoon. The sales team sent us a very enthusiastic THANK YOU 🔥.",
+      "q18": "This landing let us validate our product messaging in days. We only changed copy and data, the design foundation was already there.",
+      "q19": "Navigating NovaKit feels like the best modern productivity apps, while remaining pure Svelte code we fully control.",
+      "q20": "This landing let us validate our product messaging in days. We only changed copy and data, while the design foundation was already done ✅.",
+      "q21": "We handed it to marketing and they now create new pages on their own. I just review the pull request and smile 😎.",
+      "q22": "NovaKit code is so clean that even our very detail-oriented CTO gave us an immediate green light 🧠.",
+      "q23": "In investor demos, we used a landing built with NovaKit directly. Nobody asked about design quality, only about the roadmap. That says it all 💬.",
+      "q24": "We connected NovaKit to our API and had a client mini-portal in one afternoon that looked polished for months ✨.",
+      "q25": "The data team asked for 'something quick' to present metrics. We gave them a NovaKit dashboard and now they do not want anything else 📊.",
+      "q26": "I love being able to open the landing repo, tweak a few props, and see real changes in minutes. Zero fear of breaking the design 💻."
+    }
+  },
+  "deepDetails": {
+    "eyebrow": "Details that matter for product UI.",
+    "title": "Move seamlessly from idea to shipped interface.",
+    "subtitle": "NovaKit handles the details that shape great product UI: states, spacing, visual rhythm, and accessibility.",
+    "items": {
+      "item1Text": "Real-time-ready layouts for collaborative dashboards.",
+      "item1Tag": "Dashboards ready for production",
+      "item2Text": "Repeatable sections for pricing, onboarding, and in-product announcements.",
+      "item2Tag": "Reuse patterns without losing brand personality",
+      "item3Text": "Offline-friendly patterns for apps that cannot fail in low-connectivity scenarios.",
+      "item3Tag": "Built for real-world conditions",
+      "item4Text": "Widget-style cards ready for metrics, activity feeds, and operational views.",
+      "item4Tag": "Blocks that feel like product UI",
+      "item5Text": "Nested layouts designed for complex views without sacrificing clarity.",
+      "item5Tag": "Complex under the hood, clear on the surface",
+      "item6Text": "TypeScript and Svelte 5 runes for a modern developer workflow.",
+      "item6Tag": "Developer experience and design in sync",
+      "item7Text": "Clean integrations with REST and GraphQL APIs.",
+      "item7Tag": "Connect your data in minutes",
+      "item8Text": "Consistent loading, error, and empty states across the entire app.",
+      "item8Tag": "No more broken-looking screens",
+      "item9Text": "Smooth motion that keeps performance in check.",
+      "item9Tag": "Motion designed for product interfaces",
+      "item10Text": "Accessibility-first defaults: visible focus states, contrast, and semantic roles.",
+      "item10Tag": "Beautiful and genuinely usable",
+      "item11Text": "Transactional email templates aligned with your product UI.",
+      "item11Tag": "A consistent end-to-end experience",
+      "item12Text": "Dark mode-ready components without rewriting your entire theme.",
+      "item12Tag": "One kit, two polished modes",
+      "item13Text": "Navigation patterns built for multi-team, multi-workspace products.",
+      "item13Tag": "Scale without losing orientation",
+      "item14Text": "Empty-state layouts that encourage action instead of dead ends.",
+      "item14Tag": "Empty states that move users forward",
+      "item15Text": "Suggested microcopy for CTAs, states, and product tooltips.",
+      "item15Tag": "Copy and design working together"
+    }
+  },
+  "faqCta": {
+    "eyebrow": "Ready to build",
+    "titleLine1": "Your next interface",
+    "titleLine2": "starts here.",
+    "subtitle": "Stop building from scratch. NovaKit gives you everything you need to ship beautiful products in hours, not weeks.",
+    "primary": "Get NovaKit",
+    "secondary": "Explore components",
+    "proof": "<strong>2,400+</strong> developers trust NovaKit",
+    "rating": "<strong>4.9</strong> / 5 rating"
+  },
+  "footer": {
+    "tagline": "The last UI toolkit you will ever need.",
+    "statusFallback": "ALC / ESP",
+    "backToTopAria": "Back to top",
+    "designedBy": "Designed by"
+  },
+  "kronos": {
+    "hero": {
+      "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",
+      "subtitle": "Identity and digital content verification."
+    },
+    "ticker": {
+      "aria": "Technical detections feed",
+      "items": [
+        { "pre": ">> Analyzing MP4 compression artifacts", "tail": "[OK]" },
+        { "pre": ">> Verifying liveness pattern in video", "tail": "[OK]" },
+        { "pre": ">> AI pattern detected in audio", "tail": "[BLOCKED]" },
+        { "pre": ">> Acoustic identity validation initiated", "tail": "[IN PROGRESS]" },
+        { "pre": ">> Auditing metadata and encoder fingerprints", "tail": "[RUNNING]" },
+        { "pre": ">> Evaluating temporal landmark consistency", "tail": "[OK]" }
+      ]
+    },
+    "footer": {
+      "aria": "Author signature",
+      "socialAria": "Social links",
+      "developedBy": "© 2026 KRONOS // DEVELOPED BY",
+      "name": "MOISES VALERO"
+    }
+  },
+  "scanner": {
+    "details": {
+      "state": "Validation status",
+      "confidence": "Confidence level",
+      "score": "Score (0–100)",
+      "file": "File",
+      "weight": "Size"
+    },
+    "chip": "KRONOS · Deepfake Defense Suite",
+    "titles": {
+      "video": "Video verification",
+      "image": "Image verification",
+      "audio": "Audio verification",
+      "text": "Text verification",
+      "link": "Link verification"
+    },
+    "tabs": {
+      "video": "VIDEO",
+      "image": "IMAGE",
+      "audio": "AUDIO",
+      "text": "TEXT",
+      "link": "LINK"
+    },
+    "dropzone": {
+      "strongVideo": "Drop a video here or click to upload",
+      "strongImage": "Drop an image here or click to upload",
+      "strongAudio": "Drop an audio file here or click to upload",
+      "formatsVideo": "Supported: MP4, MOV (Max: 150MB). Local biometric analysis.",
+      "formatsImage": "Supported: JPG, PNG (Max: 150MB). Local visual audit.",
+      "formatsAudio": "Supported: MP3, WAV, M4A/AAC, OGG (Max: 150MB). Local acoustic audit. You can also upload a video to extract its track."
+    },
+    "status": {
+      "scanning": "Scanning"
+    },
+    "buttons": {
+      "reset": "Reset session",
+      "exportJson": "Export analysis JSON"
+    },
+    "telemetry": {
+      "title": "Validation details",
+      "sub": "Local analysis indicators and traceability"
+    },
+    "text": {
+      "analyze": "Analyze text",
+      "hint": "Paste text in the panel and click Analyze text."
+    },
+    "link": {
+      "chip": "LINK INTAKE · PRIVACY & COMPLIANCE",
+      "invalid": "Invalid link. Check the format (https://...).",
+      "invalidShort": "Invalid link",
+      "directFile": "Direct file",
+      "body": "Paste a link. For privacy, KRONOS does not download content—upload the file to analyze it."
+    },
+    "empty": {
+      "image": "Drop a file to start the neural scan.",
+      "audio": "Drop an audio file (or a video to extract its track) to start the acoustic audit."
+    }
+  }
+}
