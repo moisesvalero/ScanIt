@@ -6,6 +6,9 @@ type ImageAiVerdict = {
   suspicionPercent: number;
   reasons: string[];
   origin: 'Origen: Dispositivo Digital (Captura)' | 'Origen: Captura Óptica (Cámara)';
+  ocrTextSample: string;
+  ocrEstimatedChars: number;
+  styleConsistency: number;
 };
 
 type ImageAiStatus = {
@@ -200,7 +203,7 @@ export const POST: RequestHandler = async ({ request }) => {
             {
               role: 'system',
               content:
-                'Eres un perito forense de documentos académicos visuales. NO analices personas, paisajes ni objetos generales: céntrate en hojas, textos, tablas, sellos, firmas, capturas de plataformas educativas y documentos de colegio/instituto/universidad. Evalúa coherencia tipográfica, bordes de elementos, compresión/artefactos y ruido de sensor para detectar manipulación digital o creación sintética. Devuelve SOLO JSON con: suspicionPercent (0-100), origin ("Origen: Dispositivo Digital (Captura)" o "Origen: Captura Óptica (Cámara)") y reasons (array de 3 strings técnicas).'
+                'Eres un perito forense de documentos académicos visuales. NO analices personas, paisajes ni objetos generales: céntrate en hojas, textos, tablas, sellos, firmas, capturas de plataformas educativas y documentos de colegio/instituto/universidad. Evalúa coherencia tipográfica, bordes de elementos, compresión/artefactos y ruido de sensor para detectar manipulación digital o creación sintética. Devuelve SOLO JSON con: suspicionPercent (0-100), origin ("Origen: Dispositivo Digital (Captura)" o "Origen: Captura Óptica (Cámara)"), reasons (array de 3 strings técnicas), ocrTextSample (string con 1-2 líneas), ocrEstimatedChars (número aprox de caracteres legibles), styleConsistency (0-100; mayor = estilo visual más consistente).'
             },
             {
               role: 'user',
@@ -245,6 +248,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const suspicionPercent = clamp01to100(Number(parsed?.suspicionPercent ?? parsed?.porcentaje ?? 0));
     const origin = normalizeOrigin(parsed?.origin ?? parsed?.origen);
+    const ocrTextSample = String(parsed?.ocrTextSample ?? '').trim().slice(0, 240);
+    const ocrEstimatedCharsRaw = Number(parsed?.ocrEstimatedChars ?? ocrTextSample.length ?? 0);
+    const ocrEstimatedChars = Number.isFinite(ocrEstimatedCharsRaw) ? Math.max(0, Math.round(ocrEstimatedCharsRaw)) : 0;
+    const styleConsistency = clamp01to100(Number(parsed?.styleConsistency ?? 50));
     const reasonsRaw = Array.isArray(parsed?.reasons) ? parsed.reasons : [];
     const reasons = reasonsRaw.map(String).filter(Boolean).slice(0, 3);
     while (reasons.length < 3) reasons.push('No concluyente: evidencia visual insuficiente en la muestra.');
@@ -252,7 +259,7 @@ export const POST: RequestHandler = async ({ request }) => {
     return new Response(
       JSON.stringify({
         precheck,
-        verdict: { suspicionPercent, reasons, origin } satisfies ImageAiVerdict,
+        verdict: { suspicionPercent, reasons, origin, ocrTextSample, ocrEstimatedChars, styleConsistency } satisfies ImageAiVerdict,
         status: {
           state: 'ok',
           reason: `Analisis visual completado. ${origin}. Sospecha estimada: ${suspicionPercent.toFixed(0)}%.`

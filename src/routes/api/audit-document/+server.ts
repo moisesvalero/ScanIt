@@ -4,6 +4,7 @@ import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import Groq from 'groq-sdk';
 import { env } from '$env/dynamic/private';
+import { createHash } from 'node:crypto';
 
 type GroqLinguisticVerdict = {
   suspicionPercent: number;
@@ -61,6 +62,13 @@ function calcTextEntropy(text: string) {
   return entropy;
 }
 
+function lexicalDiversity(text: string) {
+  const tokens = (text.toLowerCase().match(/\b[\p{L}\p{N}'-]+\b/gu) ?? []).map((t) => t.trim()).filter(Boolean);
+  if (!tokens.length) return 0;
+  const unique = new Set(tokens).size;
+  return unique / tokens.length;
+}
+
 function sentenceUniformity(text: string) {
   const sentences = text
     .split(/[.!?]+/g)
@@ -107,7 +115,9 @@ async function parseDocx(buffer: Buffer) {
       creator,
       lastModifiedBy,
       application,
-      company
+      company,
+      producer: null,
+      hasDigitalSignature: false
     }
   };
 }
@@ -150,6 +160,9 @@ async function parsePdf(buffer: Buffer) {
   const modified = typeof metaInfo.ModDate === 'string' ? metaInfo.ModDate : null;
   const creator = typeof metaInfo.Creator === 'string' ? metaInfo.Creator : null;
   const producer = typeof metaInfo.Producer === 'string' ? metaInfo.Producer : null;
+  const rawPdf = buffer.toString('latin1');
+  const hasDigitalSignature =
+    rawPdf.includes('/Type/Sig') || rawPdf.includes('/ByteRange[') || rawPdf.includes('/SubFilter');
 
   let editingMinutes: number | null = null;
   if (created && modified) {
@@ -170,9 +183,23 @@ async function parsePdf(buffer: Buffer) {
       modified,
       creator,
       application: producer,
-      producer
+      producer,
+      hasDigitalSignature
     }
   };
+}
+
+function isOfficialPdfSource(metadata: Record<string, unknown>) {
+  const base = `${String(metadata.creator ?? '')} ${String(metadata.application ?? '')} ${String(metadata.producer ?? '')}`.toLowerCase();
+  return (
+    base.includes('agencia tributaria') ||
+    base.includes('aeat') ||
+    base.includes('gobierno de espa') ||
+    base.includes('ministerio') ||
+    base.includes('sede electr') ||
+    base.includes('boe') ||
+    base.includes('fnmt')
+  );
 }
 
 function buildAnomalies(input: {
@@ -182,6 +209,7 @@ function buildAnomalies(input: {
   entropy: number;
   uniformity: { mean: number; coefficient: number } | null;
   metadata: Record<string, unknown>;
+  lexicalDiversity?: number;
 }) {
   const anomalies: Anomaly[] = [];
   const ratio = input.editingMinutes && input.editingMinutes > 0 ? input.wordCount / input.editingMinutes : null;
@@ -237,6 +265,13 @@ function buildAnomalies(input: {
       message: 'Entropia textual baja para la longitud observada.'
     });
   }
+  if (typeof input.lexicalDiversity === 'number' && input.lexicalDiversity < 0.22 && input.wordCount > 260) {
+    anomalies.push({
+      code: 'LOW_LEXICAL_DIVERSITY',
+      severity: 'amber',
+      message: 'Diversidad lexical baja para la longitud observada; posible uniformidad estilistica excesiva.'
+    });
+  }
 
   const redCount = anomalies.filter((a) => a.severity === 'red').length;
   const amberCount = anomalies.filter((a) => a.severity === 'amber').length;
@@ -288,6 +323,61 @@ function rebuildDecision(anomalies: Anomaly[], wordCount: number, ratioWordsPerM
     anomalyIndex: redCount * 3 + amberCount,
     ratioWordsPerMinute,
     verdict
+  };
+}
+
+function computeDocumentConfidence(input: {
+  extension: 'docx' | 'pdf';
+  wordCount: number;
+  editingMinutes: number | null;
+  timelineCreated: string | null;
+  timelineModified: string | null;
+  ratioWordsPerMinute: number | null;
+  linguisticState: LinguisticAiStatus['state'];
+  anomalyIndex: number;
+  hasDigitalSignature: boolean;
+  officialPdfSource: boolean;
+}) {
+  let score = 100;
+  const reasons: string[] = [];
+  if (!input.timelineCreated || !input.timelineModified) {
+    score -= 22;
+    reasons.push('Timeline incompleto: falta marca de creacion o modificacion.');
+  }
+  if (input.editingMinutes === null && input.extension !== 'pdf') {
+    score -= 22;
+    reasons.push('No hay tiempo de edicion verificable en metadatos.');
+  }
+  if (input.editingMinutes === null && input.extension === 'pdf') {
+    score -= 6;
+    reasons.push('PDF final sin tiempo de edicion interno (normal en documentos cerrados).');
+  }
+  if (input.ratioWordsPerMinute === null) {
+    score -= 14;
+    reasons.push('No se pudo calcular ratio palabras/minuto por evidencia insuficiente.');
+  }
+  if (input.wordCount < 180) {
+    score -= 18;
+    reasons.push('Muestra textual reducida para inferencia forense robusta.');
+  }
+  if (input.linguisticState !== 'ok') {
+    score -= 10;
+    reasons.push('Analisis lingüistico IA no disponible en esta ejecucion.');
+  }
+  if (input.anomalyIndex > 0) {
+    score -= Math.min(20, input.anomalyIndex * 3);
+  }
+  if (input.hasDigitalSignature) {
+    score += 14;
+    reasons.push('Firma digital detectada en el PDF.');
+  }
+  if (input.officialPdfSource) {
+    score += 10;
+    reasons.push('Productor/creador compatible con emisor oficial.');
+  }
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    reasons
   };
 }
 
@@ -370,16 +460,25 @@ export const POST: RequestHandler = async ({ request }) => {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    const serverSha256 = createHash('sha256').update(buffer).digest('hex');
     const parsed = extension === 'docx' ? await parseDocx(buffer) : await parsePdf(buffer);
     const entropy = calcTextEntropy(parsed.text);
     const uniformity = sentenceUniformity(parsed.text);
+    const diversity = lexicalDiversity(parsed.text);
+    const styleConsistencyIndex = Number(
+      Math.max(
+        0,
+        Math.min(100, ((uniformity ? Math.max(0, 1 - uniformity.coefficient) : 0.42) * 60 + Math.min(1, entropy / 4.5) * 25 + diversity * 15) * 100 / 100)
+      ).toFixed(1)
+    );
     const decision = buildAnomalies({
       extension,
       wordCount: parsed.wordCount,
       editingMinutes: parsed.editingMinutes,
       entropy,
       uniformity,
-      metadata: parsed.metadata
+      metadata: parsed.metadata,
+      lexicalDiversity: diversity
     });
     let linguisticAi: GroqLinguisticVerdict | null = null;
     let linguisticAiStatus: LinguisticAiStatus = {
@@ -457,12 +556,45 @@ export const POST: RequestHandler = async ({ request }) => {
         ? decision
         : rebuildDecision(mergedAnomalies, parsed.wordCount, decision.ratioWordsPerMinute);
 
+    let policyDecision = finalDecision.verdict;
+    let forcedNoConclusive = false;
+    let forcedReason: string | null = null;
+    const hasDigitalSignature = Boolean(parsed.metadata.hasDigitalSignature);
+    const officialPdfSource = extension === 'pdf' ? isOfficialPdfSource(parsed.metadata) : false;
+    const missingCriticalEvidence =
+      extension === 'docx'
+        ? parsed.editingMinutes === null || !parsed.metadata.created || !parsed.metadata.modified || parsed.wordCount < 180
+        : parsed.wordCount < 180 && !hasDigitalSignature && !officialPdfSource;
+    if (policyDecision === 'integro' && missingCriticalEvidence) {
+      policyDecision = 'no_concluyente';
+      forcedNoConclusive = true;
+      forcedReason =
+        extension === 'docx'
+          ? 'Zero Guessing Policy: no se clasifica como integro cuando faltan señales críticas (timeline completo, editing time y/o muestra textual suficiente).'
+          : 'Zero Guessing Policy: PDF con evidencia insuficiente (sin firma oficial ni trazas sólidas de procedencia).';
+    }
+
+    const confidence = computeDocumentConfidence({
+      extension,
+      wordCount: parsed.wordCount,
+      editingMinutes: parsed.editingMinutes,
+      timelineCreated: (parsed.metadata.created as string | null) ?? null,
+      timelineModified: (parsed.metadata.modified as string | null) ?? null,
+      ratioWordsPerMinute: finalDecision.ratioWordsPerMinute,
+      linguisticState: linguisticAiStatus.state,
+      anomalyIndex: finalDecision.anomalyIndex,
+      hasDigitalSignature,
+      officialPdfSource
+    });
+
     return new Response(
       JSON.stringify({
         suite: 'Jamalajam',
         mode: 'document_audit',
+        analysisVersion: 'jamalajam-forensics-1.0.0',
         fileName: file.name,
         extension,
+        serverSha256,
         hashPendingClientSide: true,
         timeline: {
           created: parsed.metadata.created ?? null,
@@ -474,12 +606,39 @@ export const POST: RequestHandler = async ({ request }) => {
           pageCount: parsed.pageCount ?? null,
           ratioWordsPerMinute: decision.ratioWordsPerMinute,
           textEntropy: Number(entropy.toFixed(3)),
-          syntaxUniformityCoefficient: uniformity ? Number(uniformity.coefficient.toFixed(3)) : null
+          syntaxUniformityCoefficient: uniformity ? Number(uniformity.coefficient.toFixed(3)) : null,
+          lexicalDiversity: Number(diversity.toFixed(3)),
+          styleConsistencyIndex
         },
         metadata: parsed.metadata,
         anomalies: finalDecision.anomalies,
         anomalyIndex: finalDecision.anomalyIndex,
-        verdict: finalDecision.verdict,
+        verdict: policyDecision,
+        policy: {
+          zeroGuessing: true,
+          forcedNoConclusive,
+          reason: forcedReason
+        },
+        evidenceCoverage: {
+          timelineComplete: Boolean(parsed.metadata.created && parsed.metadata.modified),
+          editingTimeAvailable: parsed.editingMinutes !== null,
+          ratioAvailable: finalDecision.ratioWordsPerMinute !== null,
+          textualSampleSufficient: parsed.wordCount >= 180,
+          linguisticAiAvailable: linguisticAiStatus.state === 'ok',
+          digitalSignature: hasDigitalSignature,
+          officialPdfSource
+        },
+        ocrStatus:
+          extension === 'pdf' && parsed.wordCount < 40
+            ? {
+                state: 'recommended',
+                reason: 'PDF con poco texto extraible: se recomienda OCR sobre copia imagen para aumentar cobertura.'
+              }
+            : {
+                state: 'not_required',
+                reason: 'Extraccion textual suficiente; OCR no necesario en esta fase.'
+              },
+        confidence,
         linguisticAi,
         linguisticAiStatus
       }),

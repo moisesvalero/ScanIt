@@ -13,8 +13,10 @@
   type DocumentResult = {
     suite: string;
     mode: string;
+    analysisVersion?: string;
     fileName: string;
     extension: 'docx' | 'pdf';
+    serverSha256?: string;
     timeline: { created: string | null; modified: string | null };
     metrics: {
       wordCount: number;
@@ -23,11 +25,23 @@
       ratioWordsPerMinute: number | null;
       textEntropy: number;
       syntaxUniformityCoefficient: number | null;
+      lexicalDiversity?: number;
+      styleConsistencyIndex?: number;
     };
     metadata: Record<string, unknown>;
     anomalies: Anomaly[];
     anomalyIndex: number;
     verdict: Verdict;
+    policy?: { zeroGuessing: boolean; forcedNoConclusive: boolean; reason: string | null };
+    evidenceCoverage?: {
+      timelineComplete: boolean;
+      editingTimeAvailable: boolean;
+      ratioAvailable: boolean;
+      textualSampleSufficient: boolean;
+      linguisticAiAvailable: boolean;
+    };
+    ocrStatus?: { state: 'recommended' | 'not_required'; reason: string };
+    confidence?: { score: number; reasons: string[] };
     linguisticAi: { suspicionPercent: number; reasons: string[] } | null;
     linguisticAiStatus?: { state: 'ok' | 'omitted' | 'error'; reason: string } | null;
   };
@@ -38,6 +52,8 @@
     height: number;
     elaScore: number;
     prnuScore: number;
+    noiseConsistency?: number;
+    jpegGridInconsistency?: number;
     anomalyIndex: number;
     anomalies: Anomaly[];
     verdict: Verdict;
@@ -45,6 +61,9 @@
       suspicionPercent: number;
       reasons: string[];
       origin: 'Origen: Dispositivo Digital (Captura)' | 'Origen: Captura Óptica (Cámara)';
+      ocrTextSample?: string;
+      ocrEstimatedChars?: number;
+      styleConsistency?: number;
     } | null;
     visualAiStatus?: { state: 'ok' | 'omitted' | 'error' | 'blocked'; reason: string } | null;
     visualPrecheck?: {
@@ -52,6 +71,14 @@
       category: 'documento' | 'captura_software' | 'texto_academico' | 'irrelevante';
       reason: string;
     } | null;
+    evidenceCoverage?: {
+      ocrReadable: boolean;
+      styleConsistencyAvailable: boolean;
+      pixelForensicsAvailable: boolean;
+      visualAiAvailable: boolean;
+    };
+    confidence?: { score: number; reasons: string[] };
+    policy?: { zeroGuessing: boolean; forcedNoConclusive: boolean; reason: string | null };
   };
 
   const baseUrl = new URL(env.PUBLIC_SITE_URL || 'http://localhost:5173').toString().replace(/\/$/, '');
@@ -112,8 +139,34 @@
   let glitchActive = $state(false);
   let glitchTimer: ReturnType<typeof setInterval> | null = null;
 
+  function appendCustodyRecord(entry: {
+    mode: 'document' | 'image';
+    fileName: string;
+    hash: string;
+    verdict: Verdict;
+    anomalyIndex: number;
+    confidenceScore?: number | null;
+  }) {
+    try {
+      const key = 'jamalajam_chain_of_custody_v1';
+      const current = JSON.parse(localStorage.getItem(key) || '[]') as any[];
+      const next = [
+        ...current.slice(-39),
+        {
+          ...entry,
+          timestamp: new Date().toISOString(),
+          appVersion: 'jamalajam-forensics-1.0.0'
+        }
+      ];
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      // No rompe auditoria si el almacenamiento local falla.
+    }
+  }
+
   const DOC_LOGS = [
     'Inicializando auditoria...',
+    'CAPA 1: Verificando integridad, hash y cadena de custodia...',
     'Analizando SHA-256...',
     'Verificando firmas digitales del archivo...',
     'Extrayendo metadatos DOCX/PDF...',
@@ -122,21 +175,29 @@
     'Calculando editing time vs word count...',
     'Analizando estructura y huellas de exportacion...',
     'Calculando entropia y uniformidad sintactica...',
+    'CAPA 2: Ejecutando analisis de consistencia de estilo...',
     'Correlacionando señales IA + metadatos forenses...',
     'Correlacionando anomalias...',
+    'CAPA 4: Calculando cobertura de evidencia y confianza...',
+    'CAPA 5: Aplicando reglas conservadoras Zero Guessing...',
     'Compilando acta pericial...'
   ];
 
   const IMG_LOGS = [
     'Inicializando certificacion...',
+    'CAPA 1: Verificando integridad, hash y cadena de custodia...',
     'Analizando SHA-256...',
     'Verificando consistencia de captura y compresion...',
     'Decodificando evidencia...',
     'Clasificando tipo de contenido con IA de pre-validacion...',
     'Revisando zonas con posible edicion...',
+    'CAPA 2: Extrayendo OCR y consistencia tipografica visual...',
     'Comprobando si viene de foto real de camara...',
     'Correlacionando PRNU/ELA con veredicto visual IA...',
+    'CAPA 3: Analisis de ruido y pixeles de frontera...',
     'Normalizando metricas...',
+    'CAPA 4: Calculando cobertura visual y confianza...',
+    'CAPA 5: Aplicando reglas conservadoras Zero Guessing...',
     'Correlacionando anomalias...',
     'Compilando acta pericial...'
   ];
@@ -190,6 +251,29 @@
 
   function randomDigit() {
     return String(Math.floor(Math.random() * 10));
+  }
+
+  function nowStamp() {
+    return new Date().toLocaleTimeString('es-ES', { hour12: false });
+  }
+
+  function telemetryLevel(line: string) {
+    const l = line.toLowerCase();
+    if (l.startsWith('error:') || l.includes('alerta') || l.includes('sospecha') || l.includes('anomalia') || l.includes('anomal')) {
+      return 'ALERT';
+    }
+    if (l.includes('groq') || l.includes('ia')) return 'AI';
+    return 'SYSTEM';
+  }
+
+  function telemetryRenderLine(line: string) {
+    if (/^\[\d{2}:\d{2}:\d{2}\]\s\[[A-Z]+\]/.test(line)) return line;
+    return `[${nowStamp()}] [${telemetryLevel(line)}] ${line}`;
+  }
+
+  function isAnomalyTelemetryLine(line: string) {
+    const l = line.toLowerCase();
+    return l.includes('alerta') || l.includes('sospecha') || l.includes('timeline') || l.includes('ratio');
   }
 
   function startDataGlitch(finalSha: string, finalPercent: string) {
@@ -445,6 +529,13 @@
     return docCritical || imgCritical;
   }
 
+  function coverageTone(score: number | null | undefined) {
+    if (typeof score !== 'number') return 'coverage-amber';
+    if (score >= 80) return 'coverage-green';
+    if (score >= 55) return 'coverage-amber';
+    return 'coverage-red';
+  }
+
   async function hashSha256(file: File) {
     const data = await file.arrayBuffer();
     const digest = await crypto.subtle.digest('SHA-256', data);
@@ -538,6 +629,7 @@
       }
       scanLogs = [...scanLogs, 'Verificando consistencia de respuesta...'];
       documentResult = await response.json();
+      scanLogs = [...scanLogs, 'CAPA 2: evaluando consistencia de estilo y entropia textual...'].slice(-MAX_LOG_LINES);
       if (documentResult?.extension === 'pdf') {
         const pages = documentResult.metrics?.pageCount;
         if (typeof pages === 'number' && pages > 0) {
@@ -560,6 +652,25 @@
         if (lowerReason.includes('dibujo') || lowerReason.includes('no textual') || lowerReason.includes('insuficiente')) {
           scanLogs = [...scanLogs, 'ERROR: Contenido no apto para auditoría académica.'].slice(-MAX_LOG_LINES);
         }
+      }
+      if (documentResult?.policy?.forcedNoConclusive && documentResult?.policy?.reason) {
+        scanLogs = [...scanLogs, `ALERTA: ${documentResult.policy.reason}`].slice(-MAX_LOG_LINES);
+      }
+      if (documentResult?.confidence) {
+        scanLogs = [...scanLogs, `CAPA 4: cobertura de evidencia ${documentResult.confidence.score}/100`].slice(-MAX_LOG_LINES);
+      }
+      if (documentResult?.ocrStatus?.state === 'recommended') {
+        scanLogs = [...scanLogs, `CAPA 2 OCR: ${documentResult.ocrStatus.reason}`].slice(-MAX_LOG_LINES);
+      }
+      if (documentResult) {
+        appendCustodyRecord({
+          mode: 'document',
+          fileName: documentResult.fileName,
+          hash: documentHash,
+          verdict: documentResult.verdict,
+          anomalyIndex: documentResult.anomalyIndex,
+          confidenceScore: documentResult.confidence?.score ?? null
+        });
       }
       generatedAt = new Date().toISOString();
     } catch (e) {
@@ -587,6 +698,9 @@
         suspicionPercent: number;
         reasons: string[];
         origin: 'Origen: Dispositivo Digital (Captura)' | 'Origen: Captura Óptica (Cámara)';
+        ocrTextSample?: string;
+        ocrEstimatedChars?: number;
+        styleConsistency?: number;
       } | null = null;
       let visualAiStatus: { state: 'ok' | 'omitted' | 'error' | 'blocked'; reason: string } | null = null;
       let visualPrecheck:
@@ -626,6 +740,10 @@
       const ela = runEla(img, 0.76);
       scanLogs = [...scanLogs, 'Comprobando huella de captura de camara...'];
       const prnu = estimatePrnu(img);
+      scanLogs = [...scanLogs, 'CAPA 3: evaluando consistencia de ruido entre zonas...'].slice(-MAX_LOG_LINES);
+      const noiseConsistency = estimateNoiseConsistency(img);
+      scanLogs = [...scanLogs, 'CAPA 3: evaluando bloques de compresion y pixeles frontera...'].slice(-MAX_LOG_LINES);
+      const jpegGridInconsistency = estimateJpegGridInconsistency(img);
       const anomalies: Anomaly[] = [];
 
       if (visualAi && visualAi.suspicionPercent >= 85) {
@@ -641,12 +759,34 @@
           message: `Sospecha visual IA elevada (${visualAi.suspicionPercent.toFixed(0)}%).`
         });
       }
+      if (noiseConsistency < 0.42) {
+        anomalies.push({
+          code: 'NOISE_CONSISTENCY_LOW',
+          severity: 'amber',
+          message: `Consistencia de ruido baja (${(noiseConsistency * 100).toFixed(0)}%): posible composicion por zonas.`
+        });
+      }
+      if (jpegGridInconsistency > 0.5) {
+        anomalies.push({
+          code: 'JPEG_GRID_INCONSISTENT',
+          severity: 'amber',
+          message: `Patron de bloques inconsistente (${(jpegGridInconsistency * 100).toFixed(0)}%): posible edicion localizada.`
+        });
+      }
 
       const red = anomalies.filter((a) => a.severity === 'red').length;
       const amber = anomalies.filter((a) => a.severity === 'amber').length;
       let verdict: Verdict = 'no_concluyente';
       if (red > 0 || amber >= 2) verdict = 'anomalias_detectadas';
       else if (amber === 0 && prnu >= 0.15) verdict = 'integro';
+      let forcedNoConclusive = false;
+      let forcedReason: string | null = null;
+      if (verdict === 'integro' && (!visualAi || (visualAi.ocrEstimatedChars ?? 0) < 50)) {
+        verdict = 'no_concluyente';
+        forcedNoConclusive = true;
+        forcedReason =
+          'Zero Guessing Policy: no se clasifica como integro sin cobertura OCR/visual suficiente para evidencia documental.';
+      }
 
       if (visualAi) {
         scanLogs = [
@@ -666,13 +806,53 @@
         height: img.height,
         elaScore: Number(ela.toFixed(2)),
         prnuScore: Number(prnu.toFixed(4)),
+        noiseConsistency: Number(noiseConsistency.toFixed(4)),
+        jpegGridInconsistency: Number(jpegGridInconsistency.toFixed(4)),
         anomalyIndex: red * 3 + amber,
         anomalies,
         verdict,
         visualAi,
         visualAiStatus,
-        visualPrecheck
+        visualPrecheck,
+        evidenceCoverage: {
+          ocrReadable: (visualAi?.ocrEstimatedChars ?? 0) >= 50,
+          styleConsistencyAvailable: typeof visualAi?.styleConsistency === 'number',
+          pixelForensicsAvailable: true,
+          visualAiAvailable: Boolean(visualAi)
+        },
+        confidence: {
+          score: Math.max(
+            0,
+            Math.min(
+              100,
+              Math.round(
+                100 -
+                  (anomalies.filter((a) => a.severity === 'red').length * 18 + anomalies.filter((a) => a.severity === 'amber').length * 9) -
+                  ((visualAi?.ocrEstimatedChars ?? 0) < 50 ? 16 : 0)
+              )
+            )
+          ),
+          reasons: [
+            ...(visualAi?.ocrEstimatedChars ?? 0) < 50 ? ['OCR visual limitado para esta evidencia.'] : [],
+            ...(jpegGridInconsistency > 0.5 ? ['Patron de compresion con inestabilidad por zonas.'] : []),
+            ...(noiseConsistency < 0.42 ? ['Ruido de imagen heterogeneo entre regiones.'] : [])
+          ]
+        },
+        policy: { zeroGuessing: true, forcedNoConclusive, reason: forcedReason }
       };
+      if (imageResult.policy?.forcedNoConclusive && imageResult.policy.reason) {
+        scanLogs = [...scanLogs, `ALERTA: ${imageResult.policy.reason}`].slice(-MAX_LOG_LINES);
+      }
+      if (imageResult.confidence) {
+        scanLogs = [...scanLogs, `CAPA 4: cobertura visual ${imageResult.confidence.score}/100`].slice(-MAX_LOG_LINES);
+      }
+      appendCustodyRecord({
+        mode: 'image',
+        fileName: imageResult.fileName,
+        hash: imageHash,
+        verdict: imageResult.verdict,
+        anomalyIndex: imageResult.anomalyIndex
+      });
       generatedAt = new Date().toISOString();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Error analizando imagen.';
@@ -758,6 +938,77 @@
     return Math.max(0, Math.min(1, normalized / 0.9));
   }
 
+  function estimateNoiseConsistency(img: HTMLImageElement) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas no disponible.');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    const blocks = 4;
+    const bw = Math.max(8, Math.floor(img.width / blocks));
+    const bh = Math.max(8, Math.floor(img.height / blocks));
+    const energies: number[] = [];
+    for (let by = 0; by < blocks; by += 1) {
+      for (let bx = 0; bx < blocks; bx += 1) {
+        let sum = 0;
+        let n = 0;
+        for (let y = by * bh + 1; y < Math.min((by + 1) * bh - 1, img.height - 1); y += 2) {
+          for (let x = bx * bw + 1; x < Math.min((bx + 1) * bw - 1, img.width - 1); x += 2) {
+            const i = (y * img.width + x) * 4;
+            const e = (y * img.width + x + 1) * 4;
+            const s = ((y + 1) * img.width + x) * 4;
+            const g = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            const ge = (data[e] + data[e + 1] + data[e + 2]) / 3;
+            const gs = (data[s] + data[s + 1] + data[s + 2]) / 3;
+            sum += Math.abs(g - ge) + Math.abs(g - gs);
+            n += 1;
+          }
+        }
+        energies.push(n ? sum / n : 0);
+      }
+    }
+    if (!energies.length) return 0;
+    const mean = energies.reduce((a, b) => a + b, 0) / energies.length;
+    const variance = energies.reduce((a, b) => a + (b - mean) ** 2, 0) / energies.length;
+    const cv = mean > 0 ? Math.sqrt(variance) / mean : 1;
+    return Math.max(0, Math.min(1, 1 - cv));
+  }
+
+  function estimateJpegGridInconsistency(img: HTMLImageElement) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas no disponible.');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    let edge8 = 0;
+    let edgeOther = 0;
+    let n8 = 0;
+    let nOther = 0;
+    for (let y = 1; y < img.height - 1; y += 2) {
+      for (let x = 1; x < img.width - 2; x += 2) {
+        const i = (y * img.width + x) * 4;
+        const j = (y * img.width + x + 1) * 4;
+        const g1 = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        const g2 = (data[j] + data[j + 1] + data[j + 2]) / 3;
+        const d = Math.abs(g1 - g2);
+        if (x % 8 === 0) {
+          edge8 += d;
+          n8 += 1;
+        } else {
+          edgeOther += d;
+          nOther += 1;
+        }
+      }
+    }
+    const m8 = n8 ? edge8 / n8 : 0;
+    const mO = nOther ? edgeOther / nOther : 0.0001;
+    return Math.max(0, Math.min(1, Math.abs(m8 - mO) / (mO + 0.0001)));
+  }
+
   function resetAll() {
     resetTelemetry();
     if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -831,22 +1082,28 @@
 
     line(`[+] Fecha de emision: ${now}`);
     line('[+] Naturaleza: Informe pericial tecnico');
+    separator();
+    line('# EVIDENCIA FISICA (NUCLEO DEL INFORME)', BLACK, 14, true);
     if (mode === 'document' && documentResult) {
       line(`[+] Archivo: ${documentResult.fileName}`);
-      line(`[+] Veredicto final: ${verdictLabel[documentResult.verdict]}`, BLACK, 14, true);
-      line(`[+] SHA-256: ${documentHash}`);
+      line(`[+] SHA-256 (huella unica): ${documentHash}`, BLACK, 14, true);
       line(
-        `[+] Timeline: Creacion ${documentResult.timeline.created ?? 'N/D'} | Modificacion ${documentResult.timeline.modified ?? 'N/D'}`
+        `[+] Timeline verificable: Creacion ${documentResult.timeline.created ?? 'N/D'} | Modificacion ${documentResult.timeline.modified ?? 'N/D'}`,
+        BLACK,
+        14,
+        true
       );
+      line(`[+] Veredicto final: ${verdictLabel[documentResult.verdict]}`, BLACK, 14, true);
     } else if (mode === 'image' && imageResult) {
       line(`[+] Archivo: ${imageResult.fileName}`);
+      line(`[+] SHA-256 (huella unica): ${imageHash}`, BLACK, 14, true);
+      line(`[+] Timeline verificable: N/D (evidencia visual)`, BLACK, 14, true);
       line(`[+] Veredicto final: ${verdictLabel[imageResult.verdict]}`, BLACK, 14, true);
-      line(`[+] SHA-256: ${imageHash}`);
       line(`[+] Resolucion: ${imageResult.width}x${imageResult.height}`);
     }
     separator();
 
-    line('# INDICADORES');
+    line('# INDICADORES CUANTIFICABLES (ZERO GUESSING POLICY)');
     if (mode === 'document' && documentResult) {
       const anomalyPct = Math.max(0, Math.min(100, (documentResult.anomalyIndex / 10) * 100));
       const ratioRaw = documentResult.metrics.ratioWordsPerMinute ?? 0;
@@ -856,6 +1113,9 @@
       line(`> Ratio bruto: ${ratioRaw ? ratioRaw.toFixed(2) : 'N/D'}`);
       line(`> Entropia textual: ${documentResult.metrics.textEntropy}`);
       line(`> Uniformidad sintactica: ${documentResult.metrics.syntaxUniformityCoefficient ?? 'N/D'}`);
+      line(`> Diversidad lexical: ${documentResult.metrics.lexicalDiversity ?? 'N/D'}`);
+      line(`> Consistencia de estilo (capa 2): ${documentResult.metrics.styleConsistencyIndex ?? 'N/D'}`);
+      line(`> Confianza del informe: ${documentResult.confidence ? `${documentResult.confidence.score}/100` : 'N/D'}`);
     } else if (mode === 'image' && imageResult) {
       const anomalyPct = Math.max(0, Math.min(100, (imageResult.anomalyIndex / 10) * 100));
       const visualPct = Math.max(0, Math.min(100, imageResult.visualAi?.suspicionPercent ?? 0));
@@ -863,6 +1123,10 @@
       line(`> Sospecha visual IA: ${bar(visualPct)}`, BLACK, 14, true);
       line(`> Huella de camara: ${imageResult.prnuScore}`);
       line(`> Riesgo de retoque local: ${imageResult.elaScore}`);
+      line(`> Consistencia de ruido (capa 3): ${imageResult.noiseConsistency ?? 'N/D'}`);
+      line(`> Inconsistencia bloques JPEG (capa 3): ${imageResult.jpegGridInconsistency ?? 'N/D'}`);
+      line(`> OCR estimado (capa 2): ${imageResult.visualAi?.ocrEstimatedChars ?? 'N/D'} caracteres`);
+      line(`> Consistencia estilo visual (capa 2): ${imageResult.visualAi?.styleConsistency ?? 'N/D'}`);
       line(`> Origen estimado: ${imageResult.visualAi?.origin ?? 'N/D'}`);
     }
     separator();
@@ -888,6 +1152,10 @@
       } else {
         line(`> Estado IA linguistica: ${documentResult.linguisticAiStatus?.reason ?? 'No disponible'}`);
       }
+      if (documentResult.ocrStatus) line(`> Estado OCR: ${documentResult.ocrStatus.reason}`);
+      if (documentResult.policy?.forcedNoConclusive && documentResult.policy.reason) {
+        line(`> Salvaguarda anti-falso positivo: ${documentResult.policy.reason}`);
+      }
     } else if (mode === 'image' && imageResult) {
       line(`> Indice de anomalias: ${imageResult.anomalyIndex}`);
       line(`> Sospecha visual IA: ${imageResult.visualAi ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%` : 'N/D'}`);
@@ -901,6 +1169,10 @@
       line(`> Resolucion analizada: ${imageResult.width}x${imageResult.height}`);
       line(`> Huella de camara (PRNU): ${imageResult.prnuScore}`);
       line(`> Riesgo de retoque local (ELA): ${imageResult.elaScore}`);
+      line(`> Consistencia de ruido por zonas: ${imageResult.noiseConsistency ?? 'N/D'}`);
+      line(`> Inconsistencia bloques JPEG: ${imageResult.jpegGridInconsistency ?? 'N/D'}`);
+      line(`> OCR estimado: ${imageResult.visualAi?.ocrEstimatedChars ?? 'N/D'} caracteres`);
+      if (imageResult.visualAi?.ocrTextSample) line(`> Muestra OCR: ${imageResult.visualAi.ocrTextSample}`);
       line(`> Origen estimado: ${imageResult.visualAi?.origin ?? 'N/D'}`);
       if (imageResult.visualAi?.reasons?.length) {
         line('# DETECTIVE VISUAL (GROQ)', BLACK, 14, true);
@@ -914,7 +1186,7 @@
     line('> Timeline: marcas temporales de creacion y modificacion.');
     line('> Ratio palabras/min: densidad de escritura frente a tiempo reportado.');
     line('> Indice de anomalias: pondera alertas rojas y ambar.');
-    line('> Politica Jamalajam: priorizar No concluyente ante evidencia insuficiente.');
+    line('> Zero Guessing Policy: decisiones con metrica cuantificable (entropia, ratio, timeline, hash), no por intuicion de estilo.');
 
     doc.save(`Jamalajam-Certificado-${Date.now()}.pdf`);
   }
@@ -931,11 +1203,11 @@
       <p class="eyebrow">Academic Integrity Forensics Suite</p>
       <h1>Jamalajam</h1>
       <p class="subtitle">
-        Evidencia tecnica, verificable y defendible. Disenado para institutos y universidades que exigen precision pericial.
+        Evidencia fisica, verificable y defendible. Otros analizan el estilo; Jamalajam analiza la integridad del archivo.
       </p>
       <div class="hero-badges">
-        <span>SHA-256 Chain</span>
-        <span>Timeline Intelligence</span>
+        <span>SHA-256 como prueba base</span>
+        <span>Timeline verificable</span>
         <span>Zero Guessing Policy</span>
       </div>
     </div>
@@ -1093,11 +1365,15 @@
                 <p class="telemetry-empty">La consola aparecera aqui durante el escaneo.</p>
               {:else}
                 {#each scanLogs as line, i (i)}
-                  <p class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''}`} in:fade={{ duration: 160 }}>
-                    {line}
+                  <p
+                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
+                    in:fade={{ duration: 160 }}
+                  >
+                    {telemetryRenderLine(line)}
                   </p>
                 {/each}
               {/if}
+              <p class="telemetry-cursor" aria-hidden="true">_</p>
             </div>
             {#if error}
               <p class="error">{error}</p>
@@ -1190,11 +1466,15 @@
                 <p class="telemetry-empty">La consola aparecera aqui durante el escaneo.</p>
               {:else}
                 {#each scanLogs as line, i (i)}
-                  <p class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''}`} in:fade={{ duration: 160 }}>
-                    {line}
+                  <p
+                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
+                    in:fade={{ duration: 160 }}
+                  >
+                    {telemetryRenderLine(line)}
                   </p>
                 {/each}
               {/if}
+              <p class="telemetry-cursor" aria-hidden="true">_</p>
             </div>
             {#if error}
               <p class="error">{error}</p>
@@ -1301,12 +1581,27 @@
           {#if mode === 'document' && documentResult}
             <p><strong>Veredicto:</strong> {verdictLabel[documentResult.verdict]}</p>
             <p><strong>SHA-256:</strong> <span class:glitching={glitchActive}>{glitchSha || documentHash}</span></p>
+            <p><strong>Timeline:</strong> {documentResult.timeline.created ?? 'N/D'} -> {documentResult.timeline.modified ?? 'N/D'}</p>
             <p><strong>Indice de anomalias:</strong> {documentResult.anomalyIndex}</p>
+            <p><strong>Confianza del informe:</strong> {documentResult.confidence ? `${documentResult.confidence.score}/100` : 'N/D'}</p>
+            <p>
+              <strong>Semaforo de cobertura:</strong>
+              <span class={`coverage-chip ${coverageTone(documentResult.confidence?.score)}`}>
+                {documentResult.confidence ? `${documentResult.confidence.score}/100` : 'N/D'}
+              </span>
+            </p>
             <p><strong>Palabras / Min:</strong> {documentResult.metrics.ratioWordsPerMinute ? documentResult.metrics.ratioWordsPerMinute.toFixed(2) : 'N/D'}</p>
             <p>
               <strong>Sospecha linguistica IA:</strong>
               <span class:glitching={glitchActive}>{glitchPercent || (documentResult.linguisticAi ? `${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%` : 'N/D')}</span>
             </p>
+            <p><strong>Politica:</strong> Zero Guessing Policy (metrica cuantificable, no suposiciones).</p>
+            {#if documentResult.policy?.forcedNoConclusive && documentResult.policy.reason}
+              <p><strong>Salvaguarda anti-falso positivo:</strong> {documentResult.policy.reason}</p>
+            {/if}
+            {#if documentResult.ocrStatus}
+              <p><strong>OCR:</strong> {documentResult.ocrStatus.reason}</p>
+            {/if}
             <p>
               Resumen rapido: se detectaron {documentResult.anomalies.length} hallazgos tecnicos.
               Para ver detalle pericial completo, usa "Descargar Informe Completo".
@@ -1322,12 +1617,25 @@
           {:else if mode === 'image' && imageResult}
             <p><strong>Veredicto:</strong> {verdictLabel[imageResult.verdict]}</p>
             <p><strong>SHA-256:</strong> <span class:glitching={glitchActive}>{glitchSha || imageHash}</span></p>
+            <p><strong>Timeline:</strong> N/D (evidencia visual)</p>
             <p><strong>Indice de anomalias:</strong> {imageResult.anomalyIndex}</p>
+            <p>
+              <strong>Semaforo de cobertura:</strong>
+              <span class={`coverage-chip ${coverageTone(imageResult.confidence?.score)}`}>
+                {imageResult.confidence ? `${imageResult.confidence.score}/100` : 'N/D'}
+              </span>
+            </p>
             <p><strong>Origen estimado:</strong> {imageResult.visualAi?.origin ?? 'N/D'}</p>
             <p>
               <strong>Sospecha visual IA:</strong>
               <span class:glitching={glitchActive}>{glitchPercent || (imageResult.visualAi ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%` : 'N/D')}</span>
             </p>
+            <p><strong>OCR estimado:</strong> {imageResult.visualAi?.ocrEstimatedChars ?? 0} caracteres</p>
+            <p><strong>Consistencia de estilo visual:</strong> {imageResult.visualAi?.styleConsistency ?? 'N/D'}</p>
+            {#if imageResult.policy?.forcedNoConclusive && imageResult.policy.reason}
+              <p><strong>Salvaguarda anti-falso positivo:</strong> {imageResult.policy.reason}</p>
+            {/if}
+            <p><strong>Politica:</strong> Zero Guessing Policy (metrica cuantificable, no suposiciones).</p>
             <p>
               Resumen rapido: se detectaron {imageResult.anomalies.length} hallazgos tecnicos.
               Para ver el analisis visual completo, descarga el informe extendido.
@@ -1878,6 +2186,10 @@
     }
   }
   .telemetry {
+    background:
+      linear-gradient(165deg, rgba(2, 4, 8, 0.96), rgba(0, 0, 0, 0.96)),
+      rgba(0, 0, 0, 0.94);
+    border-color: rgba(0, 229, 255, 0.24);
     border-radius: 16px;
     padding: 0.62rem;
     display: flex;
@@ -1913,6 +2225,7 @@
     min-height: 100px;
     overflow: auto;
     scrollbar-width: thin;
+    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
   }
   .telemetry-action {
     margin-top: 0.1rem;
@@ -1924,16 +2237,36 @@
     font-size: 0.9rem;
   }
   .telemetry-line {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
     font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.92);
     line-height: 1.4;
     margin-top: 0.32rem;
   }
+  .telemetry-line-alert-once {
+    animation: telemetryAlertOnce 0.75s ease-out 1;
+  }
+  @keyframes telemetryAlertOnce {
+    0% {
+      color: #ff8a8a;
+      text-shadow: 0 0 18px rgba(255, 60, 60, 0.85);
+      opacity: 0.55;
+    }
+    55% {
+      color: #ff3f3f;
+      text-shadow: 0 0 22px rgba(255, 40, 40, 0.95);
+      opacity: 1;
+    }
+    100% {
+      color: rgba(255, 255, 255, 0.92);
+      text-shadow: none;
+      opacity: 1;
+    }
+  }
   .telemetry-line-error {
     color: #ff6b6b;
     text-shadow: 0 0 10px rgba(255, 0, 0, 0.45);
-    animation: telemetryErrorBlink 0.82s step-end infinite;
+    animation: telemetryErrorBlink 0.82s step-end 1;
   }
   @keyframes telemetryErrorBlink {
     0%,
@@ -1959,6 +2292,47 @@
     font-size: 0.76rem;
     color: rgba(186, 206, 238, 0.72);
     font-family: 'JetBrains Mono', monospace;
+  }
+  .telemetry-cursor {
+    margin: 0.3rem 0 0;
+    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    color: rgba(0, 229, 255, 0.9);
+    animation: termCursorBlink 0.9s step-end infinite;
+  }
+  .coverage-chip {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.45rem;
+    border-radius: 999px;
+    padding: 0.08rem 0.52rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    border: 1px solid transparent;
+  }
+  .coverage-green {
+    color: #b7ffd6;
+    border-color: rgba(30, 203, 131, 0.65);
+    background: rgba(9, 61, 39, 0.44);
+  }
+  .coverage-amber {
+    color: #ffe1b2;
+    border-color: rgba(255, 170, 68, 0.7);
+    background: rgba(88, 52, 8, 0.36);
+  }
+  .coverage-red {
+    color: #ffd0d7;
+    border-color: rgba(255, 78, 94, 0.78);
+    background: rgba(84, 12, 20, 0.42);
+  }
+  @keyframes termCursorBlink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    50.01%,
+    100% {
+      opacity: 0;
+    }
   }
   .reopen-result {
     margin-top: 0.2rem;
