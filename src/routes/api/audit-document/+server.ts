@@ -595,32 +595,73 @@ async function groqLinguisticAudit(text: string): Promise<GroqLinguisticVerdict 
     }
   }
 
-  const content = resp?.choices?.[0]?.message?.content ?? '';
+  const content = String(resp?.choices?.[0]?.message?.content ?? '').trim();
   if (!content) return null;
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    // Fallback parser cuando Groq responde texto plano en lugar de JSON.
-    const pct = content.match(/suspicionPercent\s*[:=]\s*(\d{1,3})/i)?.[1];
-    const reasonsRaw = content.match(/reasons\s*[:=]\s*(.+)$/i)?.[1] ?? '';
-    const reasons = reasonsRaw
-      .split('|')
-      .map((r) => r.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    if (!pct) return null;
-    while (reasons.length < 3) reasons.push('No concluyente: evidencia lingüística insuficiente en la muestra.');
-    return { suspicionPercent: clamp01to100(Number(pct)), reasons };
+  const parseJsonCandidate = (s: string) => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) Intento robusto: extraer el primer objeto JSON dentro del texto (si Groq añadió texto alrededor).
+  const jsonCandidate = content.match(/\{[\s\S]*\}/)?.[0] ?? '';
+  if (jsonCandidate) {
+    const parsed = parseJsonCandidate(jsonCandidate);
+    if (parsed) {
+      const suspicionPercent = clamp01to100(Number(parsed?.suspicionPercent ?? parsed?.porcentaje ?? 0));
+      const reasonsRaw = Array.isArray(parsed?.reasons) ? parsed.reasons : [];
+      const reasons = reasonsRaw.map(String).filter(Boolean).slice(0, 3);
+      while (reasons.length < 3) reasons.push('No concluyente: evidencia lingüística insuficiente en la muestra.');
+      return { suspicionPercent, reasons };
+    }
   }
 
-  const suspicionPercent = clamp01to100(Number(parsed?.suspicionPercent ?? parsed?.porcentaje ?? 0));
-  const reasonsRaw = Array.isArray(parsed?.reasons) ? parsed.reasons : [];
-  const reasons = reasonsRaw.map(String).filter(Boolean).slice(0, 3);
-  while (reasons.length < 3) reasons.push('No concluyente: evidencia lingüística insuficiente en la muestra.');
+  // 2) Fallback tolerante: buscar suspicionPercent y reasons aunque vengan en formato semi-estructurado o con saltos de línea.
+  const pctMatch =
+    content.match(/suspicionPercent\s*[:=]\s*(\d{1,3})/i) ??
+    content.match(/porcentaje\s*[:=]\s*(\d{1,3})/i);
+  const pctStr = pctMatch?.[1];
+  if (!pctStr) return null;
 
-  return { suspicionPercent, reasons };
+  // Tomamos la "sección" a partir de la clave reasons.
+  const reasonsSection = (content.split(/reasons\s*[:=]/i)[1] ?? '').trim();
+  const reasons: string[] = [];
+
+  // Caso A: separadas con '|'
+  if (reasonsSection.includes('|')) {
+    reasons.push(
+      ...reasonsSection
+        .split('|')
+        .map((r) => r.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean)
+        .slice(0, 3)
+    );
+  }
+
+  // Caso B: razones entre comillas (aunque estén en JSON o texto).
+  if (reasons.length < 3) {
+    const quoted = reasonsSection.match(/"([^"]+)"|'([^']+)'/g) ?? [];
+    for (const q of quoted) {
+      if (reasons.length >= 3) break;
+      const cleaned = q.replace(/^["']/, '').replace(/["']$/, '');
+      if (cleaned) reasons.push(cleaned);
+    }
+  }
+
+  // Caso C: razones como lista JSON simple: ["a","b","c"]
+  if (reasons.length < 3 && reasonsSection.startsWith('[')) {
+    const listJsonCandidate = reasonsSection.match(/^\[[\s\S]*\]/)?.[0] ?? '';
+    const parsedList = parseJsonCandidate(listJsonCandidate);
+    if (Array.isArray(parsedList)) {
+      reasons.push(...parsedList.map(String).filter(Boolean).slice(0, 3));
+    }
+  }
+
+  while (reasons.length < 3) reasons.push('No concluyente: evidencia lingüística insuficiente en la muestra.');
+  return { suspicionPercent: clamp01to100(Number(pctStr)), reasons };
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -709,7 +750,8 @@ export const POST: RequestHandler = async ({ request }) => {
         } else {
           linguisticAiStatus = {
             state: 'omitted',
-            reason: 'Groq no devolvio contenido JSON valido para esta muestra.'
+            reason:
+              'Groq respondió pero el formato no se pudo interpretar (no se pudo extraer suspicionPercent / reasons de forma fiable).'
           };
         }
       } catch (e) {

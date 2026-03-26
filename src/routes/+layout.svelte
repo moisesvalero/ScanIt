@@ -5,9 +5,12 @@
 
   onMount(() => {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Registro opcional: no rompe la app si falla.
-    });
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => reg?.update?.().catch(() => {}))
+      .catch(() => {
+        // Registro opcional: no rompe la app si falla.
+      });
   });
 </script>
 
