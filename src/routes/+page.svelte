@@ -1556,13 +1556,10 @@
   .download::after {
     content: '';
     position: absolute;
-    top: -130%;
-    left: -45%;
-    width: 28%;
-    height: 360%;
-    transform: rotate(18deg) translateX(0);
-    background: linear-gradient(90deg, rgba(0, 229, 255, 0), rgba(0, 229, 255, 0.34), rgba(0, 229, 255, 0));
-    opacity: 0;
+    inset: 0;
+    transform: translateX(-130%);
+    background: linear-gradient(112deg, rgba(0, 229, 255, 0) 36%, rgba(0, 229, 255, 0.34) 50%, rgba(0, 229, 255, 0) 64%);
+    opacity: 0.95;
     pointer-events: none;
   }
   .mode-rail button strong {
@@ -2001,6 +1998,7 @@
   .download,
   .ghost {
     position: relative;
+    overflow: hidden;
     border: 1px solid var(--line);
     border-radius: 12px;
     padding: 0.65rem 0.9rem;
@@ -2137,10 +2135,10 @@
   }
   @keyframes buttonScan {
     from {
-      transform: rotate(18deg) translateX(-10%);
+      transform: translateX(-130%);
     }
     to {
-      transform: rotate(18deg) translateX(460%);
+      transform: translateX(130%);
     }
   }
   .custom-cursor {
