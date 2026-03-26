@@ -1423,11 +1423,6 @@
   }
 </script>
 
-<svelte:head>
-  <title>{$seo.title}</title>
-  <meta name="description" content={$seo.description} />
-</svelte:head>
-
 <main class="dashboard" class:panic-mode={panicCriticalActive()} dir={$locale === 'ar' ? 'rtl' : 'ltr'}>
   <section class="hero glass">
     <div class="hero-left">
