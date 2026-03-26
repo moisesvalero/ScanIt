@@ -185,43 +185,27 @@ function inspectPdfSignature(buffer: Buffer): PdfSignatureCheck {
 }
 
 async function parsePdf(buffer: Buffer) {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(buffer),
-    stopAtErrors: false,
-    // Importante: en server evitamos Worker (y sus mismatches).
-    disableWorker: true,
-    disableAutoFetch: true,
-    disableStream: true,
-    isEvalSupported: false
-  } as any);
-
-  const pdf = await loadingTask.promise;
-
-  let metaInfo: any = {};
-  try {
-    const meta = await pdf.getMetadata();
-    metaInfo = meta?.info ?? {};
-  } catch {
-    metaInfo = {};
-  }
-
+  const { PDFParse } = await import('pdf-parse');
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
   let text = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const parts = (content.items as any[])
-      .map((it) => (typeof it?.str === 'string' ? it.str : ''))
-      .filter(Boolean);
-    text += parts.join(' ') + '\n';
+  let info: Record<string, unknown> = {};
+  let totalPages: number | null = null;
+
+  try {
+    const [textResult, infoResult] = await Promise.all([parser.getText(), parser.getInfo({ parsePageInfo: false })]);
+    text = String(textResult?.text ?? '');
+    info = (infoResult?.info as Record<string, unknown>) ?? {};
+    totalPages = typeof infoResult?.total === 'number' ? infoResult.total : null;
+  } finally {
+    await parser.destroy().catch(() => {});
   }
 
   const wordCount = countWords(text);
 
-  const created = typeof metaInfo.CreationDate === 'string' ? metaInfo.CreationDate : null;
-  const modified = typeof metaInfo.ModDate === 'string' ? metaInfo.ModDate : null;
-  const creator = typeof metaInfo.Creator === 'string' ? metaInfo.Creator : null;
-  const producer = typeof metaInfo.Producer === 'string' ? metaInfo.Producer : null;
+  const created = typeof info.CreationDate === 'string' ? info.CreationDate : null;
+  const modified = typeof info.ModDate === 'string' ? info.ModDate : null;
+  const creator = typeof info.Creator === 'string' ? info.Creator : null;
+  const producer = typeof info.Producer === 'string' ? info.Producer : null;
   const rawPdf = buffer.toString('latin1');
   const hasDigitalSignature =
     rawPdf.includes('/Type/Sig') || rawPdf.includes('/ByteRange[') || rawPdf.includes('/SubFilter');
@@ -239,7 +223,7 @@ async function parsePdf(buffer: Buffer) {
     text,
     wordCount,
     editingMinutes,
-    pageCount: pdf.numPages,
+    pageCount: totalPages,
     metadata: {
       created,
       modified,

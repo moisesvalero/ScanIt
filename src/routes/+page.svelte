@@ -138,9 +138,13 @@
   let footerGeo = $state('Local');
   let footerTimer: ReturnType<typeof setInterval> | null = null;
   let idleTelemetryTimer: ReturnType<typeof setInterval> | null = null;
+  let phaseTimer: ReturnType<typeof setInterval> | null = null;
   let showScienceModal = $state(false);
   let showResultModal = $state(false);
   let showPdfResizeHelpModal = $state(false);
+  let telemetryPhase = $state('');
+  let telemetryPhaseSeconds = $state(0);
+  let telemetrySlowPhase = $state(false);
   let cursorX = $state(0);
   let cursorY = $state(0);
   let cursorVisible = $state(false);
@@ -150,6 +154,7 @@
   let glitchPercent = $state('');
   let glitchActive = $state(false);
   let glitchTimer: ReturnType<typeof setInterval> | null = null;
+  let lastPickerOpenAt = 0;
 
   function l(map: Record<string, string>) {
     return map[$locale] ?? map.en ?? map.es ?? '';
@@ -426,10 +431,23 @@
     showResultModal = false;
     visualScanning = false;
     scanStartedAt = 0;
+    telemetryPhase = '';
+    telemetryPhaseSeconds = 0;
+    telemetrySlowPhase = false;
     if (telemetryTimer) {
       clearInterval(telemetryTimer);
       telemetryTimer = null;
     }
+    if (phaseTimer) {
+      clearInterval(phaseTimer);
+      phaseTimer = null;
+    }
+  }
+
+  function setTelemetryPhase(label: string) {
+    telemetryPhase = label;
+    telemetryPhaseSeconds = 0;
+    telemetrySlowPhase = false;
   }
 
   function startTelemetry(kind: 'document' | 'image') {
@@ -439,6 +457,37 @@
     activeTelemetryLocale = String($locale ?? 'en');
     visualScanning = true;
     scanStartedAt = Date.now();
+    setTelemetryPhase(
+      kind === 'document'
+        ? l({
+            es: 'Inicializando analisis de documento',
+            en: 'Initializing document analysis',
+            fr: 'Initialisation de l analyse du document',
+            de: 'Dokumentanalyse wird initialisiert',
+            pt: 'Inicializando analise de documento',
+            ru: 'Инициализация анализа документа',
+            zh: '正在初始化文档分析',
+            ar: 'جار تهيئة تحليل المستند',
+            hi: 'दस्तावेज़ विश्लेषण शुरू किया जा रहा है'
+          })
+        : l({
+            es: 'Inicializando analisis de imagen',
+            en: 'Initializing image analysis',
+            fr: 'Initialisation de l analyse d image',
+            de: 'Bildanalyse wird initialisiert',
+            pt: 'Inicializando analise de imagem',
+            ru: 'Инициализация анализа изображения',
+            zh: '正在初始化图像分析',
+            ar: 'جار تهيئة تحليل الصورة',
+            hi: 'इमेज विश्लेषण शुरू किया जा रहा है'
+          })
+    );
+    phaseTimer = setInterval(() => {
+      telemetryPhaseSeconds += 1;
+      if (telemetryPhaseSeconds >= 12) {
+        telemetrySlowPhase = true;
+      }
+    }, 1000);
     const seq = telemetrySequence(kind);
     scanLogs = [seq[0]];
     scanStep = 1;
@@ -462,6 +511,23 @@
       clearInterval(telemetryTimer);
       telemetryTimer = null;
     }
+    if (phaseTimer) {
+      clearInterval(phaseTimer);
+      phaseTimer = null;
+    }
+    setTelemetryPhase(
+      l({
+        es: 'Finalizando resultado',
+        en: 'Finalizing result',
+        fr: 'Finalisation du resultat',
+        de: 'Ergebnis wird finalisiert',
+        pt: 'Finalizando resultado',
+        ru: 'Формирование результата',
+        zh: '正在完成结果',
+        ar: 'جار إنهاء النتيجة',
+        hi: 'परिणाम अंतिम किया जा रहा है'
+      })
+    );
     scanLogs = [
       ...scanLogs,
       l({
@@ -674,6 +740,22 @@
     return arr.map((x) => x.toString(16).padStart(2, '0')).join('');
   }
 
+  async function yieldUiFrame() {
+    await tick();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+
+  function openPicker(kind: 'document' | 'image') {
+    const now = Date.now();
+    if (now - lastPickerOpenAt < 420) return;
+    lastPickerOpenAt = now;
+    if (kind === 'document') {
+      documentInputRef?.click();
+      return;
+    }
+    imageInputRef?.click();
+  }
+
   function onSelectDocument(event: Event) {
     const target = event.currentTarget as HTMLInputElement;
     const picked = target.files?.[0] ?? null;
@@ -818,11 +900,39 @@
     error = '';
     startTelemetry('document');
     try {
+      setTelemetryPhase(
+        l({
+          es: 'Calculando huella SHA-256',
+          en: 'Calculating SHA-256 fingerprint',
+          fr: 'Calcul de l empreinte SHA-256',
+          de: 'SHA-256-Fingerabdruck wird berechnet',
+          pt: 'Calculando impressao SHA-256',
+          ru: 'Вычисление отпечатка SHA-256',
+          zh: '正在计算 SHA-256 指纹',
+          ar: 'جار حساب بصمة SHA-256',
+          hi: 'SHA-256 फिंगरप्रिंट की गणना'
+        })
+      );
       scanLogs = [...scanLogs, 'Preparando hash SHA-256...'];
+      await yieldUiFrame();
       documentHash = await hashSha256(documentFile);
       scanLogs = [...scanLogs, 'Enviando a extractor forense...'];
+      await yieldUiFrame();
       const form = new FormData();
       form.append('file', documentFile);
+      setTelemetryPhase(
+        l({
+          es: 'Subiendo archivo al motor de analisis',
+          en: 'Uploading file to analysis engine',
+          fr: 'Envoi du fichier au moteur d analyse',
+          de: 'Datei wird zur Analyse hochgeladen',
+          pt: 'Enviando arquivo para o motor de analise',
+          ru: 'Загрузка файла в модуль анализа',
+          zh: '正在将文件上传到分析引擎',
+          ar: 'جار رفع الملف إلى محرك التحليل',
+          hi: 'फ़ाइल विश्लेषण इंजन पर अपलोड हो रही है'
+        })
+      );
       const response = await fetch('/api/audit-document', { method: 'POST', body: form });
       if (!response.ok) {
         let serverMsg = '';
@@ -860,6 +970,20 @@
         throw new Error(serverMsg || 'No se pudo auditar el documento.');
       }
       scanLogs = [...scanLogs, 'Verificando consistencia de respuesta...'];
+      setTelemetryPhase(
+        l({
+          es: 'Correlacionando evidencias tecnicas',
+          en: 'Correlating technical evidence',
+          fr: 'Correlation des preuves techniques',
+          de: 'Technische Belege werden korreliert',
+          pt: 'Correlacionando evidencias tecnicas',
+          ru: 'Сопоставление технических доказательств',
+          zh: '正在关联技术证据',
+          ar: 'جار ربط الأدلة التقنية',
+          hi: 'तकनीकी साक्ष्यों का सहसंबंध'
+        })
+      );
+      await yieldUiFrame();
       documentResult = await response.json();
       scanLogs = [...scanLogs, '[AUDIT] Correlacion de metadatos y firma interna completada.'].slice(-MAX_LOG_LINES);
       if (documentResult?.anomalies?.some((a) => a.code === 'DOCX_AUTHOR_MISMATCH' || a.code === 'DOCX_TIMELINE_MISMATCH')) {
@@ -973,9 +1097,24 @@
     error = '';
     startTelemetry('image');
     try {
+      setTelemetryPhase(
+        l({
+          es: 'Calculando huella SHA-256',
+          en: 'Calculating SHA-256 fingerprint',
+          fr: 'Calcul de l empreinte SHA-256',
+          de: 'SHA-256-Fingerabdruck wird berechnet',
+          pt: 'Calculando impressao SHA-256',
+          ru: 'Вычисление отпечатка SHA-256',
+          zh: '正在计算 SHA-256 指纹',
+          ar: 'جار حساب بصمة SHA-256',
+          hi: 'SHA-256 फिंगरप्रिंट की गणना'
+        })
+      );
       scanLogs = [...scanLogs, 'Preparando hash SHA-256...'];
+      await yieldUiFrame();
       imageHash = await hashSha256(imageFile);
       scanLogs = [...scanLogs, 'Pre-validacion visual IA: tipo de evidencia...'].slice(-MAX_LOG_LINES);
+      await yieldUiFrame();
 
       const form = new FormData();
       form.append('file', imageFile);
@@ -994,6 +1133,20 @@
         | null = null;
       try {
         scanLogs = [...scanLogs, 'Enviando imagen al detective visual (Groq)...'].slice(-MAX_LOG_LINES);
+        setTelemetryPhase(
+          l({
+            es: 'Ejecutando analisis visual IA',
+            en: 'Running visual AI analysis',
+            fr: 'Execution de l analyse visuelle IA',
+            de: 'Visuelle KI-Analyse wird ausgefuehrt',
+            pt: 'Executando analise visual por IA',
+            ru: 'Выполняется визуальный ИИ-анализ',
+            zh: '正在执行视觉 AI 分析',
+            ar: 'جار تنفيذ التحليل البصري بالذكاء الاصطناعي',
+            hi: 'विजुअल AI विश्लेषण चल रहा है'
+          })
+        );
+        await yieldUiFrame();
         const aiResp = await fetch('/api/audit-image-ai', { method: 'POST', body: form });
         if (aiResp.ok) {
           const aiBody = await aiResp.json();
@@ -1021,10 +1174,26 @@
       }
 
       scanLogs = [...scanLogs, 'Cargando imagen en visor...'];
+      setTelemetryPhase(
+        l({
+          es: 'Validando consistencia visual por zonas',
+          en: 'Validating visual consistency by regions',
+          fr: 'Validation de la coherence visuelle par zones',
+          de: 'Visuelle Konsistenz nach Bereichen wird geprueft',
+          pt: 'Validando consistencia visual por zonas',
+          ru: 'Проверка визуальной согласованности по зонам',
+          zh: '正在按区域验证视觉一致性',
+          ar: 'جار التحقق من الاتساق البصري حسب المناطق',
+          hi: 'क्षेत्रों के अनुसार दृश्य संगति सत्यापित की जा रही है'
+        })
+      );
+      await yieldUiFrame();
       const img = await loadImage(imagePreview);
       scanLogs = [...scanLogs, 'Analizando posibles retoques locales...'];
+      await yieldUiFrame();
       const ela = runEla(img, 0.76);
       scanLogs = [...scanLogs, 'Comprobando huella de captura de camara...'];
+      await yieldUiFrame();
       const prnu = estimatePrnu(img);
       scanLogs = [...scanLogs, 'CAPA 3: evaluando consistencia de ruido entre zonas...'].slice(-MAX_LOG_LINES);
       const noiseConsistency = estimateNoiseConsistency(img);
@@ -1160,6 +1329,7 @@
   async function runBasicPdfOcrProbe(file: File, pushLog: (line: string) => void) {
     try {
       pushLog('[AUDIT] OCR basico: render de portada PDF.');
+      await yieldUiFrame();
       const [{ getDocument }, tesseract] = await Promise.all([
         import('pdfjs-dist'),
         import('tesseract.js')
@@ -1176,6 +1346,7 @@
       canvas.height = Math.ceil(viewport.height);
       await page.render({ canvasContext: ctx as any, viewport, canvas } as any).promise;
       pushLog('[CHECK] OCR basico: reconocimiento primer bloque.');
+      await yieldUiFrame();
       const result = await tesseract.recognize(canvas, 'spa');
       const text = String(result?.data?.text ?? '').replace(/\s+/g, ' ').trim();
       const sample = text.slice(0, 220);
@@ -1610,8 +1781,10 @@
             role="button"
             tabindex="0"
             aria-label="Zona de carga de documento"
-            onclick={() => documentInputRef?.click()}
-            onkeydown={(e) => e.key === 'Enter' && documentInputRef?.click()}
+            onclick={() => openPicker('document')}
+            onpointerup={() => openPicker('document')}
+            ontouchend={() => openPicker('document')}
+            onkeydown={(e) => e.key === 'Enter' && openPicker('document')}
           >
             <div class="viewer-head">
               <div class="viewer-title">
@@ -1718,6 +1891,24 @@
               <span class="telemetry-title">{l({ es: 'Telemetria', en: 'Telemetry', fr: 'Telemetrie', de: 'Telemetrie', pt: 'Telemetria', ru: 'Телеметрия', zh: '遥测', ar: 'القياس عن بُعد', hi: 'टेलीमेट्री' })}</span>
               <span class="telemetry-state">{busy || visualScanning ? l({ es: 'EN PROCESO', en: 'IN PROGRESS', fr: 'EN COURS', de: 'IN ARBEIT', pt: 'EM PROCESSO', ru: 'В ПРОЦЕССЕ', zh: '进行中', ar: 'قيد التنفيذ', hi: 'प्रगति में' }) : l({ es: 'LISTO', en: 'READY', fr: 'PRET', de: 'BEREIT', pt: 'PRONTO', ru: 'ГОТОВО', zh: '就绪', ar: 'جاهز', hi: 'तैयार' })}</span>
             </div>
+            {#if busy || visualScanning}
+              <p class="telemetry-phase">{telemetryPhase} · {telemetryPhaseSeconds}s</p>
+              {#if telemetrySlowPhase}
+                <p class="telemetry-phase-note">
+                  {l({
+                    es: 'Archivo complejo detectado. Seguimos procesando, puede tardar un poco mas.',
+                    en: 'Complex file detected. Still processing, this may take a bit longer.',
+                    fr: 'Fichier complexe detecte. Traitement en cours, cela peut prendre un peu plus de temps.',
+                    de: 'Komplexe Datei erkannt. Verarbeitung laeuft weiter, dies kann etwas laenger dauern.',
+                    pt: 'Arquivo complexo detectado. Seguimos processando, pode demorar um pouco mais.',
+                    ru: 'Обнаружен сложный файл. Обработка продолжается, это может занять больше времени.',
+                    zh: '检测到复杂文件，正在继续处理，可能需要更长时间。',
+                    ar: 'تم اكتشاف ملف معقد. ما زلنا نعالجه وقد يستغرق ذلك وقتا أطول قليلا.',
+                    hi: 'जटिल फ़ाइल मिली है। प्रोसेसिंग जारी है, इसमें थोड़ा अधिक समय लग सकता है।'
+                  })}
+                </p>
+              {/if}
+            {/if}
             <div class="telemetry-action">
               {#if documentFile}
                 <button class="cta cta-side" disabled={busy || visualScanning} onclick={auditDocument}>
@@ -1807,8 +1998,10 @@
             role="button"
             tabindex="0"
             aria-label="Zona de carga de imagen"
-            onclick={() => imageInputRef?.click()}
-            onkeydown={(e) => e.key === 'Enter' && imageInputRef?.click()}
+            onclick={() => openPicker('image')}
+            onpointerup={() => openPicker('image')}
+            ontouchend={() => openPicker('image')}
+            onkeydown={(e) => e.key === 'Enter' && openPicker('image')}
           >
             <div class="viewer-head">
               <div class="viewer-title">
@@ -1899,6 +2092,24 @@
               <span class="telemetry-title">{l({ es: 'Telemetria', en: 'Telemetry', fr: 'Telemetrie', de: 'Telemetrie', pt: 'Telemetria', ru: 'Телеметрия', zh: '遥测', ar: 'القياس عن بُعد', hi: 'टेलीमेट्री' })}</span>
               <span class="telemetry-state">{busy || visualScanning ? l({ es: 'EN PROCESO', en: 'IN PROGRESS', fr: 'EN COURS', de: 'IN ARBEIT', pt: 'EM PROCESSO', ru: 'В ПРОЦЕССЕ', zh: '进行中', ar: 'قيد التنفيذ', hi: 'प्रगति में' }) : l({ es: 'LISTO', en: 'READY', fr: 'PRET', de: 'BEREIT', pt: 'PRONTO', ru: 'ГОТОВО', zh: '就绪', ar: 'جاهز', hi: 'तैयार' })}</span>
             </div>
+            {#if busy || visualScanning}
+              <p class="telemetry-phase">{telemetryPhase} · {telemetryPhaseSeconds}s</p>
+              {#if telemetrySlowPhase}
+                <p class="telemetry-phase-note">
+                  {l({
+                    es: 'Archivo complejo detectado. Seguimos procesando, puede tardar un poco mas.',
+                    en: 'Complex file detected. Still processing, this may take a bit longer.',
+                    fr: 'Fichier complexe detecte. Traitement en cours, cela peut prendre un peu plus de temps.',
+                    de: 'Komplexe Datei erkannt. Verarbeitung laeuft weiter, dies kann etwas laenger dauern.',
+                    pt: 'Arquivo complexo detectado. Seguimos processando, pode demorar um pouco mais.',
+                    ru: 'Обнаружен сложный файл. Обработка продолжается, это может занять больше времени.',
+                    zh: '检测到复杂文件，正在继续处理，可能需要更长时间。',
+                    ar: 'تم اكتشاف ملف معقد. ما زلنا نعالجه وقد يستغرق ذلك وقتا أطول قليلا.',
+                    hi: 'जटिल फ़ाइल मिली है। प्रोसेसिंग जारी है, इसमें थोड़ा अधिक समय लग सकता है।'
+                  })}
+                </p>
+              {/if}
+            {/if}
             <div class="telemetry-action">
               {#if imageFile}
                 <button class="cta cta-side" disabled={busy || visualScanning} onclick={auditImage}>
@@ -2556,6 +2767,8 @@
     position: relative;
     overflow: hidden;
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
     min-height: 0;
     height: 100%;
@@ -2854,6 +3067,19 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem;
     color: rgba(0, 229, 255, 0.9);
+  }
+  .telemetry-phase {
+    margin: -0.28rem 0 0.15rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(188, 241, 255, 0.82);
+    letter-spacing: 0.01em;
+  }
+  .telemetry-phase-note {
+    margin: 0 0 0.3rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.67rem;
+    color: rgba(255, 216, 122, 0.92);
   }
   .telemetry-body {
     padding-top: 0.45rem;

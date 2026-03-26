@@ -1,6 +1,14 @@
 <script lang="ts">
   import '../app.css';
   import { seo } from '$lib/seo';
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Registro opcional: no rompe la app si falla.
+    });
+  });
 </script>
 
 <svelte:head>
