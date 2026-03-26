@@ -362,6 +362,37 @@
     "backToTopAria": "Back to top",
     "designedBy": "Designed by"
   },
+  "scanit": {
+    "header": {
+      "title": "Document Security and Verification",
+      "subtitle": "Verify the authenticity and origin of your files in a simple way."
+    },
+    "badges": {
+      "fileIdentity": "File Identity",
+      "workTime": "Work Time",
+      "realData": "Real Data"
+    },
+    "modules": {
+      "verifyDocument": "Verify Document",
+      "reviewCapture": "Review Capture"
+    },
+    "main": {
+      "title": "File Analyzer",
+      "description": "We verify whether a document is human-created by analyzing its technical history and digital evidence."
+    },
+    "dropzone": {
+      "document": "Drop your file here (Word or PDF)"
+    },
+    "telemetry": {
+      "idle": {
+        "ready": "[SYSTEM] Ready to analyze...",
+        "waiting": "[CHECK] Waiting for file...",
+        "preparing": "[SYSTEM] Preparing environment...",
+        "done": "[CHECK] Everything is ready to start.",
+        "available": "[SYSTEM] ScanIt available."
+      }
+    }
+  },
   "kronos": {
     "hero": {
       "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",

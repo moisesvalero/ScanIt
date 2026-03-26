@@ -1,6 +1,6 @@
-export type SiteLocale = 'en' | 'es' | 'zh' | 'de' | 'pt' | 'fr';
+export type SiteLocale = 'en' | 'es' | 'zh' | 'de' | 'pt' | 'fr' | 'ru' | 'ar' | 'hi';
 
-export const SITE_LOCALES: SiteLocale[] = ['en', 'es', 'zh', 'de', 'pt', 'fr'];
+export const SITE_LOCALES: SiteLocale[] = ['en', 'es', 'zh', 'de', 'pt', 'fr', 'ru', 'ar', 'hi'];
 export const LOCALE_LOAD_DEPENDENCY = 'app:locale' as const;
 export const PORTFOLIO_LOCALE_COOKIE = 'portfolio_locale';
 
@@ -13,6 +13,9 @@ export function parseSiteLocaleCookie(value: string | null | undefined): SiteLoc
   if (v === 'de') return 'de';
   if (v === 'pt') return 'pt';
   if (v === 'fr') return 'fr';
+  if (v === 'ru') return 'ru';
+  if (v === 'ar') return 'ar';
+  if (v === 'hi') return 'hi';
   return null;
 }
 

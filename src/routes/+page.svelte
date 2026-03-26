@@ -2,6 +2,8 @@
   import { jsPDF } from 'jspdf';
   import { env } from '$env/dynamic/public';
   import { seo, setSeo } from '$lib/seo';
+  import LanguageSelect from '$lib/components/LanguageSelect.svelte';
+  import { locale, t } from '$lib/i18n/index.js';
   import { onDestroy, onMount } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import mammoth from 'mammoth';
@@ -39,6 +41,8 @@
       ratioAvailable: boolean;
       textualSampleSufficient: boolean;
       linguisticAiAvailable: boolean;
+      digitalSignature?: boolean;
+      officialPdfSource?: boolean;
       docxInternalMetadataConsistent?: boolean;
       pdfSignatureStatus?: string;
     };
@@ -87,10 +91,10 @@
 
   const baseUrl = new URL(env.PUBLIC_SITE_URL || 'http://localhost:5173').toString().replace(/\/$/, '');
   setSeo({
-    title: 'Jamalajam | Suite Forense de Integridad Academica',
+    title: 'ScanIt | Suite Forense de Integridad Academica',
     description:
       'Auditoria pericial de documentos e imagenes con evidencias tecnicas verificables y politica conservadora de no concluyente.',
-    ogTitle: 'Jamalajam - Certificacion Forense Academica',
+    ogTitle: 'ScanIt - Certificacion Forense Academica',
     ogDescription: 'Suite de auditoria para institutos y universidades.',
     canonical: `${baseUrl}/`,
     ogUrl: `${baseUrl}/`,
@@ -112,6 +116,7 @@
   let dragActive = $state(false);
   let scanLogs = $state<string[]>([]);
   let scanStep = $state(0);
+  let activeTelemetryKind = $state<'document' | 'image' | null>(null);
   let showResult = $state(false);
   let visualScanning = $state(false);
   let scanStartedAt = $state(0);
@@ -143,6 +148,10 @@
   let glitchActive = $state(false);
   let glitchTimer: ReturnType<typeof setInterval> | null = null;
 
+  function l(map: Record<string, string>) {
+    return map[$locale] ?? map.en ?? map.es ?? '';
+  }
+
   function appendCustodyRecord(entry: {
     mode: 'document' | 'image';
     fileName: string;
@@ -152,14 +161,14 @@
     confidenceScore?: number | null;
   }) {
     try {
-      const key = 'jamalajam_chain_of_custody_v1';
+      const key = 'scanit_chain_of_custody_v1';
       const current = JSON.parse(localStorage.getItem(key) || '[]') as any[];
       const next = [
         ...current.slice(-39),
         {
           ...entry,
           timestamp: new Date().toISOString(),
-          appVersion: 'jamalajam-forensics-1.0.0'
+          appVersion: 'scanit-forensics-1.0.0'
         }
       ];
       localStorage.setItem(key, JSON.stringify(next));
@@ -168,66 +177,125 @@
     }
   }
 
-  const DOC_LOGS = [
-    'Inicializando auditoria...',
-    'CAPA 1: Verificando integridad, hash y cadena de custodia...',
-    'Analizando SHA-256...',
-    'Verificando firmas digitales del archivo...',
-    'Extrayendo metadatos DOCX/PDF...',
-    'Analizando estructura XML del DOCX...',
-    'Leyendo propiedades de creacion/modificacion...',
-    'Calculando editing time vs word count...',
-    'Analizando estructura y huellas de exportacion...',
-    'Calculando entropia y uniformidad sintactica...',
-    'CAPA 2: Ejecutando analisis de consistencia de estilo...',
-    'Correlacionando señales IA + metadatos forenses...',
-    'Correlacionando anomalias...',
-    'CAPA 4: Calculando cobertura de evidencia y confianza...',
-    'CAPA 5: Aplicando reglas conservadoras Zero Guessing...',
-    'Compilando acta pericial...'
-  ];
+  function docLogs() {
+    return [
+      l({ es: '[SISTEMA] Listo para analizar...', en: '[SYSTEM] Ready to analyze...', fr: '[SYSTEME] Pret pour analyser...', de: '[SYSTEM] Bereit zur Analyse...', pt: '[SISTEMA] Pronto para analisar...', ru: '[СИСТЕМА] Готово к анализу...', zh: '[系统] 已准备分析...', ar: '[النظام] جاهز للتحليل...', hi: '[सिस्टम] विश्लेषण के लिए तैयार...' }),
+      l({ es: '[CHECK] Esperando archivo...', en: '[CHECK] Waiting for file...', fr: '[CHECK] En attente du fichier...', de: '[CHECK] Warte auf Datei...', pt: '[CHECK] Aguardando arquivo...', ru: '[CHECK] Ожидание файла...', zh: '[CHECK] 等待文件中...', ar: '[CHECK] في انتظار الملف...', hi: '[CHECK] फ़ाइल की प्रतीक्षा...' }),
+      l({ es: 'Analizando SHA-256...', en: 'Analyzing SHA-256...', fr: 'Analyse de SHA-256...', de: 'SHA-256 wird analysiert...', pt: 'Analisando SHA-256...', ru: 'Анализ SHA-256...', zh: '正在分析 SHA-256...', ar: 'جار تحليل SHA-256...', hi: 'SHA-256 का विश्लेषण...' }),
+      l({ es: 'Verificando firmas digitales del archivo...', en: 'Checking file digital signatures...', fr: 'Verification des signatures numeriques du fichier...', de: 'Digitale Signaturen der Datei werden geprueft...', pt: 'Verificando assinaturas digitais do arquivo...', ru: 'Проверка цифровых подписей файла...', zh: '正在验证文件数字签名...', ar: 'جار التحقق من التواقيع الرقمية للملف...', hi: 'फ़ाइल के डिजिटल हस्ताक्षर जाँचे जा रहे हैं...' }),
+      l({ es: 'Extrayendo metadatos DOCX/PDF...', en: 'Extracting DOCX/PDF metadata...', fr: 'Extraction des metadonnees DOCX/PDF...', de: 'DOCX/PDF-Metadaten werden extrahiert...', pt: 'Extraindo metadados DOCX/PDF...', ru: 'Извлечение метаданных DOCX/PDF...', zh: '正在提取 DOCX/PDF 元数据...', ar: 'جار استخراج بيانات DOCX/PDF الوصفية...', hi: 'DOCX/PDF मेटाडेटा निकाला जा रहा है...' }),
+      l({ es: 'Analizando estructura XML del DOCX...', en: 'Analyzing DOCX XML structure...', fr: 'Analyse de la structure XML du DOCX...', de: 'DOCX-XML-Struktur wird analysiert...', pt: 'Analisando estrutura XML do DOCX...', ru: 'Анализ XML-структуры DOCX...', zh: '正在分析 DOCX XML 结构...', ar: 'جار تحليل بنية XML في DOCX...', hi: 'DOCX XML संरचना का विश्लेषण...' }),
+      l({ es: 'Leyendo propiedades de creacion/modificacion...', en: 'Reading creation/modification properties...', fr: 'Lecture des proprietes de creation/modification...', de: 'Eigenschaften fuer Erstellung/Aenderung werden gelesen...', pt: 'Lendo propriedades de criacao/modificacao...', ru: 'Чтение свойств создания/изменения...', zh: '正在读取创建/修改属性...', ar: 'جار قراءة خصائص الإنشاء/التعديل...', hi: 'निर्माण/संशोधन गुण पढ़े जा रहे हैं...' }),
+      l({ es: 'Calculando editing time vs word count...', en: 'Calculating editing time vs word count...', fr: 'Calcul du temps d edition vs nombre de mots...', de: 'Bearbeitungszeit vs. Wortanzahl wird berechnet...', pt: 'Calculando tempo de edicao vs contagem de palavras...', ru: 'Расчет времени редактирования и количества слов...', zh: '正在计算编辑时间与词数比...', ar: 'جار حساب وقت التحرير مقابل عدد الكلمات...', hi: 'एडिटिंग समय बनाम शब्द संख्या की गणना...' }),
+      l({ es: 'Analizando estructura y huellas de exportacion...', en: 'Analyzing structure and export traces...', fr: 'Analyse de la structure et des traces d export...', de: 'Struktur und Exportspuren werden analysiert...', pt: 'Analisando estrutura e rastros de exportacao...', ru: 'Анализ структуры и следов экспорта...', zh: '正在分析结构与导出痕迹...', ar: 'جار تحليل البنية وآثار التصدير...', hi: 'संरचना और एक्सपोर्ट ट्रेस का विश्लेषण...' }),
+      l({ es: 'Calculando entropia y uniformidad sintactica...', en: 'Calculating entropy and syntactic uniformity...', fr: 'Calcul de l entropie et de l uniformite syntaxique...', de: 'Entropie und syntaktische Gleichfoermigkeit werden berechnet...', pt: 'Calculando entropia e uniformidade sintatica...', ru: 'Расчет энтропии и синтаксической однородности...', zh: '正在计算熵与句法一致性...', ar: 'جار حساب الإنتروبيا والاتساق النحوي...', hi: 'एंट्रॉपी और वाक्य-विन्यास एकरूपता की गणना...' }),
+      l({ es: 'CAPA 2: Ejecutando analisis de consistencia de estilo...', en: 'LAYER 2: Running style consistency analysis...', fr: 'COUCHE 2 : Analyse de la coherence de style...', de: 'SCHICHT 2: Stilkonsistenz-Analyse wird ausgefuehrt...', pt: 'CAMADA 2: Executando analise de consistencia de estilo...', ru: 'СЛОЙ 2: Анализ согласованности стиля...', zh: '第2层：正在执行风格一致性分析...', ar: 'الطبقة 2: تنفيذ تحليل اتساق الأسلوب...', hi: 'परत 2: शैली सुसंगतता विश्लेषण चल रहा है...' }),
+      l({ es: 'Correlacionando señales IA + metadatos forenses...', en: 'Correlating AI signals + forensic metadata...', fr: 'Correlation des signaux IA + metadonnees techniques...', de: 'KI-Signale + forensische Metadaten werden korreliert...', pt: 'Correlacionando sinais de IA + metadados tecnicos...', ru: 'Сопоставление сигналов ИИ и технических метаданных...', zh: '正在关联 AI 信号与技术元数据...', ar: 'جار ربط إشارات الذكاء الاصطناعي مع البيانات الوصفية التقنية...', hi: 'AI संकेत + तकनीकी मेटाडेटा का सहसंबंध...' }),
+      l({ es: 'Correlacionando anomalias...', en: 'Correlating anomalies...', fr: 'Correlation des anomalies...', de: 'Anomalien werden korreliert...', pt: 'Correlacionando anomalias...', ru: 'Сопоставление аномалий...', zh: '正在关联异常...', ar: 'جار ربط الشذوذات...', hi: 'विसंगतियों का सहसंबंध...' }),
+      l({ es: 'CAPA 4: Calculando cobertura de evidencia y confianza...', en: 'LAYER 4: Calculating evidence coverage and confidence...', fr: 'COUCHE 4 : Calcul de la couverture des preuves et confiance...', de: 'SCHICHT 4: Belegabdeckung und Vertrauen werden berechnet...', pt: 'CAMADA 4: Calculando cobertura de evidencias e confianca...', ru: 'СЛОЙ 4: Расчет покрытия доказательств и уверенности...', zh: '第4层：正在计算证据覆盖率与置信度...', ar: 'الطبقة 4: حساب تغطية الأدلة والثقة...', hi: 'परत 4: साक्ष्य कवरेज और कॉन्फिडेंस की गणना...' }),
+      l({ es: 'CAPA 5: Aplicando reglas conservadoras Zero Guessing...', en: 'LAYER 5: Applying conservative Zero Guessing rules...', fr: 'COUCHE 5 : Application des regles conservatrices Zero Guessing...', de: 'SCHICHT 5: Konservative Zero-Guessing-Regeln werden angewandt...', pt: 'CAMADA 5: Aplicando regras conservadoras Zero Guessing...', ru: 'СЛОЙ 5: Применение консервативных правил Zero Guessing...', zh: '第5层：正在应用保守的 Zero Guessing 规则...', ar: 'الطبقة 5: تطبيق قواعد Zero Guessing المحافظة...', hi: 'परत 5: Zero Guessing के सतर्क नियम लागू...' }),
+      l({ es: 'Compilando acta pericial...', en: 'Compiling technical report...', fr: 'Compilation du rapport technique...', de: 'Technischer Bericht wird erstellt...', pt: 'Compilando relatorio tecnico...', ru: 'Формирование технического отчета...', zh: '正在生成技术报告...', ar: 'جار إعداد التقرير التقني...', hi: 'तकनीकी रिपोर्ट संकलित की जा रही है...' })
+    ];
+  }
 
-  const IMG_LOGS = [
-    'Inicializando certificacion...',
-    'CAPA 1: Verificando integridad, hash y cadena de custodia...',
-    'Analizando SHA-256...',
-    'Verificando consistencia de captura y compresion...',
-    'Decodificando evidencia...',
-    'Clasificando tipo de contenido con IA de pre-validacion...',
-    'Revisando zonas con posible edicion...',
-    'CAPA 2: Extrayendo OCR y consistencia tipografica visual...',
-    'Comprobando si viene de foto real de camara...',
-    'Correlacionando PRNU/ELA con veredicto visual IA...',
-    'CAPA 3: Analisis de ruido y pixeles de frontera...',
-    'Normalizando metricas...',
-    'CAPA 4: Calculando cobertura visual y confianza...',
-    'CAPA 5: Aplicando reglas conservadoras Zero Guessing...',
-    'Correlacionando anomalias...',
-    'Compilando acta pericial...'
-  ];
-  const DOC_KEEPALIVE_LOGS = [
-    'Esperando respuesta del motor IA',
-    'Correlacionando trazas de metadatos',
-    'Validando consistencia pericial'
-  ];
-  const IMG_KEEPALIVE_LOGS = [
-    'Esperando respuesta del detector visual IA',
-    'Fusionando señales PRNU/ELA',
-    'Ajustando indice de riesgo visual'
-  ];
+  function imgLogs() {
+    return [
+      l({ es: '[SISTEMA] Listo para analizar...', en: '[SYSTEM] Ready to analyze...', fr: '[SYSTEME] Pret pour analyser...', de: '[SYSTEM] Bereit zur Analyse...', pt: '[SISTEMA] Pronto para analisar...', ru: '[СИСТЕМА] Готово к анализу...', zh: '[系统] 已准备分析...', ar: '[النظام] جاهز للتحليل...', hi: '[सिस्टम] विश्लेषण के लिए तैयार...' }),
+      l({ es: '[CHECK] Esperando archivo...', en: '[CHECK] Waiting for file...', fr: '[CHECK] En attente du fichier...', de: '[CHECK] Warte auf Datei...', pt: '[CHECK] Aguardando arquivo...', ru: '[CHECK] Ожидание файла...', zh: '[CHECK] 等待文件中...', ar: '[CHECK] في انتظار الملف...', hi: '[CHECK] फ़ाइल की प्रतीक्षा...' }),
+      l({ es: 'Analizando SHA-256...', en: 'Analyzing SHA-256...', fr: 'Analyse de SHA-256...', de: 'SHA-256 wird analysiert...', pt: 'Analisando SHA-256...', ru: 'Анализ SHA-256...', zh: '正在分析 SHA-256...', ar: 'جار تحليل SHA-256...', hi: 'SHA-256 का विश्लेषण...' }),
+      l({ es: 'Verificando consistencia de captura y compresion...', en: 'Checking capture and compression consistency...', fr: 'Verification de la coherence capture/compression...', de: 'Konsistenz von Aufnahme und Kompression wird geprueft...', pt: 'Verificando consistencia de captura e compressao...', ru: 'Проверка согласованности захвата и сжатия...', zh: '正在验证采集与压缩一致性...', ar: 'جار التحقق من اتساق الالتقاط والضغط...', hi: 'कैप्चर और कंप्रेशन की सुसंगतता जाँची जा रही है...' }),
+      l({ es: 'Decodificando evidencia...', en: 'Decoding evidence...', fr: 'Decodage de la preuve...', de: 'Beweisdaten werden decodiert...', pt: 'Decodificando evidencia...', ru: 'Декодирование материала...', zh: '正在解码证据...', ar: 'جار فك ترميز الدليل...', hi: 'साक्ष्य डिकोड किया जा रहा है...' }),
+      l({ es: 'Clasificando tipo de contenido con IA de pre-validacion...', en: 'Classifying content type with AI pre-validation...', fr: 'Classification du contenu avec pre-validation IA...', de: 'Inhaltstyp mit KI-Vorvalidierung wird klassifiziert...', pt: 'Classificando tipo de conteudo com pre-validacao de IA...', ru: 'Классификация типа контента с ИИ-предпроверкой...', zh: '正在使用 AI 预校验分类内容类型...', ar: 'جار تصنيف نوع المحتوى عبر تحقق أولي بالذكاء الاصطناعي...', hi: 'AI प्री-वैलिडेशन से कंटेंट टाइप वर्गीकृत हो रहा है...' }),
+      l({ es: 'Revisando zonas con posible edicion...', en: 'Reviewing areas with possible edits...', fr: 'Analyse des zones avec edition possible...', de: 'Bereiche mit moeglicher Bearbeitung werden geprueft...', pt: 'Revisando zonas com possivel edicao...', ru: 'Проверка зон с возможным редактированием...', zh: '正在检查可能编辑区域...', ar: 'جار مراجعة المناطق ذات التعديل المحتمل...', hi: 'संभावित एडिट वाले क्षेत्रों की समीक्षा...' }),
+      l({ es: 'CAPA 2: Extrayendo OCR y consistencia tipografica visual...', en: 'LAYER 2: Extracting OCR and visual typography consistency...', fr: 'COUCHE 2 : Extraction OCR et coherence typographique visuelle...', de: 'SCHICHT 2: OCR und visuelle Typokonsistenz werden extrahiert...', pt: 'CAMADA 2: Extraindo OCR e consistencia tipografica visual...', ru: 'СЛОЙ 2: Извлечение OCR и визуальной типографики...', zh: '第2层：提取 OCR 与视觉排版一致性...', ar: 'الطبقة 2: استخراج OCR واتساق الطباعة بصريا...', hi: 'परत 2: OCR और दृश्य टाइपोग्राफी सुसंगतता निकाली जा रही है...' }),
+      l({ es: 'Comprobando si viene de foto real de camara...', en: 'Checking if it comes from a real camera photo...', fr: 'Verification d une origine photo camera reelle...', de: 'Pruefung, ob es von einem echten Kamerafoto stammt...', pt: 'Verificando se vem de foto real de camera...', ru: 'Проверка, получено ли с реальной камеры...', zh: '正在检查是否来自真实相机照片...', ar: 'جار التحقق مما إذا كانت من صورة كاميرا حقيقية...', hi: 'जांच रहे हैं कि यह असली कैमरा फोटो से आया है या नहीं...' }),
+      l({ es: 'Correlacionando PRNU/ELA con veredicto visual IA...', en: 'Correlating PRNU/ELA with AI visual verdict...', fr: 'Correlation PRNU/ELA avec verdict visuel IA...', de: 'PRNU/ELA wird mit KI-Bildurteil korreliert...', pt: 'Correlacionando PRNU/ELA com veredito visual da IA...', ru: 'Сопоставление PRNU/ELA с визуальным вердиктом ИИ...', zh: '正在关联 PRNU/ELA 与 AI 视觉结论...', ar: 'جار ربط PRNU/ELA مع الحكم البصري للذكاء الاصطناعي...', hi: 'PRNU/ELA को AI विज़ुअल निर्णय से जोड़ा जा रहा है...' }),
+      l({ es: 'CAPA 3: Analisis de ruido y pixeles de frontera...', en: 'LAYER 3: Noise and edge-pixel analysis...', fr: 'COUCHE 3 : Analyse du bruit et des pixels de bord...', de: 'SCHICHT 3: Rausch- und Randpixelanalyse...', pt: 'CAMADA 3: Analise de ruido e pixels de borda...', ru: 'СЛОЙ 3: Анализ шума и граничных пикселей...', zh: '第3层：噪声与边界像素分析...', ar: 'الطبقة 3: تحليل الضوضاء وبكسلات الحواف...', hi: 'परत 3: शोर और किनारे-पिक्सेल विश्लेषण...' }),
+      l({ es: 'Normalizando metricas...', en: 'Normalizing metrics...', fr: 'Normalisation des metriques...', de: 'Metriken werden normalisiert...', pt: 'Normalizando metricas...', ru: 'Нормализация метрик...', zh: '正在标准化指标...', ar: 'جار توحيد المقاييس...', hi: 'मेट्रिक्स नॉर्मलाइज़ किए जा रहे हैं...' }),
+      l({ es: 'CAPA 4: Calculando cobertura visual y confianza...', en: 'LAYER 4: Calculating visual coverage and confidence...', fr: 'COUCHE 4 : Calcul de couverture visuelle et confiance...', de: 'SCHICHT 4: Visuelle Abdeckung und Vertrauen werden berechnet...', pt: 'CAMADA 4: Calculando cobertura visual e confianca...', ru: 'СЛОЙ 4: Расчет визуального покрытия и уверенности...', zh: '第4层：正在计算视觉覆盖率与置信度...', ar: 'الطبقة 4: حساب التغطية البصرية والثقة...', hi: 'परत 4: दृश्य कवरेज और कॉन्फिडेंस की गणना...' }),
+      l({ es: 'CAPA 5: Aplicando reglas conservadoras Zero Guessing...', en: 'LAYER 5: Applying conservative Zero Guessing rules...', fr: 'COUCHE 5 : Application des regles conservatrices Zero Guessing...', de: 'SCHICHT 5: Konservative Zero-Guessing-Regeln werden angewandt...', pt: 'CAMADA 5: Aplicando regras conservadoras Zero Guessing...', ru: 'СЛОЙ 5: Применение консервативных правил Zero Guessing...', zh: '第5层：正在应用保守的 Zero Guessing 规则...', ar: 'الطبقة 5: تطبيق قواعد Zero Guessing المحافظة...', hi: 'परत 5: Zero Guessing के सतर्क नियम लागू...' }),
+      l({ es: 'Correlacionando anomalias...', en: 'Correlating anomalies...', fr: 'Correlation des anomalies...', de: 'Anomalien werden korreliert...', pt: 'Correlacionando anomalias...', ru: 'Сопоставление аномалий...', zh: '正在关联异常...', ar: 'جار ربط الشذوذات...', hi: 'विसंगतियों का सहसंबंध...' }),
+      l({ es: 'Compilando acta pericial...', en: 'Compiling technical report...', fr: 'Compilation du rapport technique...', de: 'Technischer Bericht wird erstellt...', pt: 'Compilando relatorio tecnico...', ru: 'Формирование технического отчета...', zh: '正在生成技术报告...', ar: 'جار إعداد التقرير التقني...', hi: 'तकनीकी रिपोर्ट संकलित की जा रही है...' })
+    ];
+  }
+  function docKeepaliveLogs() {
+    return [
+      l({ es: 'Esperando respuesta del motor IA', en: 'Waiting for AI engine response', fr: 'En attente de la reponse du moteur IA', de: 'Warte auf Antwort der KI-Engine', pt: 'Aguardando resposta do motor de IA', ru: 'Ожидание ответа ИИ-движка', zh: '等待 AI 引擎响应', ar: 'في انتظار استجابة محرك الذكاء الاصطناعي', hi: 'AI इंजन के उत्तर की प्रतीक्षा' }),
+      l({ es: 'Correlacionando trazas de metadatos', en: 'Correlating metadata traces', fr: 'Correlation des traces de metadonnees', de: 'Metadaten-Spuren werden korreliert', pt: 'Correlacionando rastros de metadados', ru: 'Сопоставление следов метаданных', zh: '正在关联元数据轨迹', ar: 'جار ربط آثار البيانات الوصفية', hi: 'मेटाडेटा ट्रेस का सहसंबंध' }),
+      l({ es: 'Validando consistencia pericial', en: 'Validating technical consistency', fr: 'Validation de la coherence technique', de: 'Technische Konsistenz wird validiert', pt: 'Validando consistencia tecnica', ru: 'Проверка технической согласованности', zh: '正在验证技术一致性', ar: 'جار التحقق من الاتساق التقني', hi: 'तकनीकी सुसंगतता सत्यापित की जा रही है' })
+    ];
+  }
+  function imgKeepaliveLogs() {
+    return [
+      l({ es: 'Esperando respuesta del detector visual IA', en: 'Waiting for AI visual detector response', fr: 'En attente de la reponse du detecteur visuel IA', de: 'Warte auf Antwort des KI-Bilddetektors', pt: 'Aguardando resposta do detector visual de IA', ru: 'Ожидание ответа визуального ИИ-детектора', zh: '等待 AI 视觉检测器响应', ar: 'في انتظار استجابة كاشف الذكاء الاصطناعي البصري', hi: 'AI विज़ुअल डिटेक्टर के उत्तर की प्रतीक्षा' }),
+      l({ es: 'Fusionando señales PRNU/ELA', en: 'Merging PRNU/ELA signals', fr: 'Fusion des signaux PRNU/ELA', de: 'PRNU/ELA-Signale werden zusammengefuehrt', pt: 'Fundindo sinais PRNU/ELA', ru: 'Объединение сигналов PRNU/ELA', zh: '正在融合 PRNU/ELA 信号', ar: 'جار دمج إشارات PRNU/ELA', hi: 'PRNU/ELA संकेतों का एकीकरण' }),
+      l({ es: 'Ajustando indice de riesgo visual', en: 'Adjusting visual risk index', fr: 'Ajustement de l indice de risque visuel', de: 'Visueller Risikoindex wird angepasst', pt: 'Ajustando indice de risco visual', ru: 'Настройка индекса визуального риска', zh: '正在调整视觉风险指数', ar: 'جار ضبط مؤشر المخاطر البصرية', hi: 'विज़ुअल जोखिम सूचकांक समायोजित किया जा रहा है' })
+    ];
+  }
 
   const IDLE_TELEMETRY_LINES = [
-    'Canal de telemetria activo.',
-    'Sincronizando reloj forense local...',
-    'Esperando evidencia documental...',
-    'Buffer de eventos en escucha.',
-    'Motor Jamalajam en estado LISTO.'
+    '[SISTEMA] Listo para analizar...',
+    '[CHECK] Esperando archivo...',
+    '[SISTEMA] Preparando entorno...',
+    '[CHECK] Todo listo para comenzar.',
+    '[SISTEMA] ScanIt disponible.'
   ];
+
+  function telemetryLocaleTag(code: string) {
+    const map: Record<string, string> = {
+      es: 'es-ES',
+      en: 'en-US',
+      fr: 'fr-FR',
+      de: 'de-DE',
+      pt: 'pt-PT',
+      ru: 'ru-RU',
+      zh: 'zh-CN',
+      ar: 'ar-SA',
+      hi: 'hi-IN'
+    };
+    return map[code] ?? 'en-US';
+  }
+
+  function telemetrySequence(kind: 'document' | 'image') {
+    return kind === 'document' ? docLogs() : imgLogs();
+  }
+
+  function telemetryKeepalive(kind: 'document' | 'image') {
+    return kind === 'document' ? docKeepaliveLogs() : imgKeepaliveLogs();
+  }
+
+  function telemetryLineAt(kind: 'document' | 'image', idx: number) {
+    const seq = telemetrySequence(kind);
+    if (idx < seq.length) return seq[idx] ?? '';
+    const keepalive = telemetryKeepalive(kind);
+    const base = keepalive[idx % keepalive.length] ?? keepalive[0] ?? '';
+    return `${base}${'.'.repeat((idx % 3) + 1)}`;
+  }
+
+  function rebuildTelemetryLogs(kind: 'document' | 'image', steps: number) {
+    const rebuilt: string[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      rebuilt.push(telemetryLineAt(kind, i));
+    }
+    return rebuilt.slice(-MAX_LOG_LINES);
+  }
+
+  function idleLine(idx: number) {
+    const keys = [
+      'scanit.telemetry.idle.ready',
+      'scanit.telemetry.idle.waiting',
+      'scanit.telemetry.idle.preparing',
+      'scanit.telemetry.idle.done',
+      'scanit.telemetry.idle.available'
+    ];
+    return $t(keys[idx] ?? keys[0]);
+  }
 
   function startIdleTelemetry() {
     if (busy || visualScanning || idleTelemetryTimer) return;
+    const localeTag = telemetryLocaleTag($locale);
     if (scanLogs.length === 0) {
-      scanLogs = [`${IDLE_TELEMETRY_LINES[0]} ${new Date().toLocaleTimeString('es-ES')}`];
+      scanLogs = [`${idleLine(0)} ${new Date().toLocaleTimeString(localeTag)}`];
     }
     let idx = 1;
     idleTelemetryTimer = setInterval(() => {
@@ -236,7 +304,7 @@
         stopIdleTelemetry();
         return;
       }
-      const line = `${IDLE_TELEMETRY_LINES[idx % IDLE_TELEMETRY_LINES.length]} ${new Date().toLocaleTimeString('es-ES')}`;
+      const line = `${idleLine(idx % IDLE_TELEMETRY_LINES.length)} ${new Date().toLocaleTimeString(localeTag)}`;
       scanLogs = [...scanLogs, line].slice(-MAX_LOG_LINES);
       idx += 1;
     }, 2400);
@@ -258,8 +326,25 @@
   }
 
   function nowStamp() {
-    return new Date().toLocaleTimeString('es-ES', { hour12: false });
+    return new Date().toLocaleTimeString(telemetryLocaleTag($locale), { hour12: false });
   }
+
+  $effect(() => {
+    const activeLocale = $locale;
+    if (typeof window === 'undefined') return;
+    if (busy || visualScanning) return;
+    stopIdleTelemetry();
+    scanLogs = [`${idleLine(0)} ${new Date().toLocaleTimeString(telemetryLocaleTag(activeLocale))}`];
+    startIdleTelemetry();
+  });
+
+  $effect(() => {
+    const activeLocale = $locale;
+    if (!activeLocale) return;
+    if (!activeTelemetryKind) return;
+    if (!busy && !visualScanning) return;
+    scanLogs = rebuildTelemetryLogs(activeTelemetryKind, scanStep);
+  });
 
   function telemetryLevel(line: string) {
     const l = line.toLowerCase();
@@ -330,6 +415,7 @@
     stopIdleTelemetry();
     scanLogs = [];
     scanStep = 0;
+    activeTelemetryKind = null;
     showResult = false;
     showResultModal = false;
     visualScanning = false;
@@ -343,18 +429,20 @@
   function startTelemetry(kind: 'document' | 'image') {
     stopIdleTelemetry();
     resetTelemetry();
+    activeTelemetryKind = kind;
     visualScanning = true;
     scanStartedAt = Date.now();
-    const seq = kind === 'document' ? DOC_LOGS : IMG_LOGS;
-    const keepAlive = kind === 'document' ? DOC_KEEPALIVE_LOGS : IMG_KEEPALIVE_LOGS;
+    const seq = telemetrySequence(kind);
     scanLogs = [seq[0]];
     scanStep = 1;
     telemetryTimer = setInterval(() => {
       if (scanStep < seq.length) {
-        scanLogs = [...scanLogs, seq[scanStep]].slice(-MAX_LOG_LINES);
+        const liveSeq = telemetrySequence(kind);
+        scanLogs = [...scanLogs, liveSeq[scanStep]].slice(-MAX_LOG_LINES);
         scanStep += 1;
         return;
       }
+      const keepAlive = telemetryKeepalive(kind);
       const dots = '.'.repeat((scanStep % 3) + 1);
       const msg = `${keepAlive[scanStep % keepAlive.length]}${dots}`;
       scanLogs = [...scanLogs, msg].slice(-MAX_LOG_LINES);
@@ -372,6 +460,7 @@
     window.setTimeout(() => {
       showResult = true;
       visualScanning = false;
+      activeTelemetryKind = null;
       if (documentResult || imageResult) {
         showResultModal = true;
         if (mode === 'document' && documentResult) {
@@ -1197,6 +1286,11 @@
         true
       );
       line(`[+] Veredicto final: ${verdictLabel[documentResult.verdict]}`, BLACK, 14, true);
+      if (documentResult.evidenceCoverage?.officialPdfSource) {
+        line('[+] Fuente oficial detectada: SI (emisor gubernamental/organismo publico reconocido).', BLACK, 14, true);
+      } else if (documentResult.extension === 'pdf') {
+        line('[+] Fuente oficial detectada: NO/NO CONCLUYENTE en metadatos de emisor.');
+      }
     } else if (mode === 'image' && imageResult) {
       line(`[+] Archivo: ${imageResult.fileName}`);
       line(`[+] SHA-256 (huella unica): ${imageHash}`, BLACK, 14, true);
@@ -1255,6 +1349,11 @@
       line(`> Total de palabras detectadas: ${documentResult.metrics.wordCount}`);
       line(`> Paginas analizadas: ${documentResult.metrics.pageCount ?? 'N/D'}`);
       line(`> Coeficiente sintactico: ${documentResult.metrics.syntaxUniformityCoefficient ?? 'N/D'}`);
+      line(
+        `> Fuente oficial detectada: ${
+          documentResult.evidenceCoverage?.officialPdfSource ? 'SI (metadatos compatibles con organismo oficial)' : 'NO/NO CONCLUYENTE'
+        }`
+      );
       if (documentResult.linguisticAi) {
         line(`> Sospecha IA linguistica: ${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%`);
         for (const r of documentResult.linguisticAi.reasons) line(`> Motivo tecnico: ${r}`);
@@ -1297,7 +1396,7 @@
     line('> Indice de anomalias: pondera alertas rojas y ambar.');
     line('> Zero Guessing Policy: decisiones con metrica cuantificable (entropia, ratio, timeline, hash), no por intuicion de estilo.');
 
-    doc.save(`Jamalajam-Certificado-${Date.now()}.pdf`);
+    doc.save(`ScanIt-Certificado-${Date.now()}.pdf`);
   }
 </script>
 
@@ -1306,24 +1405,27 @@
   <meta name="description" content={$seo.description} />
 </svelte:head>
 
-<main class="dashboard" class:panic-mode={panicCriticalActive()}>
+<main class="dashboard" class:panic-mode={panicCriticalActive()} dir={$locale === 'ar' ? 'rtl' : 'ltr'}>
   <section class="hero glass">
     <div class="hero-left">
-      <p class="eyebrow">Academic Integrity Forensics Suite</p>
-      <h1>Jamalajam</h1>
-      <p class="subtitle">
-        Evidencia fisica, verificable y defendible. Otros analizan el estilo; Jamalajam analiza la integridad del archivo.
-      </p>
+      <p class="eyebrow">{$t('scanit.header.title')}</p>
+      <h1>ScanIt</h1>
+      <p class="subtitle">{$t('scanit.header.subtitle')}</p>
       <div class="hero-badges">
-        <span>SHA-256 como prueba base</span>
-        <span>Timeline verificable</span>
-        <span>Zero Guessing Policy</span>
+        <span>{$t('scanit.badges.fileIdentity')}</span>
+        <span>{$t('scanit.badges.workTime')}</span>
+        <span>{$t('scanit.badges.realData')}</span>
       </div>
     </div>
     <div class="hero-right">
       <div class="hero-actions">
-        <button class="ghost ghost-info" onclick={() => (showScienceModal = true)}>Como funciona</button>
-        <button class="ghost" onclick={resetAll}>Limpiar sesion</button>
+        <LanguageSelect />
+        <button class="ghost ghost-info" onclick={() => (showScienceModal = true)}>
+          {l({ es: 'Como funciona', en: 'How it works', fr: 'Comment ca marche', de: 'So funktioniert es', pt: 'Como funciona', ru: 'Как это работает', zh: '工作原理', ar: 'كيف يعمل', hi: 'यह कैसे काम करता है' })}
+        </button>
+        <button class="ghost" onclick={resetAll}>
+          {l({ es: 'Limpiar sesion', en: 'Clear session', fr: 'Nettoyer la session', de: 'Sitzung leeren', pt: 'Limpar sessao', ru: 'Очистить сессию', zh: '清除会话', ar: 'مسح الجلسة', hi: 'सत्र साफ करें' })}
+        </button>
       </div>
     </div>
   </section>
@@ -1340,8 +1442,8 @@
           </svg>
         </span>
         <span>
-          <strong>Auditar Documento</strong>
-          <small>Word/PDF forensic intake</small>
+          <strong>{$t('scanit.modules.verifyDocument')}</strong>
+          <small>Word/PDF</small>
         </span>
       </button>
       <button class:active={mode === 'image'} onclick={() => (mode = 'image')}>
@@ -1353,17 +1455,17 @@
           </svg>
         </span>
         <span>
-          <strong>Certificar Captura</strong>
-          <small>Foto real vs captura editada</small>
+          <strong>{$t('scanit.modules.reviewCapture')}</strong>
+          <small>Imagen o captura</small>
         </span>
       </button>
     </aside>
 
     <section class="panel glass">
       {#if mode === 'document'}
-        <h2>Modulo de Documentos</h2>
+        <h2>{$t('scanit.main.title')}</h2>
         <p class="panel-sub">
-          Extraccion profunda de metadatos, tiempo de edicion y patrones de inyeccion textual con criterio conservador.
+          {$t('scanit.main.description')}
         </p>
         <section class="scan-grid">
           <div
@@ -1384,7 +1486,7 @@
                 <span class="dot"></span>
                 <span>Visor Forense</span>
               </div>
-              <div class="viewer-meta">{documentFile ? documentFile.name : 'Arrastra un .docx o .pdf'}</div>
+              <div class="viewer-meta">{documentFile ? documentFile.name : $t('scanit.dropzone.document')}</div>
             </div>
 
             <input
@@ -1490,9 +1592,19 @@
           </aside>
         </section>
       {:else}
-        <h2>Modulo de Imagen</h2>
+        <h2>{l({ es: 'Modulo de Imagen', en: 'Image Module', fr: 'Module Image', de: 'Bildmodul', pt: 'Modulo de Imagem', ru: 'Модуль изображений', zh: '图像模块', ar: 'وحدة الصور', hi: 'इमेज मॉड्यूल' })}</h2>
         <p class="panel-sub">
-          Verifica si la evidencia viene de una foto real de camara y detecta posibles retoques o pegados.
+          {l({
+            es: 'Verifica si la evidencia viene de una foto real de camara y detecta posibles retoques o pegados.',
+            en: 'Checks whether evidence comes from a real camera photo and detects possible edits or pasted areas.',
+            fr: 'Verifie si la preuve provient d une vraie photo de camera et detecte les retouches ou collages possibles.',
+            de: 'Prueft, ob der Nachweis von einem echten Kamerafoto stammt, und erkennt moegliche Bearbeitungen oder Einfuegungen.',
+            pt: 'Verifica se a evidencia vem de uma foto real de camera e detecta possiveis retoques ou colagens.',
+            ru: 'Проверяет, получено ли доказательство с реальной камеры, и выявляет возможные правки или вставки.',
+            zh: '检查证据是否来自真实相机照片，并检测可能的编辑或拼接区域。',
+            ar: 'يتحقق مما إذا كانت الأدلة من صورة كاميرا حقيقية ويكشف التعديلات أو اللصق المحتمل.',
+            hi: 'जांच करता है कि साक्ष्य वास्तविक कैमरा फोटो से आया है या नहीं और संभावित एडिट या पेस्ट क्षेत्रों का पता लगाता है।'
+          })}
         </p>
         <section class="scan-grid">
           <div
@@ -1513,7 +1625,7 @@
                 <span class="dot"></span>
                 <span>Visor de Evidencia</span>
               </div>
-              <div class="viewer-meta">{imageFile ? imageFile.name : 'Arrastra una imagen'}</div>
+              <div class="viewer-meta">{imageFile ? imageFile.name : l({ es: 'Arrastra una imagen', en: 'Drop an image', fr: 'Deposez une image', de: 'Bild hier ablegen', pt: 'Arraste uma imagem', ru: 'Перетащите изображение', zh: '拖放一张图片', ar: 'اسحب صورة', hi: 'एक छवि ड्रैग करें' })}</div>
             </div>
 
             <input
@@ -1558,21 +1670,23 @@
             <div class="telemetry-action">
               {#if imageFile}
                 <button class="cta cta-side" disabled={busy || visualScanning} onclick={auditImage}>
-                  {busy ? 'Certificando...' : 'Iniciar Certificacion de Evidencia'}
+                  {busy
+                    ? l({ es: 'Certificando...', en: 'Certifying...', fr: 'Certification...', de: 'Zertifiziere...', pt: 'Certificando...', ru: 'Проверка...', zh: '认证中...', ar: 'جارٍ التحقق...', hi: 'सर्टिफाई किया जा रहा है...' })
+                    : l({ es: 'Iniciar Certificacion de Evidencia', en: 'Start Evidence Certification', fr: 'Demarrer la certification', de: 'Zertifizierung starten', pt: 'Iniciar certificacao da evidencia', ru: 'Запустить сертификацию', zh: '开始证据认证', ar: 'بدء اعتماد الأدلة', hi: 'साक्ष्य प्रमाणन शुरू करें' })}
                 </button>
               {:else}
-                <p class="telemetry-hint">Sube una imagen para iniciar la certificacion.</p>
+                <p class="telemetry-hint">{l({ es: 'Sube una imagen para iniciar la certificacion.', en: 'Upload an image to start certification.', fr: 'Importez une image pour demarrer la certification.', de: 'Laden Sie ein Bild hoch, um die Zertifizierung zu starten.', pt: 'Envie uma imagem para iniciar a certificacao.', ru: 'Загрузите изображение, чтобы начать сертификацию.', zh: '上传图片以开始认证。', ar: 'ارفع صورة لبدء الاعتماد.', hi: 'प्रमाणीकरण शुरू करने के लिए छवि अपलोड करें।' })}</p>
               {/if}
               {#if imageResult && showResult && !busy && !visualScanning}
-                <button class="ghost reopen-result" onclick={reopenResultModal}>Ver resultado</button>
+                <button class="ghost reopen-result" onclick={reopenResultModal}>{l({ es: 'Ver resultado', en: 'View result', fr: 'Voir le resultat', de: 'Ergebnis ansehen', pt: 'Ver resultado', ru: 'Посмотреть результат', zh: '查看结果', ar: 'عرض النتيجة', hi: 'परिणाम देखें' })}</button>
                 <button class={`download ${downloadToneClass()}`} onclick={downloadCertificate}>
-                  Descargar Informe Completo
+                  {l({ es: 'Descargar Informe Completo', en: 'Download Full Report', fr: 'Telecharger le rapport complet', de: 'Vollbericht herunterladen', pt: 'Baixar relatorio completo', ru: 'Скачать полный отчет', zh: '下载完整报告', ar: 'تنزيل التقرير الكامل', hi: 'पूर्ण रिपोर्ट डाउनलोड करें' })}
                 </button>
               {/if}
             </div>
             <div class="telemetry-body">
               {#if scanLogs.length === 0}
-                <p class="telemetry-empty">La consola aparecera aqui durante el escaneo.</p>
+                <p class="telemetry-empty">{l({ es: 'La consola aparecera aqui durante el escaneo.', en: 'Console output appears here during scan.', fr: 'La console apparait ici pendant le scan.', de: 'Die Konsole erscheint waehrend des Scans hier.', pt: 'A consola aparecera aqui durante a verificacao.', ru: 'Вывод консоли появится здесь во время сканирования.', zh: '扫描期间控制台输出会显示在这里。', ar: 'سيظهر مخرجات وحدة التحكم هنا أثناء الفحص.', hi: 'स्कैन के दौरान कंसोल आउटपुट यहां दिखाई देगा।' })}</p>
               {:else}
                 {#each scanLogs as line, i (i)}
                   <p
@@ -1594,7 +1708,7 @@
     </section>
   </section>
 
-  <footer class="kronos-footer glass" aria-label="Footer Jamalajam">
+  <footer class="scanit-footer glass" aria-label="Footer ScanIt">
     <div class="kf-left">
       <a href="https://github.com/moisesvalero" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
         <svg viewBox="0 0 24 24" fill="none">
@@ -1638,26 +1752,42 @@
         class="science-modal glass"
         role="dialog"
         aria-modal="true"
-        aria-label="Como funciona Jamalajam"
+        aria-label={l({ es: 'Como funciona ScanIt', en: 'How ScanIt works', fr: 'Comment fonctionne ScanIt', de: 'So funktioniert ScanIt', pt: 'Como funciona o ScanIt', ru: 'Как работает ScanIt', zh: 'ScanIt 工作原理', ar: 'كيف يعمل ScanIt', hi: 'ScanIt कैसे काम करता है' })}
         tabindex="0"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.key === 'Escape' && (showScienceModal = false)}
       >
         <div class="science-modal-head">
-          <h3>Como funciona Jamalajam</h3>
-          <button class="ghost science-close" onclick={() => (showScienceModal = false)}>Cerrar</button>
+          <h3>{l({ es: 'Como funciona ScanIt', en: 'How ScanIt works', fr: 'Comment fonctionne ScanIt', de: 'So funktioniert ScanIt', pt: 'Como funciona o ScanIt', ru: 'Как работает ScanIt', zh: 'ScanIt 工作原理', ar: 'كيف يعمل ScanIt', hi: 'ScanIt कैसे काम करता है' })}</h3>
+          <button class="ghost science-close" onclick={() => (showScienceModal = false)}>{l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}</button>
         </div>
         <div class="science-modal-body">
           <p>
-            Jamalajam revisa el archivo en varias capas: metadatos, historial de creacion/modificacion, estructura del
-            documento y patrones tecnicos del contenido. Tambien usa IA como apoyo para detectar incoherencias.
+            ScanIt ejecuta una verificacion multicapa para estimar integridad y originalidad del archivo. El proceso
+            combina huella SHA-256, timeline de creacion/modificacion, metadatos internos, estructura del formato y
+            consistencia del contenido. En documentos, revisa velocidad de escritura, señales de edicion y coherencia
+            entre autoria y tiempos; en imagenes, revisa patrones de compresion, ruido y consistencia visual por zonas.
           </p>
           <p>
-            El objetivo no es adivinar: es mostrar indicios tecnicos claros. Si la evidencia no es suficiente, el sistema
-            prioriza <strong>No concluyente</strong> para evitar acusaciones injustas.
+            La plataforma prioriza evidencia comprobable frente a suposiciones. Por eso, cada resultado incluye tres
+            indicadores operativos: veredicto, confianza del informe y semaforo de cobertura. La confianza no es una
+            promesa absoluta: es una medida tecnica de cuanta evidencia util se pudo validar en esa sesion concreta.
+            Cuanta mas cobertura y mas consistencia entre señales independientes, mayor fiabilidad del resultado.
+          </p>
+          <p>
+            Tambien incorpora controles de seguridad para reducir falsos positivos: si faltan datos clave o hay
+            contradicciones entre señales, ScanIt bloquea veredictos optimistas y aplica
+            <strong> No concluyente</strong>. Esta regla evita conclusiones fuertes con evidencia parcial y mantiene un
+            enfoque prudente para entornos academicos y profesionales.
+          </p>
+          <p>
+            Sobre tasas de exito: no existe un porcentaje universal valido para todos los tipos de archivo y todos los
+            contextos. Por transparencia, ScanIt reporta calidad del analisis en cada caso (cobertura + confianza) en
+            lugar de ocultarlo tras una cifra fija global.
           </p>
           <p class="science-disclaimer">
-            Jamalajam proporciona evidencias tecnicas. La decision final siempre debe ser humana.
+            ScanIt es una herramienta de verificacion tecnica y soporte a la decision. La conclusion final siempre debe
+            tomarla una persona responsable del proceso.
           </p>
         </div>
       </div>
@@ -1684,7 +1814,7 @@
       >
         <div class="science-modal-head">
           <h3>Resultado pericial</h3>
-          <button class="ghost science-close" onclick={() => (showResultModal = false)}>Cerrar</button>
+          <button class="ghost science-close" onclick={() => (showResultModal = false)}>{l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}</button>
         </div>
         <div class="science-modal-body">
           {#if mode === 'document' && documentResult}
@@ -1760,7 +1890,7 @@
           {/if}
         </div>
         <button class={`download ${downloadToneClass()}`} onclick={downloadCertificate}>
-          Descargar Informe Completo
+          {l({ es: 'Descargar Informe Completo', en: 'Download Full Report', fr: 'Telecharger le rapport complet', de: 'Vollbericht herunterladen', pt: 'Baixar relatorio completo', ru: 'Скачать полный отчет', zh: '下载完整报告', ar: 'تنزيل التقرير الكامل', hi: 'पूर्ण रिपोर्ट डाउनलोड करें' })}
         </button>
       </div>
     </div>
@@ -1862,6 +1992,9 @@
     border-radius: 14px;
     padding: 0.55rem 0.75rem;
     margin-bottom: 0.55rem;
+    position: relative;
+    z-index: 120;
+    overflow: visible;
   }
   .hero-left {
     max-width: 1000px;
@@ -1930,6 +2063,8 @@
     gap: 0.95rem;
     height: auto;
     max-height: none;
+    position: relative;
+    z-index: 10;
   }
   .mode-rail {
     border-radius: 18px;
@@ -2334,7 +2469,7 @@
     min-height: 100px;
     overflow: auto;
     scrollbar-width: thin;
-    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    font-family: 'JetBrains Mono', 'Noto Sans Mono', Consolas, 'Courier New', 'Noto Sans Arabic', 'Noto Sans SC', 'Noto Sans', monospace;
   }
   .telemetry-action {
     margin-top: 0.1rem;
@@ -2346,7 +2481,7 @@
     font-size: 0.9rem;
   }
   .telemetry-line {
-    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    font-family: 'JetBrains Mono', 'Noto Sans Mono', Consolas, 'Courier New', 'Noto Sans Arabic', 'Noto Sans SC', 'Noto Sans', monospace;
     font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.92);
     line-height: 1.4;
@@ -2416,7 +2551,7 @@
   }
   .telemetry-cursor {
     margin: 0.3rem 0 0;
-    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    font-family: 'JetBrains Mono', 'Noto Sans Mono', Consolas, 'Courier New', 'Noto Sans Arabic', 'Noto Sans SC', 'Noto Sans', monospace;
     color: rgba(0, 229, 255, 0.9);
     animation: termCursorBlink 0.9s step-end infinite;
   }
@@ -2977,7 +3112,7 @@
     .side-result {
       max-height: none;
     }
-    .kronos-footer {
+    .scanit-footer {
       flex-direction: column;
       align-items: stretch;
       gap: 0.45rem;
@@ -2988,7 +3123,7 @@
       justify-content: center;
     }
   }
-  .kronos-footer {
+  .scanit-footer {
     margin-top: 0.5rem;
     border-radius: 12px;
     min-height: 40px;
@@ -2997,6 +3132,17 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+  }
+  .dashboard[dir='rtl'] .hero-left,
+  .dashboard[dir='rtl'] .panel,
+  .dashboard[dir='rtl'] .telemetry,
+  .dashboard[dir='rtl'] .viewer-head {
+    text-align: right;
+  }
+  .dashboard[dir='rtl'] .hero-actions,
+  .dashboard[dir='rtl'] .telemetry-head,
+  .dashboard[dir='rtl'] .viewer-head {
+    flex-direction: row-reverse;
   }
   .science-modal-backdrop {
     position: fixed;

@@ -2,6 +2,37 @@
   "layout": {
     "title": "KRONOS | Deepfake Defense Suite"
   },
+  "scanit": {
+    "header": {
+      "title": "文档安全与验证",
+      "subtitle": "以简单方式验证文件的真实性和来源。"
+    },
+    "badges": {
+      "fileIdentity": "文件身份",
+      "workTime": "工作时长",
+      "realData": "真实数据"
+    },
+    "modules": {
+      "verifyDocument": "验证文档",
+      "reviewCapture": "检查截图"
+    },
+    "main": {
+      "title": "文件分析器",
+      "description": "我们通过分析技术历史和数字证据，验证文档是否由人工创建。"
+    },
+    "dropzone": {
+      "document": "将文件拖到这里（Word 或 PDF）"
+    },
+    "telemetry": {
+      "idle": {
+        "ready": "[系统] 已准备好分析...",
+        "waiting": "[CHECK] 等待文件...",
+        "preparing": "[系统] 正在准备环境...",
+        "done": "[CHECK] 一切就绪，可以开始。",
+        "available": "[系统] ScanIt 可用。"
+      }
+    }
+  },
   "kronos": {
     "hero": {
       "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",

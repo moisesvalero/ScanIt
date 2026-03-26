@@ -1,177 +1,107 @@
-# KRONOS (Estado Público de Investigación)
+# ScanIt
 
-Repositorio abierto con el estado actual de KRONOS: un prototipo de análisis forense para estimar riesgo de manipulación/síntesis en imagen y vídeo.
+Suite forense web para auditoria de integridad academica en documentos e imagenes, con enfoque en evidencia tecnica reproducible.
 
-Este README es deliberadamente sincero. El objetivo es dejar trazabilidad de lo que se intentó, qué se consiguió y qué límites siguen abiertos.
+## Vision del proyecto
 
----
+ScanIt ayuda a responder una pregunta concreta: **"¿hay señales tecnicas de manipulacion o generacion sintética en esta evidencia?"**  
+No pretende adivinar; aplica una politica conservadora (**Zero Guessing Policy**) para evitar falsos positivos agresivos.
 
-## 1) Qué es KRONOS
+Principios:
 
-KRONOS combina señales heterogéneas y las agrega con un ensemble:
+- Evidencia primero (SHA-256, timeline, metadatos y huellas tecnicas).
+- Trazabilidad de decisiones (anomalias explicitas y cobertura de evidencia).
+- Salida conservadora (`no_concluyente`) cuando faltan pruebas suficientes.
 
-- Señales forenses visuales (ELA, frecuencia, textura, bordes, ruido, ROI cara/fondo).
-- Señales biométricas en vídeo (estabilidad de landmarks, parpadeo, jitter de máscara).
-- Señales físicas en vídeo (rPPG sobre canal verde en ROI de mejillas).
-- Señales de contenedor MP4 (estructura de boxes y pistas de empaquetado/transcodificación).
-- Señales de metadatos (origen no verificable y software de terceros cuando aplica).
+## Funcionalidades principales (MVP)
 
-Resultado: `riskScore` (0-100), `verdict` y votos por especialista (`ensembleVotes`) para explicar la decisión.
+### 1) Auditoria de documentos (`.docx` y `.pdf`)
 
----
+- Extraccion de metadatos de creacion/modificacion y autoria.
+- Calculo de ratio palabras/minuto y comprobaciones de coherencia temporal.
+- Analisis de entropia textual, uniformidad sintactica y diversidad lexical.
+- Deteccion de inconsistencias internas DOCX (`core.xml` / `app.xml`).
+- Verificacion estructural de firma PDF (ByteRange y posible manipulacion post-firma).
+- Politica de correlacion obligatoria para endurecer veredictos positivos.
 
-## 2) Qué se implementó
+### 2) Certificacion de captura/imagen
 
-Piezas relevantes en el código actual:
+- ELA (Error Level Analysis) para detectar retoque localizado.
+- PRNU aproximado para consistencia de ruido de sensor.
+- Metricas de ruido por zonas y grid JPEG inconsistente.
+- Clasificacion visual con IA para validar que la evidencia es documental.
 
-- `src/lib/ensemble/EnsembleManager.ts`
-  - Agregación ponderada por especialistas.
-  - Pesos por defecto y boosts de convergencia para vídeo.
-  - Analistas: `forensic`, `biometric`, `rppg`, `container`, `metadata`, `acoustic`, `linguistic`.
+### 3) Telemetria y reporte
 
-- `src/lib/forensics/AdvancedForensicSuite.ts`
-  - Contratos de entrada para señales avanzadas (rPPG + MP4).
+- Consola de telemetria estilo terminal durante el flujo de auditoria.
+- Prefijos operativos: `[AUDIT]`, `[CHECK]`, `[FAIL]`, `[ALERTA]`.
+- Informe PDF tecnico (estilo maquina de escribir) con hallazgos y contexto.
+- Cadena de custodia local (hash, timestamp, veredicto, indice de anomalias).
 
-- `src/lib/forensics/rppgSignal.ts`
-  - Cálculo de señal rPPG (estimación de pulso plausible vs ausencia de pulso claro).
+## Stack tecnico
 
-- `src/lib/forensics/mp4BoxForensics.ts`
-  - Escaneo básico de integridad estructural del contenedor MP4.
+- **Frontend:** SvelteKit + Svelte 5
+- **Backend API:** Endpoints `+server.ts` en SvelteKit
+- **Procesado documento:** `mammoth`, `jszip`, `pdfjs-dist`
+- **OCR basico en PDF sin texto:** `tesseract.js`
+- **IA:** Groq (linguistico y visual)
+- **PDF report:** `jspdf`
 
-- `src/lib/components/Scanner/VideoProcessor.svelte`
-  - Muestreo de ROI, extracción de features y export de señales para evaluación.
+## Estructura relevante
 
-- `scripts/replay-ensemble.ts`
-  - Recalcula `riskScore` y `ensembleVotes` sobre sidecars `*.kronos.json`.
+- `src/routes/+page.svelte` -> UI principal, telemetria, flujo de auditoria y generacion de informe.
+- `src/routes/api/audit-document/+server.ts` -> pipeline forense de documentos.
+- `src/routes/api/audit-image-ai/+server.ts` -> clasificacion/analisis visual IA.
+- `src/lib/components/` -> componentes de interfaz.
 
-- `tests/dataset/*/*.kronos.json`
-  - Sidecars de dataset local usado para iteración de reglas y calibración inicial.
+## Variables de entorno
 
----
+Crea `.env` local (no versionar):
 
-## 3) Qué problema intentó resolver
+```bash
+GROQ_API_KEY=tu_api_key
+PUBLIC_SITE_URL=http://localhost:5173
+```
 
-Reducir el caso de "vídeo/foto de IA pulida que pasa por real" sin depender de una única heurística.
-
-Estrategia seguida:
-
-- Pasar de reglas aisladas a ensemble multi-señal.
-- Añadir señales de distinta naturaleza (forense visual, biométrica, física y contenedor).
-- Ajustar reglas para evitar que una única pista dé un veredicto fuerte por sí sola.
-
----
-
-## 4) Qué sí funciona razonablemente
-
-- Detección de ciertos contenidos sintéticos con señales múltiples coherentes.
-- Mejor trazabilidad de decisiones gracias a votos por especialista.
-- Mejor cobertura en vídeo al incorporar rPPG y análisis de contenedor MP4.
-- Flujo reproducible de replay con sidecars para comparar cambios de scoring.
-
----
-
-## 5) Límites y problemas reales (sin maquillaje)
-
-1. No existe "infalible" en este dominio.
-   - Siempre hay trade-off entre falsos positivos y falsos negativos.
-
-2. Hay falsos positivos en material real, sobre todo en fotos/vídeos legacy.
-   - Recompresión social, móviles antiguos, iluminación difícil y artefactos JPEG pueden parecer señales sintéticas.
-
-3. Heurísticas fuertes pueden sobrerreaccionar fuera de su contexto.
-   - Una regla útil en cierto tipo de fake puede penalizar indebidamente contenido auténtico.
-
-4. El sistema no es prueba forense/legal.
-   - Es un estimador de riesgo técnico, no un veredicto de autenticidad judicial.
-
-5. Falta calibración amplia con dataset representativo y etiquetado robusto.
-   - Sin eso, cualquier peso/umbral sigue siendo parcialmente artesanal.
-
----
-
-## 6) Estado de precisión y expectativas
-
-Este repositorio refleja una fase de I+D, no un detector terminado para producción crítica.
-
-Si se usa, debe comunicarse así:
-
-- "señales de riesgo" y "revisión recomendada",
-- no "esta imagen es falsa" como afirmación absoluta.
-
----
-
-## 7) Seguridad y secretos
-
-Revisión básica del repositorio (archivos y patrones típicos de credenciales):
-
-- No se han encontrado `.env` reales versionados.
-- Existe `.env.example` con placeholders (correcto).
-- `.gitignore` ignora `.env` y variantes (salvo excepciones explícitas de ejemplo/test).
-- No aparecen tokens evidentes de proveedores comunes en archivos rastreados.
-
-Importante:
-
-- Esta revisión es de superficie (patrones conocidos).
-- Antes de publicar definitivamente, conviene un escaneo dedicado de secretos en GitHub (Secret Scanning / push protection si aplica).
-
----
-
-## 8) Cómo ejecutar localmente (modo actual)
-
-Requisitos:
-
-- Node.js 18+ (recomendado 20+).
-
-Comandos:
+## Ejecutar en local
 
 ```bash
 npm install
 npm run dev
 ```
 
-Chequeo de tipos:
+Chequeos recomendados:
 
 ```bash
 npm run check
+npm run build
 ```
 
-Replay de sidecars:
+## Despliegue en Vercel
 
-```bash
-npm run replay:ensemble
-```
+1. Sube el repo a GitHub.
+2. Importa el repo en Vercel.
+3. Verifica deteccion de framework (SvelteKit).
+4. Configura variables:
+   - `GROQ_API_KEY`
+   - `PUBLIC_SITE_URL` (url final de Vercel)
+5. Despliega.
 
-Con imputación conservadora de features de vídeo cuando falten:
+## Politica de veredictos
 
-```bash
-npm run replay:ensemble:impute-video
-```
+- `integro`: señales consistentes y cobertura suficiente.
+- `anomalias_detectadas`: presencia de señales tecnicas relevantes.
+- `no_concluyente`: evidencia insuficiente o inconsistente para afirmar.
 
----
+El sistema prioriza reducir falsos positivos en contextos academicos y periciales.
 
-## 9) Decisión de producto para este repositorio
+## Limitaciones conocidas
 
-Este repo se publica como estado abierto de KRONOS, con enfoque de documentación y aprendizaje:
+- La validacion de firma PDF en MVP es **estructural**, no PKI completa.
+- OCR basico se ejecuta en primer bloque/portada en PDFs sin capa textual.
+- Ningun detector es infalible: el veredicto final siempre requiere criterio humano.
 
-- qué se probó,
-- qué señales se combinaron,
-- dónde funcionó mejor,
-- dónde falló (incluidos falsos positivos).
+## Uso responsable
 
-No se mantiene la promesa de detección perfecta.
-
----
-
-## 10) Licencia y uso responsable
-
-Este proyecto adopta un modelo de licencia existente para proteger uso comercial sin acuerdo:
-
-- **PolyForm Noncommercial 1.0.0** para el código público de este repositorio.
-- Cualquier uso comercial requiere **licencia comercial separada** acordada con el autor.
-
-Nota importante:
-
-- Las licencias open source estándar (MIT, Apache-2.0, GPL) no garantizan reparto de beneficios.
-- Si alguien quiere explotar este trabajo comercialmente, debe negociar condiciones (por ejemplo, fee, royalty o reparto) en la licencia comercial privada.
-
-En cualquier caso, este repositorio debe tratarse como prototipo experimental y no usarse como única base para decisiones con impacto legal o reputacional sin validación adicional independiente.
+ScanIt es una herramienta de apoyo tecnico.  
+No sustituye evaluacion humana ni asesoramiento legal/pericial formal.

@@ -78,7 +78,7 @@ async function runVisualPrecheck(groq: Groq, dataUrl: string): Promise<VisualPre
       {
         role: 'system',
         content:
-          'Clasificador visual estricto para Jamalajam. Determina si la imagen es evidencia documental válida. SOLO devuelve JSON con: allowed (boolean), category ("documento"|"captura_software"|"texto_academico"|"irrelevante"), reason (string breve). Marca irrelevante cuando detectes personas, paisajes, selfies, objetos cotidianos, memes, dibujos/ilustraciones o contenido no académico/documental.'
+          'Clasificador visual estricto para ScanIt. Determina si la imagen es evidencia documental válida. SOLO devuelve JSON con: allowed (boolean), category ("documento"|"captura_software"|"texto_academico"|"irrelevante"), reason (string breve). Marca irrelevante cuando detectes personas, paisajes, selfies, objetos cotidianos, memes, dibujos/ilustraciones o contenido no académico/documental.'
       },
       {
         role: 'user',

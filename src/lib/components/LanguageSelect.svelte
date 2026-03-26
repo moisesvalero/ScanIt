@@ -3,16 +3,19 @@
   import { locale, setLocale } from '$lib/i18n/index.js';
 
   const options = [
-    { code: 'en', label: 'EN' },
-    { code: 'es', label: 'ES' },
-    { code: 'zh', label: 'ZH' },
-    { code: 'de', label: 'DE' },
-    { code: 'pt', label: 'PT' },
-    { code: 'fr', label: 'FR' }
+    { code: 'en', label: 'EN', flag: 'gb' },
+    { code: 'es', label: 'ES', flag: 'es' },
+    { code: 'zh', label: 'ZH', flag: 'cn' },
+    { code: 'de', label: 'DE', flag: 'de' },
+    { code: 'pt', label: 'PT', flag: 'pt' },
+    { code: 'fr', label: 'FR', flag: 'fr' },
+    { code: 'ru', label: 'RU', flag: 'ru' },
+    { code: 'ar', label: 'AR', flag: 'sa' },
+    { code: 'hi', label: 'HI', flag: 'in' }
   ] as const;
 
   let open = $state(false);
-  const current = $derived(options.find((o) => o.code === $locale)?.label ?? 'EN');
+  const current = $derived(options.find((o) => o.code === $locale) ?? { code: 'en', label: 'EN', flag: 'gb' });
   let rootEl: HTMLDivElement | null = $state(null);
 
   function toggle() {
@@ -44,7 +47,8 @@
 
 <div class="lang" bind:this={rootEl}>
   <button type="button" class="lang-btn" aria-label="Language" aria-haspopup="listbox" aria-expanded={open} onclick={toggle}>
-    {current}
+    <img class="lang-flag-icon" src={`https://flagcdn.com/w40/${current.flag}.png`} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+    <span class="sr-only">{current.label}</span>
   </button>
   {#if open}
     <div class="lang-menu" role="listbox" aria-label="Select language" onclick={(e) => e.stopPropagation()}>
@@ -60,7 +64,8 @@
             close();
           }}
         >
-          {opt.label}
+          <img class="lang-flag-icon" src={`https://flagcdn.com/w40/${opt.flag}.png`} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+          <span>{opt.label}</span>
         </button>
       {/each}
     </div>
@@ -72,11 +77,13 @@
     position: relative;
     display: inline-flex;
     align-items: center;
+    z-index: 4000;
   }
 
   .lang-btn {
-    height: 30px;
-    padding: 0 10px;
+    height: 32px;
+    width: 32px;
+    padding: 0;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(22, 22, 22, 0.55);
@@ -84,8 +91,10 @@
     font-size: 12px;
     letter-spacing: 0.16em;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-    text-transform: uppercase;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
   }
 
@@ -97,7 +106,7 @@
 
   .lang-menu {
     position: absolute;
-    right: 0;
+    inset-inline-end: 0;
     top: calc(100% + 8px);
     min-width: 64px;
     border-radius: 14px;
@@ -106,12 +115,12 @@
     backdrop-filter: blur(12px);
     box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5);
     padding: 6px;
-    z-index: 200;
+    z-index: 4500;
   }
 
   .lang-opt {
     width: 100%;
-    text-align: right;
+    text-align: start;
     height: 30px;
     padding: 0 10px;
     border-radius: 10px;
@@ -123,6 +132,9 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
     text-transform: uppercase;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     transition: background-color 160ms ease, color 160ms ease;
   }
 
@@ -134,6 +146,26 @@
   .lang-opt.active {
     background: rgba(0, 229, 255, 0.12);
     color: rgba(0, 229, 255, 0.92);
+  }
+  .lang-flag-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16) inset;
+    flex-shrink: 0;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>
 

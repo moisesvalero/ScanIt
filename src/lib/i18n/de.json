@@ -2,6 +2,37 @@
   "layout": {
     "title": "KRONOS | Deepfake Defense Suite"
   },
+  "scanit": {
+    "header": {
+      "title": "Dokumentsicherheit und Verifizierung",
+      "subtitle": "Prufen Sie die Authentizitat und Herkunft Ihrer Dateien auf einfache Weise."
+    },
+    "badges": {
+      "fileIdentity": "Dateiidentitat",
+      "workTime": "Bearbeitungszeit",
+      "realData": "Echte Daten"
+    },
+    "modules": {
+      "verifyDocument": "Dokument prufen",
+      "reviewCapture": "Aufnahme prufen"
+    },
+    "main": {
+      "title": "Datei-Analysator",
+      "description": "Wir prufen, ob ein Dokument menschlich erstellt wurde, indem wir seinen technischen Verlauf und digitale Belege analysieren."
+    },
+    "dropzone": {
+      "document": "Datei hier ablegen (Word oder PDF)"
+    },
+    "telemetry": {
+      "idle": {
+        "ready": "[SYSTEM] Bereit zur Analyse...",
+        "waiting": "[CHECK] Warte auf Datei...",
+        "preparing": "[SYSTEM] Umgebung wird vorbereitet...",
+        "done": "[CHECK] Alles ist startbereit.",
+        "available": "[SYSTEM] ScanIt verfugbar."
+      }
+    }
+  },
   "kronos": {
     "hero": {
       "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",

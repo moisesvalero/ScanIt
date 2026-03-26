@@ -136,27 +136,52 @@ function inspectPdfSignature(buffer: Buffer): PdfSignatureCheck {
   if (!hasSigMarkers) {
     return { hasSignature: false, status: 'unsigned', reason: 'No se detecta contenedor de firma digital en el PDF.' };
   }
-  const m = raw.match(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
-  if (!m) {
+  const matches = [...raw.matchAll(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/g)];
+  if (matches.length === 0) {
     return { hasSignature: true, status: 'unknown', reason: 'Firma detectada sin ByteRange parseable.' };
   }
-  const a = Number(m[1]);
-  const b = Number(m[2]);
-  const c = Number(m[3]);
-  const d = Number(m[4]);
+
+  // PDFs firmados de forma valida pueden contener varias firmas/incrementos.
+  // Evaluamos todas las ByteRange y usamos un criterio conservador para evitar falsos positivos.
   const len = buffer.length;
-  const structuralOk = Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c) && Number.isFinite(d) && a === 0 && a + b <= c;
-  if (!structuralOk) {
-    return { hasSignature: true, status: 'structural_tampered', reason: 'ByteRange inconsistente: posible alteracion del wrapper de firma.' };
+  let hasStructurallyValidRange = false;
+  let hasImpossibleRange = false;
+  let hasPostSignedBytes = false;
+
+  for (const m of matches) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    const c = Number(m[3]);
+    const d = Number(m[4]);
+    const structuralOk = Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c) && Number.isFinite(d) && a === 0 && a + b <= c;
+    if (!structuralOk) {
+      hasImpossibleRange = true;
+      continue;
+    }
+    hasStructurallyValidRange = true;
+    if (c + d < len) {
+      hasPostSignedBytes = true;
+    }
   }
-  if (c + d < len) {
+
+  if (hasStructurallyValidRange && !hasPostSignedBytes) {
+    return { hasSignature: true, status: 'structural_valid', reason: 'Estructura de firma coherente (verificacion estructural).' };
+  }
+
+  if (hasStructurallyValidRange && hasPostSignedBytes) {
     return {
       hasSignature: true,
-      status: 'structural_tampered',
-      reason: 'Existen bytes fuera del rango firmado: posible modificacion posterior a la firma.'
+      // Puede ser firma incremental/LTV legitima; sin validacion criptografica no se afirma manipulacion.
+      status: 'unknown',
+      reason: 'Firma con bytes fuera del rango principal (posible actualizacion incremental/LTV); requiere validacion PKI para confirmar.'
     };
   }
-  return { hasSignature: true, status: 'structural_valid', reason: 'Estructura de firma coherente (verificacion estructural).' };
+
+  if (hasImpossibleRange) {
+    return { hasSignature: true, status: 'structural_tampered', reason: 'ByteRange inconsistente: posible alteracion del wrapper de firma.' };
+  }
+
+  return { hasSignature: true, status: 'unknown', reason: 'Firma detectada con estructura no concluyente.' };
 }
 
 async function parsePdf(buffer: Buffer) {
@@ -231,15 +256,70 @@ async function parsePdf(buffer: Buffer) {
 
 function isOfficialPdfSource(metadata: Record<string, unknown>) {
   const base = `${String(metadata.creator ?? '')} ${String(metadata.application ?? '')} ${String(metadata.producer ?? '')}`.toLowerCase();
-  return (
-    base.includes('agencia tributaria') ||
-    base.includes('aeat') ||
-    base.includes('gobierno de espa') ||
-    base.includes('ministerio') ||
-    base.includes('sede electr') ||
-    base.includes('boe') ||
-    base.includes('fnmt')
-  );
+  // Señales de organismos oficiales para los idiomas/paises soportados (es, en, fr, de, pt, ru, zh, ar, hi).
+  // Es una heurística conservadora: prioriza reducir falsos positivos en documentación pública.
+  const markers = [
+    // Español / España
+    'agencia tributaria',
+    'aeat',
+    'gobierno de espa',
+    'ministerio',
+    'sede electr',
+    'boe',
+    'fnmt',
+    '.gob.es',
+    '.boe.es',
+    // Inglés (ecosistema gov genérico)
+    'government',
+    'gov.uk',
+    '.gov',
+    '.gov.',
+    'department of',
+    'ministry of',
+    'official gazette',
+    // Francés
+    'gouvernement',
+    'republique francaise',
+    'service-public.fr',
+    '.gouv.fr',
+    'ministere',
+    'journal officiel',
+    // Alemán
+    'bundesregierung',
+    'bundesministerium',
+    'bundesanzeiger',
+    '.bund.de',
+    '.gov.de',
+    // Portugués
+    'governo',
+    '.gov.br',
+    '.gov.pt',
+    'diario oficial',
+    'imprensa nacional',
+    // Ruso
+    'правительство',
+    'министерство',
+    '.gov.ru',
+    '.gov',
+    'gosuslugi',
+    // Chino
+    '中华人民共和国',
+    '人民政府',
+    '国务院',
+    '.gov.cn',
+    // Árabe
+    'وزارة',
+    'حكومة',
+    '.gov.sa',
+    '.gov.ae',
+    '.gov.eg',
+    // Hindi / India
+    'भारत सरकार',
+    'सरकार',
+    'मंत्रालय',
+    '.gov.in'
+  ];
+  return markers.some((m) => base.includes(m));
 }
 
 function buildAnomalies(input: {
@@ -611,10 +691,17 @@ export const POST: RequestHandler = async ({ request }) => {
       if (linguisticAi.suspicionPercent >= 85) {
         mergedAnomalies.push({
           code: 'LINGUISTIC_AI_VERY_HIGH',
-          severity: 'red',
-          message: `Sospecha lingüística muy alta (${linguisticAi.suspicionPercent.toFixed(
-            0
-          )}%) compatible con redacción asistida/generada por IA.`
+          // En PDF final (manuales, fichas tecnicas, textos repetitivos), esta señal puede sesgarse.
+          // La dejamos en amber para no dictar "anomalias detectadas" por una sola fuente estilistica.
+          severity: extension === 'pdf' ? 'amber' : 'red',
+          message:
+            extension === 'pdf'
+              ? `Sospecha lingüística alta (${linguisticAi.suspicionPercent.toFixed(
+                  0
+                )}%) con posible sesgo por estilo tecnico/repetitivo. Requiere corroboracion adicional.`
+              : `Sospecha lingüística muy alta (${linguisticAi.suspicionPercent.toFixed(
+                  0
+                )}%) compatible con posible redacción asistida por IA.`
         });
       } else if (linguisticAi.suspicionPercent >= 70) {
         mergedAnomalies.push({
@@ -622,7 +709,7 @@ export const POST: RequestHandler = async ({ request }) => {
           severity: 'amber',
           message: `Sospecha lingüística elevada (${linguisticAi.suspicionPercent.toFixed(
             0
-          )}%); se desaconseja clasificar el documento como íntegro.`
+          )}%); indicador no concluyente sin corroboracion técnica adicional.`
         });
       }
     }
@@ -655,6 +742,21 @@ export const POST: RequestHandler = async ({ request }) => {
           ? 'Zero Guessing Policy: no se clasifica como integro cuando faltan señales críticas (timeline completo, editing time y/o muestra textual suficiente).'
           : 'Zero Guessing Policy: PDF con evidencia insuficiente (sin firma oficial ni trazas sólidas de procedencia).';
     }
+    // Guardarrail anti-falsos positivos en PDF: la señal lingüística por sí sola NO dicta "generado por IA".
+    if (extension === 'pdf' && linguisticAi && linguisticAi.suspicionPercent >= 70) {
+      const hasCorroboration = finalDecision.anomalies.some(
+        (a) =>
+          a.code !== 'LINGUISTIC_AI_HIGH' &&
+          a.code !== 'LINGUISTIC_AI_VERY_HIGH' &&
+          (a.severity === 'red' || a.severity === 'amber')
+      );
+      if (!hasCorroboration) {
+        policyDecision = 'no_concluyente';
+        forcedNoConclusive = true;
+        forcedReason =
+          'Zero Guessing Policy: en PDF final, la señal lingüística IA aislada no es suficiente para afirmar generación por IA.';
+      }
+    }
 
     const confidence = computeDocumentConfidence({
       extension,
@@ -671,9 +773,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return new Response(
       JSON.stringify({
-        suite: 'Jamalajam',
+        suite: 'ScanIt',
         mode: 'document_audit',
-        analysisVersion: 'jamalajam-forensics-1.0.0',
+        analysisVersion: 'scanit-forensics-1.0.0',
         fileName: file.name,
         extension,
         serverSha256,

@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Jamalajam | Suite Forense de Integridad Academica</title>
+  <title>ScanIt | Suite Forense de Integridad Academica</title>
 </svelte:head>
 
 <slot />
