@@ -185,19 +185,43 @@ function inspectPdfSignature(buffer: Buffer): PdfSignatureCheck {
 }
 
 async function parsePdf(buffer: Buffer) {
-  const { PDFParse } = await import('pdf-parse');
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  const rawPdf = buffer.toString('latin1');
   let text = '';
   let info: Record<string, unknown> = {};
   let totalPages: number | null = null;
 
   try {
-    const [textResult, infoResult] = await Promise.all([parser.getText(), parser.getInfo({ parsePageInfo: false })]);
-    text = String(textResult?.text ?? '');
-    info = (infoResult?.info as Record<string, unknown>) ?? {};
-    totalPages = typeof infoResult?.total === 'number' ? infoResult.total : null;
-  } finally {
-    await parser.destroy().catch(() => {});
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    try {
+      const [textResult, infoResult] = await Promise.all([parser.getText(), parser.getInfo({ parsePageInfo: false })]);
+      text = String(textResult?.text ?? '');
+      info = (infoResult?.info as Record<string, unknown>) ?? {};
+      totalPages = typeof infoResult?.total === 'number' ? infoResult.total : null;
+    } finally {
+      await parser.destroy().catch(() => {});
+    }
+  } catch {
+    // Fallback anti-caida en runtimes serverless (ej. DOMMatrix no disponible).
+    const decodePdfLiteral = (s: string) =>
+      s
+        .replace(/\\n/g, ' ')
+        .replace(/\\r/g, ' ')
+        .replace(/\\t/g, ' ')
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')')
+        .replace(/\\\\/g, '\\');
+    const literalChunks = [...rawPdf.matchAll(/\((?:\\.|[^\\()]){2,}\)/g)]
+      .map((m) => decodePdfLiteral(String(m[0]).slice(1, -1)))
+      .filter((chunk) => /[A-Za-zÀ-ÿ\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF]/.test(chunk));
+    text = literalChunks.join(' ').replace(/\s+/g, ' ').trim();
+    totalPages = (rawPdf.match(/\/Type\s*\/Page\b/g) ?? []).length || null;
+    info = {
+      CreationDate: (rawPdf.match(/\/CreationDate\s*\(([^)]{4,})\)/)?.[1] ?? null) as string | null,
+      ModDate: (rawPdf.match(/\/ModDate\s*\(([^)]{4,})\)/)?.[1] ?? null) as string | null,
+      Creator: (rawPdf.match(/\/Creator\s*\(([^)]{2,})\)/)?.[1] ?? null) as string | null,
+      Producer: (rawPdf.match(/\/Producer\s*\(([^)]{2,})\)/)?.[1] ?? null) as string | null
+    };
   }
 
   const wordCount = countWords(text);
@@ -206,7 +230,6 @@ async function parsePdf(buffer: Buffer) {
   const modified = typeof info.ModDate === 'string' ? info.ModDate : null;
   const creator = typeof info.Creator === 'string' ? info.Creator : null;
   const producer = typeof info.Producer === 'string' ? info.Producer : null;
-  const rawPdf = buffer.toString('latin1');
   const hasDigitalSignature =
     rawPdf.includes('/Type/Sig') || rawPdf.includes('/ByteRange[') || rawPdf.includes('/SubFilter');
 
@@ -836,12 +859,16 @@ export const POST: RequestHandler = async ({ request }) => {
         lower.includes('unexpected eof') ||
         lower.includes('startxref') ||
         lower.includes('trailer'));
+    const isRuntimePdfEngineIssue =
+      extension === 'pdf' && (lower.includes('dommatrix is not defined') || lower.includes('dommatrix'));
 
-    const status = isEncrypted || isPdfStructureIssue ? 422 : 500;
+    const status = isEncrypted || isPdfStructureIssue || isRuntimePdfEngineIssue ? 422 : 500;
     const userMessage = isEncrypted
       ? 'El PDF parece estar protegido/cifrado. Exportalo sin contraseña y vuelve a intentarlo.'
       : isPdfStructureIssue
         ? 'El PDF usa una estructura no estandar para analisis tecnico (compresion/xref). Reexportalo como "PDF estandar" o "Imprimir a PDF".'
+        : isRuntimePdfEngineIssue
+          ? 'El motor PDF del servidor no pudo abrir este archivo con el parser principal. Reintentamos con modo compatible; vuelve a subirlo en unos segundos.'
         : 'Fallo al auditar el documento. El archivo podria estar dañado, ser un PDF no estandar o estar corrupto.';
 
     return new Response(
