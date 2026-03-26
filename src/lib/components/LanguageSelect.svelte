@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { locale, setLocale } from '$lib/i18n/index.js';
 
   const options = [
@@ -22,9 +22,21 @@
     if (v.includes('_')) return v.split('_')[0] || 'en';
     return v;
   }
-  const uiLocale = $derived(localeCode($locale));
+  let uiLocale = $state('en');
   const current = $derived(options.find((o) => o.code === uiLocale) ?? { code: 'en', label: 'EN', flag: 'gb' });
   let rootEl: HTMLDivElement | null = $state(null);
+
+  onMount(() => {
+    // Evita desajuste SSR/hidratacion: usa primero el idioma real del documento/localStorage.
+    const fromDoc = typeof document !== 'undefined' ? document.documentElement.lang : '';
+    const fromStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('lang') : '';
+    const initial = localeCode(fromDoc || fromStorage || '');
+    if (initial) uiLocale = initial;
+  });
+
+  $effect(() => {
+    uiLocale = localeCode($locale);
+  });
 
   function toggle() {
     open = !open;

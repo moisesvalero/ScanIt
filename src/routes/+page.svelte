@@ -117,6 +117,7 @@
   let scanLogs = $state<string[]>([]);
   let scanStep = $state(0);
   let activeTelemetryKind = $state<'document' | 'image' | null>(null);
+  let activeTelemetryLocale = $state('');
   let showResult = $state(false);
   let visualScanning = $state(false);
   let scanStartedAt = $state(0);
@@ -343,6 +344,8 @@
     if (!activeLocale) return;
     if (!activeTelemetryKind) return;
     if (!busy && !visualScanning) return;
+    if (activeTelemetryLocale === String(activeLocale)) return;
+    activeTelemetryLocale = String(activeLocale);
     scanLogs = rebuildTelemetryLogs(activeTelemetryKind, scanStep);
   });
 
@@ -416,6 +419,7 @@
     scanLogs = [];
     scanStep = 0;
     activeTelemetryKind = null;
+    activeTelemetryLocale = '';
     showResult = false;
     showResultModal = false;
     visualScanning = false;
@@ -430,6 +434,7 @@
     stopIdleTelemetry();
     resetTelemetry();
     activeTelemetryKind = kind;
+    activeTelemetryLocale = String($locale ?? 'en');
     visualScanning = true;
     scanStartedAt = Date.now();
     const seq = telemetrySequence(kind);
@@ -455,6 +460,20 @@
       clearInterval(telemetryTimer);
       telemetryTimer = null;
     }
+    scanLogs = [
+      ...scanLogs,
+      l({
+        es: '[CHECK] Analisis completado. Generando resultado...',
+        en: '[CHECK] Analysis completed. Generating result...',
+        fr: '[CHECK] Analyse terminee. Generation du resultat...',
+        de: '[CHECK] Analyse abgeschlossen. Ergebnis wird erstellt...',
+        pt: '[CHECK] Analise concluida. Gerando resultado...',
+        ru: '[CHECK] Анализ завершен. Формирование результата...',
+        zh: '[CHECK] 分析完成。正在生成结果...',
+        ar: '[CHECK] اكتمل التحليل. جارٍ إنشاء النتيجة...',
+        hi: '[CHECK] विश्लेषण पूरा हुआ। परिणाम बनाया जा रहा है...'
+      })
+    ].slice(-MAX_LOG_LINES);
     const elapsed = scanStartedAt ? Date.now() - scanStartedAt : MIN_CINEMATIC_MS;
     const remaining = Math.max(0, MIN_CINEMATIC_MS - elapsed);
     window.setTimeout(() => {
@@ -728,12 +747,16 @@
       if (!response.ok) {
         let serverMsg = '';
         try {
-          const body = await response.json();
+          const body = await response.clone().json();
           serverMsg = String(body?.error || body?.message || '').trim();
           if (body?.details)
             scanLogs = [...scanLogs, `Diagnostico: ${String(body.details).slice(0, 160)}`].slice(-MAX_LOG_LINES);
         } catch {
-          serverMsg = (await response.text()).slice(0, 180);
+          try {
+            serverMsg = (await response.clone().text()).slice(0, 180);
+          } catch {
+            serverMsg = 'No se pudo leer la respuesta de error del servidor.';
+          }
         }
         throw new Error(serverMsg || 'No se pudo auditar el documento.');
       }
