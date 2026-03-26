@@ -567,6 +567,28 @@ async function groqLinguisticAudit(text: string): Promise<GroqLinguisticVerdict 
       });
       break;
     } catch (e) {
+      const msg = String((e as any)?.message ?? '').toLowerCase();
+      // Algunos modelos fallan con JSON estricto aunque el prompt sea correcto.
+      // Reintentamos una vez sin response_format y parseamos manualmente.
+      if (msg.includes('failed to generate json') || msg.includes('invalid_request_error')) {
+        resp = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.2,
+          max_tokens: 260,
+          messages: [
+            { role: 'system', content: system },
+            {
+              role: 'user',
+              content:
+                'Texto a analizar (puede estar truncado):\n' +
+                sample +
+                '\n\nDevuelve SOLO este formato en una sola linea:\n' +
+                'suspicionPercent:<0-100>;reasons:<razon1>|<razon2>|<razon3>'
+            }
+          ]
+        });
+        break;
+      }
       if (!isRateLimitError(e) || attempt >= maxAttempts) throw e;
       const waitMs = 5000 * 2 ** (attempt - 1); // 5s, 10s...
       await sleep(waitMs);
@@ -580,7 +602,17 @@ async function groqLinguisticAudit(text: string): Promise<GroqLinguisticVerdict 
   try {
     parsed = JSON.parse(content);
   } catch {
-    return null;
+    // Fallback parser cuando Groq responde texto plano en lugar de JSON.
+    const pct = content.match(/suspicionPercent\s*[:=]\s*(\d{1,3})/i)?.[1];
+    const reasonsRaw = content.match(/reasons\s*[:=]\s*(.+)$/i)?.[1] ?? '';
+    const reasons = reasonsRaw
+      .split('|')
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (!pct) return null;
+    while (reasons.length < 3) reasons.push('No concluyente: evidencia lingüística insuficiente en la muestra.');
+    return { suspicionPercent: clamp01to100(Number(pct)), reasons };
   }
 
   const suspicionPercent = clamp01to100(Number(parsed?.suspicionPercent ?? parsed?.porcentaje ?? 0));
@@ -648,9 +680,19 @@ export const POST: RequestHandler = async ({ request }) => {
       reason: 'No se ejecuto el analisis lingüistico.'
     };
     const hasGroqKey = Boolean(env.GROQ_API_KEY || process.env.GROQ_API_KEY);
+    const isProdRuntime =
+      process.env.NODE_ENV === 'production' ||
+      Boolean(process.env.VERCEL) ||
+      Boolean(process.env.VERCEL_ENV);
+    const safeModeEnabled = (process.env.SCANIT_SAFE_MODE ?? '').toLowerCase() === 'true' || isProdRuntime;
     const trimmedText = parsed.text.trim();
 
-    if (!hasGroqKey) {
+    if (safeModeEnabled && extension === 'pdf') {
+      linguisticAiStatus = {
+        state: 'omitted',
+        reason: 'Safe mode activo en produccion para PDF: analisis lingüistico IA desactivado para priorizar estabilidad.'
+      };
+    } else if (!hasGroqKey) {
       linguisticAiStatus = {
         state: 'omitted',
         reason: 'GROQ_API_KEY ausente en el entorno del servidor.'
