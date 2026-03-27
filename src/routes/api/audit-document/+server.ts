@@ -362,6 +362,14 @@ function buildAnomalies(input: {
         'Alerta Roja: documento extenso con tiempo de edicion anormalmente bajo (posible inyeccion masiva de texto).'
     });
   }
+  if (input.extension === 'docx' && input.wordCount >= 180 && (!input.editingMinutes || input.editingMinutes <= 0)) {
+    anomalies.push({
+      code: 'DOCX_NO_EDIT_TRACE',
+      severity: 'amber',
+      message:
+        'DOCX sin traza de tiempo de edicion para un texto extenso; posible exportacion automatizada o metadata incompleta.'
+    });
+  }
 
   if (app.includes('pandoc') || producer.includes('pandoc') || app.includes('google docs') || producer.includes('google docs')) {
     anomalies.push({
@@ -546,7 +554,7 @@ async function groqLinguisticAudit(text: string): Promise<GroqLinguisticVerdict 
     'Eres un perito lingüístico forense. Analiza el texto buscando patrones de IA: falta de errores naturales, ritmo monótono y conectores genéricos. Devuelve un JSON con: un porcentaje de sospecha y 3 razones técnicas de tu veredicto.';
 
   let resp: any = null;
-  const maxAttempts = 3;
+  const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       resp = await groq.chat.completions.create({
@@ -590,7 +598,7 @@ async function groqLinguisticAudit(text: string): Promise<GroqLinguisticVerdict 
         break;
       }
       if (!isRateLimitError(e) || attempt >= maxAttempts) throw e;
-      const waitMs = 5000 * 2 ** (attempt - 1); // 5s, 10s...
+      const waitMs = 1200 * attempt; // 1.2s, 2.4s
       await sleep(waitMs);
     }
   }
@@ -759,7 +767,7 @@ export const POST: RequestHandler = async ({ request }) => {
         if (isRateLimitError(e)) {
           linguisticAiStatus = {
             state: 'error',
-            reason: 'Servidores saturados, reintentando en 5 segundos...'
+            reason: 'Servicios IA temporalmente saturados; se continua con evidencia tecnica sin bloquear el analisis.'
           };
           // Ya se aplicó backoff en servidor; dejamos mensaje elegante para telemetría.
           linguisticAi = null;

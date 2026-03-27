@@ -1,0 +1,24 @@
+{
+  "dataset": {
+    "total": 71,
+    "realTotal": 31,
+    "iaTotal": 40,
+    "failed": 1,
+    "undecided": 47
+  },
+  "rates": {
+    "undecidedRate": 66.2,
+    "falsePositiveRateReal": 0,
+    "falseNegativeRateIa": 0,
+    "precisionIa": 100,
+    "recallIa": 100,
+    "decidedAccuracy": 100
+  },
+  "confusionDecidedOnly": {
+    "tp": 1,
+    "tn": 23,
+    "fp": 0,
+    "fn": 0,
+    "decided": 24
+  }
+}

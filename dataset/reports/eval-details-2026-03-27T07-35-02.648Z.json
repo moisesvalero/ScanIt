@@ -1,0 +1,122 @@
+[
+  {
+    "file": "real/100000010982833.pdf",
+    "expected": "real",
+    "predicted": "real",
+    "verdict": "integro",
+    "anomalyIndex": 0,
+    "confidence": 48,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15273,
+    "error": null
+  },
+  {
+    "file": "real/87ae7af9aae993a19edb1a56e7a2ef7f000060.pdf",
+    "expected": "real",
+    "predicted": "real",
+    "verdict": "integro",
+    "anomalyIndex": 0,
+    "confidence": 70,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15367,
+    "error": null
+  },
+  {
+    "file": "real/Contratos tramitados como emergencia y urgencia por las Confederaciones Hidrográficas, ejercicios 2008 a 2017.pdf",
+    "expected": "real",
+    "predicted": "real",
+    "verdict": "integro",
+    "anomalyIndex": 0,
+    "confidence": 48,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15461,
+    "error": null
+  },
+  {
+    "file": "real/convenio.pdf",
+    "expected": "real",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 1,
+    "confidence": 81,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15974,
+    "error": null
+  },
+  {
+    "file": "real/CURRICULUM MIRIAM VIEJO.docx",
+    "expected": "real",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 1,
+    "confidence": 69,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15359,
+    "error": null
+  },
+  {
+    "file": "ia/acuerdo_confidencialidad_nda.docx",
+    "expected": "ia",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 1,
+    "confidence": 51,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15421,
+    "error": null
+  },
+  {
+    "file": "ia/analisis_mercado_inmobiliario_alicante.pdf",
+    "expected": "ia",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 0,
+    "confidence": 52,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15317,
+    "error": null
+  },
+  {
+    "file": "ia/analisis_swot_empresa_tecnologia.docx",
+    "expected": "ia",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 1,
+    "confidence": 51,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15408,
+    "error": null
+  },
+  {
+    "file": "ia/carta_motivacion_empleo.docx",
+    "expected": "ia",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 1,
+    "confidence": 51,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15336,
+    "error": null
+  },
+  {
+    "file": "ia/contrato_arrendamiento_local_comercial.pdf",
+    "expected": "ia",
+    "predicted": "no_concluyente",
+    "verdict": "no_concluyente",
+    "anomalyIndex": 0,
+    "confidence": 52,
+    "status": 200,
+    "ok": true,
+    "elapsedMs": 15419,
+    "error": null
+  }
+]

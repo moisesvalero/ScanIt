@@ -250,7 +250,7 @@ export const POST: RequestHandler = async ({ request }) => {
         break;
       } catch (e) {
         if (!isRateLimitError(e) || attempt >= precheckAttempts) throw e;
-        const waitMs = 5000 * 2 ** (attempt - 1);
+        const waitMs = 1200 * attempt;
         await sleep(waitMs);
       }
     }
@@ -270,7 +270,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     let response: any = null;
-    const maxAttempts = 3;
+    const maxAttempts = 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         response = await groq.chat.completions.create({
@@ -319,7 +319,7 @@ export const POST: RequestHandler = async ({ request }) => {
           break;
         }
         if (!isRateLimitError(e) || attempt >= maxAttempts) throw e;
-        const waitMs = 5000 * 2 ** (attempt - 1); // 5s, 10s...
+        const waitMs = 1200 * attempt; // 1.2s, 2.4s
         await sleep(waitMs);
       }
     }
@@ -395,7 +395,10 @@ export const POST: RequestHandler = async ({ request }) => {
             reason: 'Rate limit durante validacion/analisis visual.'
           } satisfies VisualPrecheck,
           verdict: null,
-          status: { state: 'error', reason: 'Servidores saturados, reintentando en 5 segundos...' } satisfies ImageAiStatus
+          status: {
+            state: 'error',
+            reason: 'Servicios IA temporalmente saturados; se continua sin bloquear la certificacion visual.'
+          } satisfies ImageAiStatus
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       );
