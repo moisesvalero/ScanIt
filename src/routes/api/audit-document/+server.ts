@@ -837,6 +837,25 @@ export const POST: RequestHandler = async ({ request }) => {
           ? 'Zero Guessing Policy: no se clasifica como integro cuando faltan señales críticas (timeline completo, editing time y/o muestra textual suficiente).'
           : 'Zero Guessing Policy: PDF con evidencia insuficiente (sin firma oficial ni trazas sólidas de procedencia).';
     }
+    // PDF breve + error lingüistico: no "integro" (si Groq saturó, un PDF corto IA puede parecer limpio en métricas).
+    // PDFs largos reales con el mismo error siguen pudiendo ser integro si el resto de reglas lo permiten.
+    const rawPdfIntegroCap = process.env.SCANIT_PDF_INTEGRO_MAX_WORDS_IF_LINGUISTIC_ERROR;
+    const pdfIntegroWordCap =
+      rawPdfIntegroCap !== undefined && String(rawPdfIntegroCap).trim() !== ''
+        ? Number(rawPdfIntegroCap)
+        : 600;
+    const integroWordCapIfLinguisticError = Number.isFinite(pdfIntegroWordCap) ? pdfIntegroWordCap : 600;
+    if (
+      policyDecision === 'integro' &&
+      linguisticAiStatus.state === 'error' &&
+      extension === 'pdf' &&
+      parsed.wordCount <= integroWordCapIfLinguisticError
+    ) {
+      policyDecision = 'no_concluyente';
+      forcedNoConclusive = true;
+      forcedReason =
+        'Zero Guessing Policy: PDF breve sin analisis linguistico fiable (servicio saturado o error); no se declara integro.';
+    }
     // Guardarrail anti-falsos positivos en PDF: la señal lingüística por sí sola NO dicta "generado por IA".
     if (extension === 'pdf' && linguisticAi && linguisticAi.suspicionPercent >= 70) {
       const hasCorroboration = finalDecision.anomalies.some(
@@ -851,6 +870,22 @@ export const POST: RequestHandler = async ({ request }) => {
         forcedReason =
           'Zero Guessing Policy: en PDF final, la señal lingüística IA aislada no es suficiente para afirmar generación por IA.';
       }
+    }
+    // PDF: excepción por recall — sospecha lingüistica muy alta y única anomalía (umbral alto, ajustable por env).
+    const rawDecisive = process.env.SCANIT_PDF_LINGUISTIC_DECISIVE_MIN;
+    const pdfLinguisticDecisiveMin =
+      rawDecisive !== undefined && String(rawDecisive).trim() !== '' ? Number(rawDecisive) : 90;
+    const decisiveThreshold = Number.isFinite(pdfLinguisticDecisiveMin) ? pdfLinguisticDecisiveMin : 90;
+    if (
+      extension === 'pdf' &&
+      linguisticAi &&
+      linguisticAi.suspicionPercent >= decisiveThreshold &&
+      finalDecision.anomalies.length === 1 &&
+      finalDecision.anomalies[0]?.code === 'LINGUISTIC_AI_VERY_HIGH'
+    ) {
+      policyDecision = 'anomalias_detectadas';
+      forcedNoConclusive = false;
+      forcedReason = null;
     }
 
     const confidence = computeDocumentConfidence({

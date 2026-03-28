@@ -1,0 +1,26 @@
+{
+  "dataset": {
+    "total": 150,
+    "realTotal": 63,
+    "iaTotal": 87,
+    "failed": 0,
+    "undecided": 45
+  },
+  "rates": {
+    "undecidedRate": 30,
+    "falsePositiveRateReal": 0,
+    "falseNegativeRateIa": 3.45,
+    "precisionIa": 100,
+    "recallIa": 94.23,
+    "decidedAccuracy": 97.14
+  },
+  "confusionDecidedOnly": {
+    "tp": 49,
+    "tn": 53,
+    "fp": 0,
+    "fn": 3,
+    "decided": 105
+  },
+  "partial": true,
+  "partialNote": "Progreso 150/153"
+}
