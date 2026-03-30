@@ -21,3 +21,8 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# ScanIt generated/private data
+dataset/reports/
+dataset/real/
+dataset/private/
