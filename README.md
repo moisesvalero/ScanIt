@@ -107,12 +107,12 @@ The interface is built as a real working tool:
 Current project checks:
 
 ```bash
-npm run format:check
-npm run lint
-npm test
-npm run check
-npm run build
-npm audit
+pnpm run format:check
+pnpm run lint
+pnpm test
+pnpm run check
+pnpm run build
+pnpm audit
 ```
 
 Expected status:
@@ -126,8 +126,8 @@ Expected status:
 ## Quick Start
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Open:
@@ -158,13 +158,13 @@ SCANIT_PDF_INTEGRO_MAX_WORDS_IF_LINGUISTIC_ERROR=600
 ## Useful Scripts
 
 ```bash
-npm run dev            # local development server
-npm run format:check   # verify Prettier formatting
-npm run lint           # svelte-check with fail-on-warnings
-npm test               # current test gate
-npm run check          # SvelteKit sync + svelte-check
-npm run build          # production build
-npm run eval:dataset   # dataset evaluation script
+pnpm run dev            # local development server
+pnpm run format:check   # verify Prettier formatting
+pnpm run lint           # svelte-check with fail-on-warnings
+pnpm test               # current test gate
+pnpm run check          # SvelteKit sync + svelte-check
+pnpm run build          # production build
+pnpm run eval:dataset   # dataset evaluation script
 ```
 
 ## Repository Structure
