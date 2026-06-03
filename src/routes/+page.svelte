@@ -3220,10 +3220,10 @@
   <footer class="scanit-footer glass" aria-label="Footer ScanIt">
     <div class="kf-left">
       <a
-        href="https://github.com/moisesvalero"
+        href="https://github.com/moisesvalero/ScanIt"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="GitHub"
+        aria-label="GitHub repository"
       >
         <svg viewBox="0 0 24 24" fill="none">
           <path
@@ -3243,17 +3243,6 @@
           />
           <rect x="2" y="9" width="4" height="12" />
           <circle cx="4" cy="4" r="2" />
-        </svg>
-      </a>
-      <a
-        href="https://www.malt.es/profile/moisesvalerosanchez"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Malt"
-      >
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M4 6h16v12H4z" />
-          <path d="M8 15V9l4 3 4-3v6" />
         </svg>
       </a>
     </div>
