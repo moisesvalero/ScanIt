@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { fade, scale } from 'svelte/transition';
+  import { createEventDispatcher } from "svelte";
+  import { fade, scale } from "svelte/transition";
 
-  type Verdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' | null;
+  type Verdict = "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" | null;
 
   interface Props {
     open?: boolean;
@@ -20,46 +20,70 @@
     verdict = null,
     confidence = 0,
     riskScore = 0,
-    fileName = '',
-    reason = '',
-    completedAt = '',
-    warnings = []
+    fileName = "",
+    reason = "",
+    completedAt = "",
+    warnings = [],
   }: Props = $props();
 
   const dispatch = createEventDispatcher<{ close: void; download: void }>();
 
   // Semáforo: verde=VERIFICADO, naranja=SOSPECHOSO, rojo=ALERTA ROJA
   let verdictTone = $derived(
-    verdict === 'VERIFICADO' ? 'success' : verdict === 'SOSPECHOSO' ? 'warn' : verdict === 'ALERTA ROJA' ? 'danger' : 'success'
+    verdict === "VERIFICADO"
+      ? "success"
+      : verdict === "SOSPECHOSO"
+        ? "warn"
+        : verdict === "ALERTA ROJA"
+          ? "danger"
+          : "success",
   );
-  let isVerified = $derived(verdict === 'VERIFICADO');
-  let isSuspicious = $derived(verdict === 'SOSPECHOSO');
-  let statusLabel = $derived(verdict === 'ALERTA ROJA' ? 'ALERTA DE DEEPFAKE' : verdict ?? 'PENDIENTE');
+  let isVerified = $derived(verdict === "VERIFICADO");
+  let isSuspicious = $derived(verdict === "SOSPECHOSO");
+  let statusLabel = $derived(
+    verdict === "ALERTA ROJA" ? "ALERTA DE DEEPFAKE" : (verdict ?? "PENDIENTE"),
+  );
   let normalizedDate = $derived(
-    completedAt ? new Date(completedAt).toLocaleString('es-ES') : '-'
+    completedAt ? new Date(completedAt).toLocaleString("es-ES") : "-",
   );
 
-  const close = () => dispatch('close');
-  const download = () => dispatch('download');
+  const close = () => dispatch("close");
+  const download = () => dispatch("download");
+
+  function closeOnBackdrop(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      close();
+    }
+  }
 </script>
 
 {#if open}
-  <div class="backdrop" role="presentation" on:click={close} in:fade={{ duration: 260 }} out:fade={{ duration: 220 }}>
-    <section
+  <div
+    class="backdrop"
+    role="presentation"
+    onclick={closeOnBackdrop}
+    in:fade={{ duration: 260 }}
+    out:fade={{ duration: 220 }}
+  >
+    <div
       class="modal"
-      class:danger={verdictTone === 'danger'}
-      class:warn={verdictTone === 'warn'}
+      class:danger={verdictTone === "danger"}
+      class:warn={verdictTone === "warn"}
       class:verified={isVerified}
       role="dialog"
       aria-modal="true"
       aria-label="Informe de Auditoría de Integridad KRONOS"
-      on:click|stopPropagation
       in:scale={{ duration: 320, start: 0.94 }}
       out:scale={{ duration: 220, start: 0.98 }}
     >
       <header class="head">
         <p>INFORME DE AUDITORÍA DE INTEGRIDAD</p>
-        <button type="button" class="close" on:click={close} aria-label="Cerrar modal">x</button>
+        <button
+          type="button"
+          class="close"
+          onclick={close}
+          aria-label="Cerrar modal">x</button
+        >
       </header>
 
       <div class="status">
@@ -70,7 +94,7 @@
       <div class="grid">
         <article>
           <h4>Archivo</h4>
-          <p class="file">{fileName || '-'}</p>
+          <p class="file">{fileName || "-"}</p>
         </article>
         <article>
           <h4>Confianza</h4>
@@ -88,7 +112,7 @@
 
       <section class="notes">
         <h4>Resumen de Auditoría de Integridad</h4>
-        <p>{reason || 'Proceso en espera de finalizacion de escaneo.'}</p>
+        <p>{reason || "Proceso en espera de finalizacion de escaneo."}</p>
       </section>
 
       {#if warnings?.length}
@@ -103,9 +127,11 @@
       {/if}
 
       <footer>
-        <button type="button" class="download" on:click={download}>Descargar Certificado de Validación</button>
+        <button type="button" class="download" onclick={download}
+          >Descargar Certificado de Validación</button
+        >
       </footer>
-    </section>
+    </div>
   </div>
 {/if}
 
@@ -217,7 +243,7 @@
   }
 
   .dot::after {
-    content: '✓';
+    content: "✓";
     position: absolute;
     inset: 0;
     display: grid;
@@ -229,12 +255,12 @@
   }
 
   .modal.danger .dot::after {
-    content: '✕';
+    content: "✕";
     color: rgba(2, 2, 2, 0.92);
   }
 
   .modal.warn .dot::after {
-    content: '!';
+    content: "!";
     color: rgba(2, 2, 2, 0.92);
   }
 
@@ -304,7 +330,9 @@
     color: #fff;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 180ms ease, box-shadow 180ms ease;
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease;
   }
 
   .download:hover {
@@ -314,7 +342,11 @@
 
   .modal.danger .download {
     border-color: rgba(230, 57, 70, 0.42);
-    background: linear-gradient(120deg, rgba(230, 57, 70, 0.2), rgba(230, 57, 70, 0.1));
+    background: linear-gradient(
+      120deg,
+      rgba(230, 57, 70, 0.2),
+      rgba(230, 57, 70, 0.1)
+    );
   }
 
   @media (max-width: 640px) {

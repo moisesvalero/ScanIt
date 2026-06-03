@@ -77,7 +77,7 @@ function dftBinMagnitude(signal: Float64Array, k: number): number {
  */
 export function meanGreenCheekRoi(
   img: ImageData,
-  box: { x: number; y: number; width: number; height: number }
+  box: { x: number; y: number; width: number; height: number },
 ): number {
   const { width: W, height: H, data } = img;
   const bx = box.x;
@@ -89,14 +89,14 @@ export function meanGreenCheekRoi(
       x: Math.max(0, Math.floor(bx + bw * 0.22)),
       y: Math.max(0, Math.floor(by + bh * 0.36)),
       w: Math.max(2, Math.floor(bw * 0.2)),
-      h: Math.max(2, Math.floor(bh * 0.2))
+      h: Math.max(2, Math.floor(bh * 0.2)),
     },
     {
       x: Math.max(0, Math.floor(bx + bw * 0.58)),
       y: Math.max(0, Math.floor(by + bh * 0.36)),
       w: Math.max(2, Math.floor(bw * 0.2)),
-      h: Math.max(2, Math.floor(bh * 0.2))
-    }
+      h: Math.max(2, Math.floor(bh * 0.2)),
+    },
   ];
 
   let sum = 0;
@@ -121,7 +121,10 @@ const HR_HIGH_HZ = 4.0;
 const MIN_SAMPLES = 36;
 const MIN_FS_HZ = 3.5;
 
-export function analyzeRppgGreenSeries(greenSamples: number[], sampleRateHz: number): RppgAnalysisResult {
+export function analyzeRppgGreenSeries(
+  greenSamples: number[],
+  sampleRateHz: number,
+): RppgAnalysisResult {
   const n = greenSamples.length;
   const badRate = sampleRateHz < MIN_FS_HZ || !Number.isFinite(sampleRateHz);
   if (n < MIN_SAMPLES || badRate) {
@@ -130,7 +133,7 @@ export function analyzeRppgGreenSeries(greenSamples: number[], sampleRateHz: num
       sampleRateHz,
       prominence: 0,
       rhythmicPulseLikely: false,
-      estimatedBpm: null
+      estimatedBpm: null,
     };
   }
 
@@ -153,7 +156,7 @@ export function analyzeRppgGreenSeries(greenSamples: number[], sampleRateHz: num
       sampleRateHz,
       prominence: 0,
       rhythmicPulseLikely: false,
-      estimatedBpm: null
+      estimatedBpm: null,
     };
   }
 
@@ -177,7 +180,12 @@ export function analyzeRppgGreenSeries(greenSamples: number[], sampleRateHz: num
   const rms = Math.sqrt(varSig);
 
   // Umbral conservador: prominencia y RMS mínimo en verde (0–255 escala).
-  const rhythmicPulseLikely = prominence >= 4.2 && rms >= 0.085 && peakF !== null && peakF >= 0.75 && peakF <= 3.6;
+  const rhythmicPulseLikely =
+    prominence >= 4.2 &&
+    rms >= 0.085 &&
+    peakF !== null &&
+    peakF >= 0.75 &&
+    peakF <= 3.6;
 
   const estimatedBpm = peakF !== null ? Math.round(peakF * 60) : null;
 
@@ -186,6 +194,6 @@ export function analyzeRppgGreenSeries(greenSamples: number[], sampleRateHz: num
     sampleRateHz,
     prominence,
     rhythmicPulseLikely,
-    estimatedBpm
+    estimatedBpm,
   };
 }

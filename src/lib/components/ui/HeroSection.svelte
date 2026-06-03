@@ -1,10 +1,12 @@
 <script lang="ts">
-  import Container from './Container.svelte';
-  import Button from './Button.svelte';
-  import Heading from './Heading.svelte';
-  import Text from './Text.svelte';
+  import type { Snippet } from "svelte";
+  import Container from "./Container.svelte";
+  import Button from "./Button.svelte";
+  import Heading from "./Heading.svelte";
+  import Text from "./Text.svelte";
 
   type Props = {
+    children?: Snippet;
     eyebrow?: string;
     title?: string;
     subtitle?: string;
@@ -12,30 +14,31 @@
     primaryHref?: string;
     secondaryLabel?: string;
     secondaryHref?: string;
-    align?: 'left' | 'center';
+    align?: "left" | "center";
   };
 
   let {
+    children,
     eyebrow = undefined,
-    title = '',
+    title = "",
     subtitle = undefined,
     primaryLabel = undefined,
     primaryHref = undefined,
     secondaryLabel = undefined,
     secondaryHref = undefined,
-    align = 'left'
+    align = "left",
   }: Props = $props();
 </script>
 
 <section class="nk-hero">
   <Container className="nk-hero-inner">
     <div class={`nk-hero-copy nk-hero-copy--${align}`}>
-      <Heading level={1} {eyebrow} align={align}>
+      <Heading level={1} {eyebrow} {align}>
         {title}
       </Heading>
 
       {#if subtitle}
-        <Text variant="muted" align={align} className="nk-hero-subtitle">
+        <Text variant="muted" {align} className="nk-hero-subtitle">
           {subtitle}
         </Text>
       {/if}
@@ -44,7 +47,7 @@
         <div class="nk-hero-actions">
           {#if primaryLabel}
             <Button
-              as={primaryHref ? 'a' : 'button'}
+              as={primaryHref ? "a" : "button"}
               href={primaryHref}
               variant="primary"
               size="lg"
@@ -55,7 +58,7 @@
 
           {#if secondaryLabel}
             <Button
-              as={secondaryHref ? 'a' : 'button'}
+              as={secondaryHref ? "a" : "button"}
               href={secondaryHref}
               variant="secondary"
               size="lg"
@@ -68,7 +71,7 @@
     </div>
 
     <div class="nk-hero-media">
-      <slot />
+      {@render children?.()}
     </div>
   </Container>
 </section>
@@ -150,4 +153,3 @@
     }
   }
 </style>
-

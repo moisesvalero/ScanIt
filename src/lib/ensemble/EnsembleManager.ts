@@ -1,18 +1,21 @@
-import { analyzeRppgGreenSeries } from '$lib/forensics/rppgSignal';
-import { scanMp4Container } from '$lib/forensics/mp4BoxForensics';
-import type { ContainerEnsembleInputs, RppgEnsembleInputs } from '$lib/forensics/AdvancedForensicSuite';
+import { analyzeRppgGreenSeries } from "$lib/forensics/rppgSignal";
+import { scanMp4Container } from "$lib/forensics/mp4BoxForensics";
+import type {
+  ContainerEnsembleInputs,
+  RppgEnsembleInputs,
+} from "$lib/forensics/AdvancedForensicSuite";
 
-export type EvidenceKind = 'video' | 'image' | 'audio' | 'text' | 'unknown';
+export type EvidenceKind = "video" | "image" | "audio" | "text" | "unknown";
 
 export type SpecialistKey =
-  | 'forensic'
-  | 'biometric'
-  | 'acoustic'
-  | 'linguistic'
-  | 'metadata'
-  | 'other'
-  | 'rppg'
-  | 'container';
+  | "forensic"
+  | "biometric"
+  | "acoustic"
+  | "linguistic"
+  | "metadata"
+  | "other"
+  | "rppg"
+  | "container";
 
 export type SpecialistVote = {
   key: SpecialistKey;
@@ -36,7 +39,7 @@ export const DEFAULT_ENSEMBLE_WEIGHTS: EnsembleWeights = {
   metadata: 0.12,
   other: 0.05,
   acoustic: 0.1,
-  linguistic: 0.1
+  linguistic: 0.1,
 };
 
 export type EnsembleResult = {
@@ -62,11 +65,18 @@ export function aggregateWeighted(votes: SpecialistVote[]): EnsembleResult {
     if (!v.applicable) continue;
     score += clamp(v.fakeScore0to100, 0, 100) * v.weight * factor;
   }
-  return { finalFakeScore0to100: clamp(score, 0, 100), votes, normalizedWeightsSum: sum };
+  return {
+    finalFakeScore0to100: clamp(score, 0, 100),
+    votes,
+    normalizedWeightsSum: sum,
+  };
 }
 
 /** Vídeo: sube el score cuando coinciden varias señales (manipulación clara sin un solo disparador al máximo). */
-export function videoConvergenceBoost(forensic: ForensicInputs, biometric: BiometricInputs): number {
+export function videoConvergenceBoost(
+  forensic: ForensicInputs,
+  biometric: BiometricInputs,
+): number {
   const rpp = Number(forensic.roiPerfectPts ?? 0) >= 40;
   const rnm = Number(forensic.roiNoiseMismatchPts ?? 0) >= 20;
   const portrait = Boolean(forensic.videoPortraitSyntheticHint);
@@ -96,9 +106,9 @@ export function videoConvergenceBoost(forensic: ForensicInputs, biometric: Biome
 /** Cara estable + rPPG sin pulso plausible: refuerzo cruzado (Gen-AI pulido). */
 export function videoRppgStableFaceBoost(
   biometric: BiometricInputs,
-  votes: SpecialistVote[]
+  votes: SpecialistVote[],
 ): number {
-  const rppg = votes.find((v) => v.key === 'rppg' && v.applicable);
+  const rppg = votes.find((v) => v.key === "rppg" && v.applicable);
   if (!rppg || rppg.fakeScore0to100 < 52) return 0;
   const rf = Number(biometric.reliableFaceFrames ?? 0);
   const minC = Number(biometric.minFaceConfidence ?? 0);
@@ -166,10 +176,20 @@ export type ForensicInputs = {
   dctDoubleQuantRisk0to100?: number;
 };
 
-export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weights: EnsembleWeights): SpecialistVote {
-  const applicable = kind === 'image' || kind === 'video';
+export function ForensicAnalyst(
+  kind: EvidenceKind,
+  input: ForensicInputs,
+  weights: EnsembleWeights,
+): SpecialistVote {
+  const applicable = kind === "image" || kind === "video";
   if (!applicable) {
-    return { key: 'forensic', label: 'Forensic', fakeScore0to100: 0, weight: weights.forensic, applicable: false };
+    return {
+      key: "forensic",
+      label: "Forensic",
+      fakeScore0to100: 0,
+      weight: weights.forensic,
+      applicable: false,
+    };
   }
 
   let score = 0;
@@ -179,7 +199,7 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
   score += Number(input.roiNoiseMismatchPts ?? 0);
 
   // Vídeo: refuerzo acoplado a ROI + ratios cara/fondo (deepfake hiper-limpio vs móvil real).
-  if (kind === 'video') {
+  if (kind === "video") {
     const rpp = Number(input.roiPerfectPts ?? 0);
     const rnm = Number(input.roiNoiseMismatchPts ?? 0);
     const nrf = Number(input.roiNoiseFace ?? 0);
@@ -208,7 +228,7 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
   }
 
   // Image forensic: balancear JPEG/cámara real (WhatsApp, móvil) vs generadores tipo Gemini/Grok.
-  if (kind === 'image') {
+  if (kind === "image") {
     if (input.localEditLikely) score += 25;
     if (input.vectorGraphicLike) score += 20;
     if (input.textureSynthetic) score += 18;
@@ -232,16 +252,20 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
       Boolean(input.textureSynthetic) ||
       Boolean(input.vectorGraphicLike) ||
       Boolean(input.localEditLikely) ||
-      Number(input.roiPerfectPts ?? 0) + Number(input.roiNoiseMismatchPts ?? 0) >= 40;
+      Number(input.roiPerfectPts ?? 0) +
+        Number(input.roiNoiseMismatchPts ?? 0) >=
+        40;
 
     // Señal de pipeline de cámara / recompresión (ELA local variable, picos típicos de JPEG social).
     const cameraPipelineLikely =
-      !strongSynth && (localCv > 0.34 || localPeak > 1.72 || (nm > 0.033 && nu < 0.52));
+      !strongSynth &&
+      (localCv > 0.34 || localPeak > 1.72 || (nm > 0.033 && nu < 0.52));
 
     // --- Ruido “demasiado limpio” (más estricto; no castigar JPEG con grano real) ---
     const tooClean =
       !cameraPipelineLikely &&
-      ((nm > 0 && nm < 0.022 && nu > 0.52) || (nm > 0 && nm < 0.028 && nu > 0.62));
+      ((nm > 0 && nm < 0.022 && nu > 0.52) ||
+        (nm > 0 && nm < 0.028 && nu > 0.62));
     if (tooClean) score = Math.max(score, 76);
 
     // --- Bordes: perfección alta sí penaliza; nitidez baja solo si hay otro apoyo (evita JPEG suave) ---
@@ -253,7 +277,8 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
     // JPEG viejo / móvil: alto rs + ELA local variable + poco ruido “uniforme” en el mapa nu.
     const rsLooksLikeCameraNr =
       !strongSynth &&
-      ((localCv > 0.48 && nm < 0.028) || (localCv > 0.51 && nm < 0.036 && rs > 0.55));
+      ((localCv > 0.48 && nm < 0.028) ||
+        (localCv > 0.51 && nm < 0.036 && rs > 0.55));
 
     // Recompresión social con variación local alta y nu bajo (no mezclar con PNG Gemini nu similar pero fp distinto).
     const jpegSocialRealHint = !strongSynth && localCv > 0.36 && nu < 0.35;
@@ -274,7 +299,14 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
       if (localCv > 0.54) freqScale *= 0.38;
       else if (localCv > 0.35 && fp < 0.19) freqScale *= 0.48;
       else if (nm > 0.036 && fp < 0.22) freqScale *= 0.55;
-      if (nm > 0.018 && nm < 0.03 && localCv > 0.27 && localCv < 0.42 && fp < 0.13) freqScale *= 0.62;
+      if (
+        nm > 0.018 &&
+        nm < 0.03 &&
+        localCv > 0.27 &&
+        localCv < 0.42 &&
+        fp < 0.13
+      )
+        freqScale *= 0.62;
     }
     // JPEG de red social con “cara perfecta” pero fp medio: no aplastar tanto la rama frecuencia.
     if (
@@ -385,7 +417,8 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
     if (edgeGenLike && li > 0.875 && fp > 0.135 && fp < 0.205) score += 22;
 
     // PNG/export con bordes muy regulares y poca variación de textura (nu bajo).
-    const pngCleanEdges = Boolean(input.frequencySynthetic) && ep > 0.45 && li > 0.85 && nu < 0.22;
+    const pngCleanEdges =
+      Boolean(input.frequencySynthetic) && ep > 0.45 && li > 0.85 && nu < 0.22;
     if (pngCleanEdges) score += 52;
 
     const studioExportLikely =
@@ -406,7 +439,9 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
     const p = clamp(prnuIn, 0, 100);
     score = Math.min(100, score + p * 0.2);
     if (p >= 28) {
-      forensicSubNotes.push(`PRNU residual (proxy): ${p.toFixed(0)}% riesgo — ruido sin textura típica de sensor.`);
+      forensicSubNotes.push(
+        `PRNU residual (proxy): ${p.toFixed(0)}% riesgo — ruido sin textura típica de sensor.`,
+      );
     }
   }
   const dctIn = input.dctDoubleQuantRisk0to100;
@@ -414,17 +449,19 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
     const d = clamp(dctIn, 0, 100);
     score = Math.min(100, score + d * 0.2);
     if (d >= 28) {
-      forensicSubNotes.push(`DCT doble-Q (proxy): ${d.toFixed(0)}% riesgo — periodicidad en AC 8×8.`);
+      forensicSubNotes.push(
+        `DCT doble-Q (proxy): ${d.toFixed(0)}% riesgo — periodicidad en AC 8×8.`,
+      );
     }
   }
 
   return {
-    key: 'forensic',
-    label: 'Forensic',
+    key: "forensic",
+    label: "Forensic",
     fakeScore0to100: clamp(score, 0, 100),
     weight: weights.forensic,
     applicable: true,
-    notes: forensicSubNotes.length ? forensicSubNotes : undefined
+    notes: forensicSubNotes.length ? forensicSubNotes : undefined,
   };
 }
 
@@ -442,10 +479,20 @@ export type BiometricInputs = {
   videoPolishedRoiSyntheticHint?: boolean;
 };
 
-export function BiometricAnalyst(kind: EvidenceKind, input: BiometricInputs, weights: EnsembleWeights): SpecialistVote {
-  const applicable = kind === 'video';
+export function BiometricAnalyst(
+  kind: EvidenceKind,
+  input: BiometricInputs,
+  weights: EnsembleWeights,
+): SpecialistVote {
+  const applicable = kind === "video";
   if (!applicable) {
-    return { key: 'biometric', label: 'Biometrics', fakeScore0to100: 0, weight: weights.biometric, applicable: false };
+    return {
+      key: "biometric",
+      label: "Biometrics",
+      fakeScore0to100: 0,
+      weight: weights.biometric,
+      applicable: false,
+    };
   }
 
   let score = 0;
@@ -487,11 +534,11 @@ export function BiometricAnalyst(kind: EvidenceKind, input: BiometricInputs, wei
   if (rf > 0 && rf < 10) score *= 0.6;
 
   return {
-    key: 'biometric',
-    label: 'Biometrics',
+    key: "biometric",
+    label: "Biometrics",
     fakeScore0to100: clamp(score, 0, 100),
     weight: weights.biometric,
-    applicable: true
+    applicable: true,
   };
 }
 
@@ -499,14 +546,18 @@ export type AcousticInputs = {
   score0to100?: number;
 };
 
-export function AcousticAnalyst(kind: EvidenceKind, input: AcousticInputs, weights: EnsembleWeights): SpecialistVote {
-  const applicable = kind === 'audio';
+export function AcousticAnalyst(
+  kind: EvidenceKind,
+  input: AcousticInputs,
+  weights: EnsembleWeights,
+): SpecialistVote {
+  const applicable = kind === "audio";
   return {
-    key: 'acoustic',
-    label: 'Acoustic',
+    key: "acoustic",
+    label: "Acoustic",
     fakeScore0to100: clamp(Number(input.score0to100 ?? 0), 0, 100),
     weight: weights.acoustic,
-    applicable
+    applicable,
   };
 }
 
@@ -514,14 +565,18 @@ export type LinguisticInputs = {
   score0to100?: number;
 };
 
-export function LinguisticAnalyst(kind: EvidenceKind, input: LinguisticInputs, weights: EnsembleWeights): SpecialistVote {
-  const applicable = kind === 'text';
+export function LinguisticAnalyst(
+  kind: EvidenceKind,
+  input: LinguisticInputs,
+  weights: EnsembleWeights,
+): SpecialistVote {
+  const applicable = kind === "text";
   return {
-    key: 'linguistic',
-    label: 'Linguistic',
+    key: "linguistic",
+    label: "Linguistic",
     fakeScore0to100: clamp(Number(input.score0to100 ?? 0), 0, 100),
     weight: weights.linguistic,
-    applicable
+    applicable,
   };
 }
 
@@ -534,30 +589,37 @@ export type MetadataInputs = {
 export function RppgAnalyst(
   kind: EvidenceKind,
   input: RppgEnsembleInputs | undefined,
-  weights: EnsembleWeights
+  weights: EnsembleWeights,
 ): SpecialistVote {
-  if (kind !== 'video') {
+  if (kind !== "video") {
     return {
-      key: 'rppg',
-      label: 'rPPG (pulso)',
+      key: "rppg",
+      label: "rPPG (pulso)",
       fakeScore0to100: 0,
       weight: weights.rppg,
-      applicable: false
+      applicable: false,
     };
   }
   const inn = input ?? {};
   let res = inn.precomputed ?? null;
-  if (!res && inn.greenSamples?.length && inn.sampleRateHz && inn.sampleRateHz >= 3) {
+  if (
+    !res &&
+    inn.greenSamples?.length &&
+    inn.sampleRateHz &&
+    inn.sampleRateHz >= 3
+  ) {
     res = analyzeRppgGreenSeries(inn.greenSamples, inn.sampleRateHz);
   }
   if (!res || res.sampleCount < 36) {
     return {
-      key: 'rppg',
-      label: 'rPPG (pulso)',
+      key: "rppg",
+      label: "rPPG (pulso)",
       fakeScore0to100: 0,
       weight: weights.rppg,
       applicable: false,
-      notes: ['Muestras insuficientes o frecuencia de muestreo baja para rPPG.']
+      notes: [
+        "Muestras insuficientes o frecuencia de muestreo baja para rPPG.",
+      ],
     };
   }
 
@@ -566,36 +628,39 @@ export function RppgAnalyst(
   if (res.rhythmicPulseLikely) {
     fake = Math.max(0, 20 - Math.min(20, (res.prominence - 4) * 5));
     notes.push(
-      `Pico espectral plausible (~${res.estimatedBpm ?? '?'} lpm, prominencia ${res.prominence.toFixed(2)}).`
+      `Pico espectral plausible (~${res.estimatedBpm ?? "?"} lpm, prominencia ${res.prominence.toFixed(2)}).`,
     );
   } else {
     fake = 52 + Math.min(40, Math.max(0, 6 - res.prominence) * 5);
-    notes.push('Sin pulso rítmico claro en banda cardiaca (verde / ROI mejillas).');
-    if (res.prominence < 2.5) notes.push('Baja prominencia espectral frente al fondo.');
+    notes.push(
+      "Sin pulso rítmico claro en banda cardiaca (verde / ROI mejillas).",
+    );
+    if (res.prominence < 2.5)
+      notes.push("Baja prominencia espectral frente al fondo.");
   }
 
   return {
-    key: 'rppg',
-    label: 'rPPG (pulso)',
+    key: "rppg",
+    label: "rPPG (pulso)",
     fakeScore0to100: clamp(fake, 0, 100),
     weight: weights.rppg,
     applicable: true,
-    notes
+    notes,
   };
 }
 
 export function ContainerAnalyst(
   kind: EvidenceKind,
   input: ContainerEnsembleInputs | undefined,
-  weights: EnsembleWeights
+  weights: EnsembleWeights,
 ): SpecialistVote {
-  if (kind !== 'video') {
+  if (kind !== "video") {
     return {
-      key: 'container',
-      label: 'Contenedor MP4',
+      key: "container",
+      label: "Contenedor MP4",
       fakeScore0to100: 0,
       weight: weights.container,
-      applicable: false
+      applicable: false,
     };
   }
   const inn = input ?? {};
@@ -605,34 +670,44 @@ export function ContainerAnalyst(
   }
   if (!res) {
     return {
-      key: 'container',
-      label: 'Contenedor MP4',
+      key: "container",
+      label: "Contenedor MP4",
       fakeScore0to100: 0,
       weight: weights.container,
       applicable: false,
-      notes: ['Sin datos de contenedor (no MP4 o sin buffer).']
+      notes: ["Sin datos de contenedor (no MP4 o sin buffer)."],
     };
   }
 
   const notes = [...res.notes];
   const ord = res.topLevelOrder.slice(0, 14);
-  if (ord.length) notes.push(`Boxes (inicio): ${ord.join(' → ')}`);
+  if (ord.length) notes.push(`Boxes (inicio): ${ord.join(" → ")}`);
   if (res.ftypMajorBrand) notes.push(`ftyp major: ${res.ftypMajorBrand}`);
 
   return {
-    key: 'container',
-    label: 'Contenedor MP4',
+    key: "container",
+    label: "Contenedor MP4",
     fakeScore0to100: clamp(res.fakeScore0to100, 0, 100),
     weight: weights.container,
     applicable: true,
-    notes
+    notes,
   };
 }
 
-export function MetadataAnalyst(kind: EvidenceKind, input: MetadataInputs, weights: EnsembleWeights): SpecialistVote {
-  const applicable = kind === 'video' || kind === 'image' || kind === 'audio';
+export function MetadataAnalyst(
+  kind: EvidenceKind,
+  input: MetadataInputs,
+  weights: EnsembleWeights,
+): SpecialistVote {
+  const applicable = kind === "video" || kind === "image" || kind === "audio";
   if (!applicable) {
-    return { key: 'metadata', label: 'Metadata', fakeScore0to100: 0, weight: weights.metadata, applicable: false };
+    return {
+      key: "metadata",
+      label: "Metadata",
+      fakeScore0to100: 0,
+      weight: weights.metadata,
+      applicable: false,
+    };
   }
 
   // Conservative: metadata should not dominate, but can contribute.
@@ -642,17 +717,26 @@ export function MetadataAnalyst(kind: EvidenceKind, input: MetadataInputs, weigh
   if (input.missingCameraMeta) score += 10;
 
   return {
-    key: 'metadata',
-    label: 'Metadata',
+    key: "metadata",
+    label: "Metadata",
     fakeScore0to100: clamp(score, 0, 100),
     weight: weights.metadata,
-    applicable: true
+    applicable: true,
   };
 }
 
-export function OtherAnalyst(kind: EvidenceKind, weights: EnsembleWeights): SpecialistVote {
+export function OtherAnalyst(
+  kind: EvidenceKind,
+  weights: EnsembleWeights,
+): SpecialistVote {
   // Placeholder for future “specialists” without affecting today’s behavior.
-  return { key: 'other', label: 'Other', fakeScore0to100: 0, weight: weights.other, applicable: kind !== 'unknown' };
+  return {
+    key: "other",
+    label: "Other",
+    fakeScore0to100: 0,
+    weight: weights.other,
+    applicable: kind !== "unknown",
+  };
 }
 
 export class EnsembleManager {
@@ -683,16 +767,25 @@ export class EnsembleManager {
       AcousticAnalyst(kind, input.acoustic ?? {}, this.weights),
       LinguisticAnalyst(kind, input.linguistic ?? {}, this.weights),
       MetadataAnalyst(kind, input.metadata ?? {}, this.weights),
-      OtherAnalyst(kind, this.weights)
+      OtherAnalyst(kind, this.weights),
     ];
     const base = aggregateWeighted(votes);
-    if (kind !== 'video') return base;
-    const boost = videoConvergenceBoost(input.forensic ?? {}, input.biometric ?? {});
-    const pulseBoost = videoRppgStableFaceBoost(input.biometric ?? {}, base.votes);
+    if (kind !== "video") return base;
+    const boost = videoConvergenceBoost(
+      input.forensic ?? {},
+      input.biometric ?? {},
+    );
+    const pulseBoost = videoRppgStableFaceBoost(
+      input.biometric ?? {},
+      base.votes,
+    );
     return {
       ...base,
-      finalFakeScore0to100: clamp(base.finalFakeScore0to100 + boost + pulseBoost, 0, 100)
+      finalFakeScore0to100: clamp(
+        base.finalFakeScore0to100 + boost + pulseBoost,
+        0,
+        100,
+      ),
     };
   }
 }
-

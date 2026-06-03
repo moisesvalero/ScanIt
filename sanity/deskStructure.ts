@@ -1,4 +1,4 @@
-import type { StructureResolver } from 'sanity/structure';
+import type { StructureResolver } from "sanity/structure";
 
 /**
  * Estructura estilo "CPT + ACF":
@@ -7,17 +7,17 @@ import type { StructureResolver } from 'sanity/structure';
  */
 export const deskStructure: StructureResolver = (S) =>
   S.list()
-    .title('Contenido del sitio')
+    .title("Contenido del sitio")
     .items([
       S.listItem()
-        .title('🏠 Web principal')
-        .id('sitePortfolioSingleton')
+        .title("🏠 Web principal")
+        .id("sitePortfolioSingleton")
         .child(
           S.document()
-            .schemaType('sitePortfolio')
-            .documentId('portfolioSite')
-            .title('🏠 Web principal')
+            .schemaType("sitePortfolio")
+            .documentId("portfolioSite")
+            .title("🏠 Web principal"),
         ),
       S.divider(),
-      S.documentTypeListItem('caseStudy').title('🧱 Proyectos')
+      S.documentTypeListItem("caseStudy").title("🧱 Proyectos"),
     ]);

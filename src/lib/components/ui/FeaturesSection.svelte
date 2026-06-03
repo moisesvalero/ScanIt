@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Container from './Container.svelte';
-  import Heading from './Heading.svelte';
-  import Text from './Text.svelte';
-  import Card from './Card.svelte';
+  import Container from "./Container.svelte";
+  import Heading from "./Heading.svelte";
+  import Text from "./Text.svelte";
+  import Card from "./Card.svelte";
 
   export type FeatureItem = {
     icon?: string;
@@ -20,10 +20,10 @@
 
   let {
     eyebrow = undefined,
-    title = '',
+    title = "",
     subtitle = undefined,
     items = [],
-    id = undefined
+    id = undefined,
   }: Props = $props();
 </script>
 
@@ -71,13 +71,13 @@
     gap: 1.4rem;
   }
 
-  .nk-features-card h3 {
+  :global(.nk-features-card h3) {
     font-size: 1.1rem;
     margin-bottom: 0.4rem;
     color: var(--text-main, #0f172a);
   }
 
-  .nk-features-card p {
+  :global(.nk-features-card p) {
     font-size: 0.95rem;
     color: var(--text-secondary, #6b7280);
     line-height: 1.7;
@@ -111,4 +111,3 @@
     }
   }
 </style>
-

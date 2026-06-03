@@ -1,142 +1,142 @@
 <script lang="ts">
-  import { reveal } from '$lib/reveal';
-  import { t } from '$lib/i18n/index.js';
+  import { reveal } from "$lib/reveal";
+  import { t } from "$lib/i18n/index.js";
 </script>
 
 <section class="deep-details" id="details">
   <div class="inner">
-    <header class="header" use:reveal={{ stage: 'title' }}>
-      <p class="eyebrow">{$t('deepDetails.eyebrow')}</p>
-      <h2>{$t('deepDetails.title')}</h2>
+    <header class="header" use:reveal={{ stage: "title" }}>
+      <p class="eyebrow">{$t("deepDetails.eyebrow")}</p>
+      <h2>{$t("deepDetails.title")}</h2>
       <p class="subtitle">
-        {$t('deepDetails.subtitle')}
+        {$t("deepDetails.subtitle")}
       </p>
     </header>
 
-    <div class="marquee" use:reveal={{ stage: 'content', delay: 150 }}>
+    <div class="marquee" use:reveal={{ stage: "content", delay: 150 }}>
       <ul class="list">
         <li>
-          <span class="text">{$t('deepDetails.items.item1Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item1Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item1Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item1Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item2Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item2Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item2Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item2Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item3Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item3Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item3Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item3Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item4Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item4Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item4Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item4Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item5Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item5Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item5Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item5Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item6Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item6Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item6Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item6Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item7Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item7Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item7Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item7Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item8Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item8Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item8Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item8Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item9Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item9Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item9Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item9Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item10Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item10Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item10Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item10Tag")}</span>
         </li>
 
         <li>
-          <span class="text">{$t('deepDetails.items.item11Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item11Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item11Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item11Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item12Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item12Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item12Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item12Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item13Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item13Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item13Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item13Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item14Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item14Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item14Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item14Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item15Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item15Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item15Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item15Tag")}</span>
         </li>
 
         <!-- Duplicamos para efecto “créditos” continuo -->
         <li>
-          <span class="text">{$t('deepDetails.items.item1Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item1Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item1Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item1Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item2Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item2Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item2Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item2Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item3Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item3Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item3Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item3Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item4Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item4Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item4Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item4Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item5Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item5Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item5Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item5Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item6Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item6Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item6Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item6Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item7Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item7Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item7Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item7Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item8Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item8Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item8Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item8Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item9Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item9Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item9Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item9Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item10Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item10Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item10Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item10Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item11Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item11Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item11Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item11Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item12Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item12Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item12Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item12Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item13Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item13Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item13Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item13Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item14Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item14Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item14Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item14Tag")}</span>
         </li>
         <li>
-          <span class="text">{$t('deepDetails.items.item15Text')}</span>
-          <span class="tag">{$t('deepDetails.items.item15Tag')}</span>
+          <span class="text">{$t("deepDetails.items.item15Text")}</span>
+          <span class="tag">{$t("deepDetails.items.item15Tag")}</span>
         </li>
       </ul>
     </div>
@@ -146,7 +146,11 @@
 <style>
   .deep-details {
     padding: 120px 1.5rem 120px;
-    background: radial-gradient(circle at top, rgba(99, 102, 241, 0.06), #ffffff 55%);
+    background: radial-gradient(
+      circle at top,
+      rgba(99, 102, 241, 0.06),
+      #ffffff 55%
+    );
     color: var(--text-main);
   }
 
@@ -189,8 +193,20 @@
     overflow-y: hidden;
     overflow-x: visible;
     position: relative;
-    -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
-    mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      black 15%,
+      black 85%,
+      transparent
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      black 15%,
+      black 85%,
+      transparent
+    );
     text-align: center;
   }
 
@@ -211,7 +227,9 @@
 
   .list li {
     color: rgba(17, 24, 39, 0.45);
-    transition: color 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      color 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     display: block;
     position: relative;
     cursor: pointer;
@@ -228,7 +246,9 @@
   }
 
   .text {
-    transition: color 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      color 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     display: inline-block;
     padding-right: 0.5rem;
   }
@@ -245,7 +265,9 @@
     background: rgba(255, 255, 255, 0.96);
     opacity: 0;
     transform: translateY(-50%) translateY(8px);
-    transition: opacity 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      opacity 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
     white-space: nowrap;
   }
 
@@ -349,4 +371,3 @@
     }
   }
 </style>
-

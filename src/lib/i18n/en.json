@@ -404,8 +404,14 @@
         { "pre": ">> Analyzing MP4 compression artifacts", "tail": "[OK]" },
         { "pre": ">> Verifying liveness pattern in video", "tail": "[OK]" },
         { "pre": ">> AI pattern detected in audio", "tail": "[BLOCKED]" },
-        { "pre": ">> Acoustic identity validation initiated", "tail": "[IN PROGRESS]" },
-        { "pre": ">> Auditing metadata and encoder fingerprints", "tail": "[RUNNING]" },
+        {
+          "pre": ">> Acoustic identity validation initiated",
+          "tail": "[IN PROGRESS]"
+        },
+        {
+          "pre": ">> Auditing metadata and encoder fingerprints",
+          "tail": "[RUNNING]"
+        },
         { "pre": ">> Evaluating temporal landmark consistency", "tail": "[OK]" }
       ]
     },

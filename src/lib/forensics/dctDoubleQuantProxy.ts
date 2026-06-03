@@ -51,13 +51,17 @@ function dct8x8Block(patch: Float64Array): void {
   }
 }
 
-export function analyzeDctDoubleQuantization(gray: Float32Array, width: number, height: number): DctDoubleQuantResult {
+export function analyzeDctDoubleQuantization(
+  gray: Float32Array,
+  width: number,
+  height: number,
+): DctDoubleQuantResult {
   const notes: string[] = [];
   if (width < 64 || height < 64) {
     return {
       risk0to100: 0,
       metrics: { acHistPeakRatio: 0, acHistAutocorrMax: 0, blocksSampled: 0 },
-      notes: ['Imagen demasiado pequeña para DCT 8×8.']
+      notes: ["Imagen demasiado pequeña para DCT 8×8."],
     };
   }
 
@@ -89,8 +93,12 @@ export function analyzeDctDoubleQuantization(gray: Float32Array, width: number, 
   if (acVals.length < 80) {
     return {
       risk0to100: 0,
-      metrics: { acHistPeakRatio: 0, acHistAutocorrMax: 0, blocksSampled: blocks },
-      notes: ['Pocos bloques AC muestreados.']
+      metrics: {
+        acHistPeakRatio: 0,
+        acHistAutocorrMax: 0,
+        blocksSampled: blocks,
+      },
+      notes: ["Pocos bloques AC muestreados."],
     };
   }
 
@@ -113,8 +121,12 @@ export function analyzeDctDoubleQuantization(gray: Float32Array, width: number, 
   if (hsum < 1e-6) {
     return {
       risk0to100: 0,
-      metrics: { acHistPeakRatio: 0, acHistAutocorrMax: 0, blocksSampled: blocks },
-      notes: []
+      metrics: {
+        acHistPeakRatio: 0,
+        acHistAutocorrMax: 0,
+        blocksSampled: blocks,
+      },
+      notes: [],
     };
   }
   for (let i = 0; i < bins; i++) hist[i] /= hsum;
@@ -142,15 +154,17 @@ export function analyzeDctDoubleQuantization(gray: Float32Array, width: number, 
   let risk = 0;
   if (acHistAutocorrMax > 0.014 && acHistPeakRatio > 2.8) {
     risk += 42;
-    notes.push('Periodicidad en histograma DCT AC compatible con doble cuantificación.');
+    notes.push(
+      "Periodicidad en histograma DCT AC compatible con doble cuantificación.",
+    );
   } else if (acHistAutocorrMax > 0.009 && acHistPeakRatio > 2.35) {
     risk += 26;
-    notes.push('Indicios moderados de doble compresión en coeficientes DCT.');
+    notes.push("Indicios moderados de doble compresión en coeficientes DCT.");
   }
 
   if (acHistPeakRatio > 3.6 && acHistAutocorrMax > 0.006) {
     risk += 14;
-    notes.push('Histograma AC muy pico (recompresión / export no lineal).');
+    notes.push("Histograma AC muy pico (recompresión / export no lineal).");
   }
 
   return {
@@ -158,8 +172,8 @@ export function analyzeDctDoubleQuantization(gray: Float32Array, width: number, 
     metrics: {
       acHistPeakRatio,
       acHistAutocorrMax,
-      blocksSampled: blocks
+      blocksSampled: blocks,
     },
-    notes
+    notes,
   };
 }

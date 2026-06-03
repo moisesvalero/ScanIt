@@ -44,9 +44,18 @@
         { "pre": ">> Analyse von MP4-Kompressionsartefakten", "tail": "[OK]" },
         { "pre": ">> Prüfung des Liveness-Patterns im Video", "tail": "[OK]" },
         { "pre": ">> KI-Muster im Audio erkannt", "tail": "[BLOCKED]" },
-        { "pre": ">> Akustische Identitätsvalidierung gestartet", "tail": "[IN PROGRESS]" },
-        { "pre": ">> Audit von Metadaten und Encoder-Fingerprints", "tail": "[RUNNING]" },
-        { "pre": ">> Bewertung der zeitlichen Landmark-Konsistenz", "tail": "[OK]" }
+        {
+          "pre": ">> Akustische Identitätsvalidierung gestartet",
+          "tail": "[IN PROGRESS]"
+        },
+        {
+          "pre": ">> Audit von Metadaten und Encoder-Fingerprints",
+          "tail": "[RUNNING]"
+        },
+        {
+          "pre": ">> Bewertung der zeitlichen Landmark-Konsistenz",
+          "tail": "[OK]"
+        }
       ]
     },
     "footer": {

@@ -1,11 +1,14 @@
 <script lang="ts">
-  type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'link';
-  type Size = 'sm' | 'md' | 'lg';
+  import type { Snippet } from "svelte";
+
+  type Variant = "primary" | "secondary" | "ghost" | "outline" | "link";
+  type Size = "sm" | "md" | "lg";
 
   type Props = {
-    as?: 'button' | 'a';
+    children?: Snippet;
+    as?: "button" | "a";
     href?: string;
-    type?: 'button' | 'submit' | 'reset';
+    type?: "button" | "submit" | "reset";
     variant?: Variant;
     size?: Size;
     disabled?: boolean;
@@ -14,27 +17,28 @@
   };
 
   let {
-    as = 'button',
+    children,
+    as = "button",
     href = undefined,
-    type = 'button',
-    variant = 'primary',
-    size = 'md',
+    type = "button",
+    variant = "primary",
+    size = "md",
     disabled = false,
     loading = false,
-    className = ''
+    className = "",
   }: Props = $props();
 </script>
 
 <svelte:element
   this={as}
   {href}
-  type={as === 'button' ? type : undefined}
+  type={as === "button" ? type : undefined}
   class={`nk-btn nk-btn--${variant} nk-btn--${size} ${className}`.trim()}
-  disabled={as === 'button' ? disabled || loading : undefined}
-  aria-disabled={as !== 'button' && (disabled || loading) ? 'true' : undefined}
+  disabled={as === "button" ? disabled || loading : undefined}
+  aria-disabled={as !== "button" && (disabled || loading) ? "true" : undefined}
 >
   <span class="nk-btn-inner">
-    <slot />
+    {@render children?.()}
   </span>
 </svelte:element>
 
@@ -158,11 +162,10 @@
   }
 
   .nk-btn:disabled,
-  .nk-btn[aria-disabled='true'] {
+  .nk-btn[aria-disabled="true"] {
     opacity: 0.65;
     cursor: not-allowed;
     box-shadow: none;
     transform: none;
   }
 </style>
-

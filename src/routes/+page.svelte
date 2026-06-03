@@ -1,23 +1,27 @@
 <script lang="ts">
-  import { jsPDF } from 'jspdf';
-  import { env } from '$env/dynamic/public';
-  import { seo, setSeo } from '$lib/seo';
-  import LanguageSelect from '$lib/components/LanguageSelect.svelte';
-  import { locale, t } from '$lib/i18n/index.js';
-  import { onDestroy, onMount } from 'svelte';
-  import { fade, fly } from 'svelte/transition';
-  import mammoth from 'mammoth';
-  import { tick } from 'svelte';
+  import { jsPDF } from "jspdf";
+  import { env } from "$env/dynamic/public";
+  import { seo, setSeo } from "$lib/seo";
+  import LanguageSelect from "$lib/components/LanguageSelect.svelte";
+  import { locale, t } from "$lib/i18n/index.js";
+  import { onDestroy, onMount } from "svelte";
+  import { fade, fly } from "svelte/transition";
+  import mammoth from "mammoth";
+  import { tick } from "svelte";
 
-  type Verdict = 'integro' | 'anomalias_detectadas' | 'no_concluyente';
-  type Anomaly = { code: string; severity: 'green' | 'amber' | 'red'; message: string };
+  type Verdict = "integro" | "anomalias_detectadas" | "no_concluyente";
+  type Anomaly = {
+    code: string;
+    severity: "green" | "amber" | "red";
+    message: string;
+  };
 
   type DocumentResult = {
     suite: string;
     mode: string;
     analysisVersion?: string;
     fileName: string;
-    extension: 'docx' | 'pdf';
+    extension: "docx" | "pdf";
     serverSha256?: string;
     timeline: { created: string | null; modified: string | null };
     metrics: {
@@ -34,7 +38,11 @@
     anomalies: Anomaly[];
     anomalyIndex: number;
     verdict: Verdict;
-    policy?: { zeroGuessing: boolean; forcedNoConclusive: boolean; reason: string | null };
+    policy?: {
+      zeroGuessing: boolean;
+      forcedNoConclusive: boolean;
+      reason: string | null;
+    };
     evidenceCoverage?: {
       timelineComplete: boolean;
       editingTimeAvailable: boolean;
@@ -46,12 +54,19 @@
       docxInternalMetadataConsistent?: boolean;
       pdfSignatureStatus?: string;
     };
-    ocrStatus?: { state: 'recommended' | 'not_required'; reason: string };
+    ocrStatus?: { state: "recommended" | "not_required"; reason: string };
     pdfSignature?: { hasSignature: boolean; status: string; reason: string };
-    ocrProbe?: { sample: string; chars: number; source: 'tesseract-first-page' };
+    ocrProbe?: {
+      sample: string;
+      chars: number;
+      source: "tesseract-first-page";
+    };
     confidence?: { score: number; reasons: string[] };
     linguisticAi: { suspicionPercent: number; reasons: string[] } | null;
-    linguisticAiStatus?: { state: 'ok' | 'omitted' | 'error'; reason: string } | null;
+    linguisticAiStatus?: {
+      state: "ok" | "omitted" | "error";
+      reason: string;
+    } | null;
   };
 
   type ImageResult = {
@@ -68,15 +83,24 @@
     visualAi: {
       suspicionPercent: number;
       reasons: string[];
-      origin: 'Origen: Dispositivo Digital (Captura)' | 'Origen: Captura Óptica (Cámara)';
+      origin:
+        | "Origen: Dispositivo Digital (Captura)"
+        | "Origen: Captura Óptica (Cámara)";
       ocrTextSample?: string;
       ocrEstimatedChars?: number;
       styleConsistency?: number;
     } | null;
-    visualAiStatus?: { state: 'ok' | 'omitted' | 'error' | 'blocked'; reason: string } | null;
+    visualAiStatus?: {
+      state: "ok" | "omitted" | "error" | "blocked";
+      reason: string;
+    } | null;
     visualPrecheck?: {
       allowed: boolean;
-      category: 'documento' | 'captura_software' | 'texto_academico' | 'irrelevante';
+      category:
+        | "documento"
+        | "captura_software"
+        | "texto_academico"
+        | "irrelevante";
       reason: string;
     } | null;
     evidenceCoverage?: {
@@ -86,38 +110,44 @@
       visualAiAvailable: boolean;
     };
     confidence?: { score: number; reasons: string[] };
-    policy?: { zeroGuessing: boolean; forcedNoConclusive: boolean; reason: string | null };
+    policy?: {
+      zeroGuessing: boolean;
+      forcedNoConclusive: boolean;
+      reason: string | null;
+    };
   };
 
-  const baseUrl = new URL(env.PUBLIC_SITE_URL || 'http://localhost:5173').toString().replace(/\/$/, '');
+  const baseUrl = new URL(env.PUBLIC_SITE_URL || "http://localhost:5173")
+    .toString()
+    .replace(/\/$/, "");
   setSeo({
-    title: 'ScanIt | Suite Forense de Integridad Academica',
+    title: "ScanIt | Suite Forense de Integridad Academica",
     description:
-      'Auditoria pericial de documentos e imagenes con evidencias tecnicas verificables y politica conservadora de no concluyente.',
-    ogTitle: 'ScanIt - Certificacion Forense Academica',
-    ogDescription: 'Suite de auditoria para institutos y universidades.',
+      "Auditoria pericial de documentos e imagenes con evidencias tecnicas verificables y politica conservadora de no concluyente.",
+    ogTitle: "ScanIt - Certificacion Forense Academica",
+    ogDescription: "Suite de auditoria para institutos y universidades.",
     canonical: `${baseUrl}/`,
     ogUrl: `${baseUrl}/`,
     ogImage: `${baseUrl}/og-image.png`,
-    twitterCard: 'summary_large_image'
+    twitterCard: "summary_large_image",
   });
 
-  let mode = $state<'document' | 'image'>('document');
+  let mode = $state<"document" | "image">("document");
   let busy = $state(false);
   let documentFile = $state<File | null>(null);
   let imageFile = $state<File | null>(null);
-  let imagePreview = $state('');
-  let documentHash = $state('');
-  let imageHash = $state('');
+  let imagePreview = $state("");
+  let documentHash = $state("");
+  let imageHash = $state("");
   let documentResult = $state<DocumentResult | null>(null);
   let imageResult = $state<ImageResult | null>(null);
-  let error = $state('');
-  let generatedAt = $state('');
+  let error = $state("");
+  let generatedAt = $state("");
   let dragActive = $state(false);
   let scanLogs = $state<string[]>([]);
   let scanStep = $state(0);
-  let activeTelemetryKind = $state<'document' | 'image' | null>(null);
-  let activeTelemetryLocale = $state('');
+  let activeTelemetryKind = $state<"document" | "image" | null>(null);
+  let activeTelemetryLocale = $state("");
   let showResult = $state(false);
   let visualScanning = $state(false);
   let scanStartedAt = $state(0);
@@ -128,14 +158,14 @@
   let documentInputRef: HTMLInputElement | null = $state(null);
   let imageInputRef: HTMLInputElement | null = $state(null);
   let telemetryTimer: ReturnType<typeof setInterval> | null = null;
-  let docPreviewKind = $state<'pdf' | 'docx' | null>(null);
-  let docPreviewHtml = $state('');
+  let docPreviewKind = $state<"pdf" | "docx" | null>(null);
+  let docPreviewHtml = $state("");
   let docPreviewLoading = $state(false);
-  let docPreviewPdfUrl = $state('');
+  let docPreviewPdfUrl = $state("");
   let pendingDocPreviewFile = $state<File | null>(null);
-  let docPreviewError = $state('');
-  let footerClock = $state('--:--');
-  let footerGeo = $state('Local');
+  let docPreviewError = $state("");
+  let footerClock = $state("--:--");
+  let footerGeo = $state("Local");
   let footerTimer: ReturnType<typeof setInterval> | null = null;
   let idleTelemetryTimer: ReturnType<typeof setInterval> | null = null;
   let phaseTimer: ReturnType<typeof setInterval> | null = null;
@@ -144,8 +174,8 @@
   let showPdfResizeHelpModal = $state(false);
   let showInstallModal = $state(false);
   let showInstallPrompt = $state(false);
-  let installPlatform = $state<'ios' | 'android' | 'other'>('other');
-  let telemetryPhase = $state('');
+  let installPlatform = $state<"ios" | "android" | "other">("other");
+  let telemetryPhase = $state("");
   let telemetryPhaseSeconds = $state(0);
   let telemetrySlowPhase = $state(false);
   let cursorX = $state(0);
@@ -153,18 +183,18 @@
   let cursorVisible = $state(false);
   let cursorHover = $state(false);
   let customCursorEnabled = $state(true);
-  let glitchSha = $state('');
-  let glitchPercent = $state('');
+  let glitchSha = $state("");
+  let glitchPercent = $state("");
   let glitchActive = $state(false);
   let glitchTimer: ReturnType<typeof setInterval> | null = null;
   let lastPickerOpenAt = 0;
 
   function l(map: Record<string, string>) {
-    return map[$locale] ?? map.en ?? map.es ?? '';
+    return map[$locale] ?? map.en ?? map.es ?? "";
   }
 
   function appendCustodyRecord(entry: {
-    mode: 'document' | 'image';
+    mode: "document" | "image";
     fileName: string;
     hash: string;
     verdict: Verdict;
@@ -172,15 +202,15 @@
     confidenceScore?: number | null;
   }) {
     try {
-      const key = 'scanit_chain_of_custody_v1';
-      const current = JSON.parse(localStorage.getItem(key) || '[]') as any[];
+      const key = "scanit_chain_of_custody_v1";
+      const current = JSON.parse(localStorage.getItem(key) || "[]") as any[];
       const next = [
         ...current.slice(-39),
         {
           ...entry,
           timestamp: new Date().toISOString(),
-          appVersion: 'scanit-forensics-1.0.0'
-        }
+          appVersion: "scanit-forensics-1.0.0",
+        },
       ];
       localStorage.setItem(key, JSON.stringify(next));
     } catch {
@@ -190,100 +220,480 @@
 
   function docLogs() {
     return [
-      l({ es: '[SISTEMA] Listo para analizar...', en: '[SYSTEM] Ready to analyze...', fr: '[SYSTEME] Pret pour analyser...', de: '[SYSTEM] Bereit zur Analyse...', pt: '[SISTEMA] Pronto para analisar...', ru: '[СИСТЕМА] Готово к анализу...', zh: '[系统] 已准备分析...', ar: '[النظام] جاهز للتحليل...', hi: '[सिस्टम] विश्लेषण के लिए तैयार...' }),
-      l({ es: '[CHECK] Esperando archivo...', en: '[CHECK] Waiting for file...', fr: '[CHECK] En attente du fichier...', de: '[CHECK] Warte auf Datei...', pt: '[CHECK] Aguardando arquivo...', ru: '[CHECK] Ожидание файла...', zh: '[CHECK] 等待文件中...', ar: '[CHECK] في انتظار الملف...', hi: '[CHECK] फ़ाइल की प्रतीक्षा...' }),
-      l({ es: 'Analizando SHA-256...', en: 'Analyzing SHA-256...', fr: 'Analyse de SHA-256...', de: 'SHA-256 wird analysiert...', pt: 'Analisando SHA-256...', ru: 'Анализ SHA-256...', zh: '正在分析 SHA-256...', ar: 'جار تحليل SHA-256...', hi: 'SHA-256 का विश्लेषण...' }),
-      l({ es: 'Verificando firmas digitales del archivo...', en: 'Checking file digital signatures...', fr: 'Verification des signatures numeriques du fichier...', de: 'Digitale Signaturen der Datei werden geprueft...', pt: 'Verificando assinaturas digitais do arquivo...', ru: 'Проверка цифровых подписей файла...', zh: '正在验证文件数字签名...', ar: 'جار التحقق من التواقيع الرقمية للملف...', hi: 'फ़ाइल के डिजिटल हस्ताक्षर जाँचे जा रहे हैं...' }),
-      l({ es: 'Extrayendo metadatos DOCX/PDF...', en: 'Extracting DOCX/PDF metadata...', fr: 'Extraction des metadonnees DOCX/PDF...', de: 'DOCX/PDF-Metadaten werden extrahiert...', pt: 'Extraindo metadados DOCX/PDF...', ru: 'Извлечение метаданных DOCX/PDF...', zh: '正在提取 DOCX/PDF 元数据...', ar: 'جار استخراج بيانات DOCX/PDF الوصفية...', hi: 'DOCX/PDF मेटाडेटा निकाला जा रहा है...' }),
-      l({ es: 'Analizando estructura XML del DOCX...', en: 'Analyzing DOCX XML structure...', fr: 'Analyse de la structure XML du DOCX...', de: 'DOCX-XML-Struktur wird analysiert...', pt: 'Analisando estrutura XML do DOCX...', ru: 'Анализ XML-структуры DOCX...', zh: '正在分析 DOCX XML 结构...', ar: 'جار تحليل بنية XML في DOCX...', hi: 'DOCX XML संरचना का विश्लेषण...' }),
-      l({ es: 'Leyendo propiedades de creacion/modificacion...', en: 'Reading creation/modification properties...', fr: 'Lecture des proprietes de creation/modification...', de: 'Eigenschaften fuer Erstellung/Aenderung werden gelesen...', pt: 'Lendo propriedades de criacao/modificacao...', ru: 'Чтение свойств создания/изменения...', zh: '正在读取创建/修改属性...', ar: 'جار قراءة خصائص الإنشاء/التعديل...', hi: 'निर्माण/संशोधन गुण पढ़े जा रहे हैं...' }),
-      l({ es: 'Calculando editing time vs word count...', en: 'Calculating editing time vs word count...', fr: 'Calcul du temps d edition vs nombre de mots...', de: 'Bearbeitungszeit vs. Wortanzahl wird berechnet...', pt: 'Calculando tempo de edicao vs contagem de palavras...', ru: 'Расчет времени редактирования и количества слов...', zh: '正在计算编辑时间与词数比...', ar: 'جار حساب وقت التحرير مقابل عدد الكلمات...', hi: 'एडिटिंग समय बनाम शब्द संख्या की गणना...' }),
-      l({ es: 'Analizando estructura y huellas de exportacion...', en: 'Analyzing structure and export traces...', fr: 'Analyse de la structure et des traces d export...', de: 'Struktur und Exportspuren werden analysiert...', pt: 'Analisando estrutura e rastros de exportacao...', ru: 'Анализ структуры и следов экспорта...', zh: '正在分析结构与导出痕迹...', ar: 'جار تحليل البنية وآثار التصدير...', hi: 'संरचना और एक्सपोर्ट ट्रेस का विश्लेषण...' }),
-      l({ es: 'Calculando entropia y uniformidad sintactica...', en: 'Calculating entropy and syntactic uniformity...', fr: 'Calcul de l entropie et de l uniformite syntaxique...', de: 'Entropie und syntaktische Gleichfoermigkeit werden berechnet...', pt: 'Calculando entropia e uniformidade sintatica...', ru: 'Расчет энтропии и синтаксической однородности...', zh: '正在计算熵与句法一致性...', ar: 'جار حساب الإنتروبيا والاتساق النحوي...', hi: 'एंट्रॉपी और वाक्य-विन्यास एकरूपता की गणना...' }),
-      l({ es: 'CAPA 2: Ejecutando analisis de consistencia de estilo...', en: 'LAYER 2: Running style consistency analysis...', fr: 'COUCHE 2 : Analyse de la coherence de style...', de: 'SCHICHT 2: Stilkonsistenz-Analyse wird ausgefuehrt...', pt: 'CAMADA 2: Executando analise de consistencia de estilo...', ru: 'СЛОЙ 2: Анализ согласованности стиля...', zh: '第2层：正在执行风格一致性分析...', ar: 'الطبقة 2: تنفيذ تحليل اتساق الأسلوب...', hi: 'परत 2: शैली सुसंगतता विश्लेषण चल रहा है...' }),
-      l({ es: 'Correlacionando señales IA + metadatos forenses...', en: 'Correlating AI signals + forensic metadata...', fr: 'Correlation des signaux IA + metadonnees techniques...', de: 'KI-Signale + forensische Metadaten werden korreliert...', pt: 'Correlacionando sinais de IA + metadados tecnicos...', ru: 'Сопоставление сигналов ИИ и технических метаданных...', zh: '正在关联 AI 信号与技术元数据...', ar: 'جار ربط إشارات الذكاء الاصطناعي مع البيانات الوصفية التقنية...', hi: 'AI संकेत + तकनीकी मेटाडेटा का सहसंबंध...' }),
-      l({ es: 'Correlacionando anomalias...', en: 'Correlating anomalies...', fr: 'Correlation des anomalies...', de: 'Anomalien werden korreliert...', pt: 'Correlacionando anomalias...', ru: 'Сопоставление аномалий...', zh: '正在关联异常...', ar: 'جار ربط الشذوذات...', hi: 'विसंगतियों का सहसंबंध...' }),
-      l({ es: 'CAPA 4: Calculando cobertura de evidencia y confianza...', en: 'LAYER 4: Calculating evidence coverage and confidence...', fr: 'COUCHE 4 : Calcul de la couverture des preuves et confiance...', de: 'SCHICHT 4: Belegabdeckung und Vertrauen werden berechnet...', pt: 'CAMADA 4: Calculando cobertura de evidencias e confianca...', ru: 'СЛОЙ 4: Расчет покрытия доказательств и уверенности...', zh: '第4层：正在计算证据覆盖率与置信度...', ar: 'الطبقة 4: حساب تغطية الأدلة والثقة...', hi: 'परत 4: साक्ष्य कवरेज और कॉन्फिडेंस की गणना...' }),
-      l({ es: 'CAPA 5: Aplicando reglas conservadoras Zero Guessing...', en: 'LAYER 5: Applying conservative Zero Guessing rules...', fr: 'COUCHE 5 : Application des regles conservatrices Zero Guessing...', de: 'SCHICHT 5: Konservative Zero-Guessing-Regeln werden angewandt...', pt: 'CAMADA 5: Aplicando regras conservadoras Zero Guessing...', ru: 'СЛОЙ 5: Применение консервативных правил Zero Guessing...', zh: '第5层：正在应用保守的 Zero Guessing 规则...', ar: 'الطبقة 5: تطبيق قواعد Zero Guessing المحافظة...', hi: 'परत 5: Zero Guessing के सतर्क नियम लागू...' }),
-      l({ es: 'Compilando acta pericial...', en: 'Compiling technical report...', fr: 'Compilation du rapport technique...', de: 'Technischer Bericht wird erstellt...', pt: 'Compilando relatorio tecnico...', ru: 'Формирование технического отчета...', zh: '正在生成技术报告...', ar: 'جار إعداد التقرير التقني...', hi: 'तकनीकी रिपोर्ट संकलित की जा रही है...' })
+      l({
+        es: "[SISTEMA] Listo para analizar...",
+        en: "[SYSTEM] Ready to analyze...",
+        fr: "[SYSTEME] Pret pour analyser...",
+        de: "[SYSTEM] Bereit zur Analyse...",
+        pt: "[SISTEMA] Pronto para analisar...",
+        ru: "[СИСТЕМА] Готово к анализу...",
+        zh: "[系统] 已准备分析...",
+        ar: "[النظام] جاهز للتحليل...",
+        hi: "[सिस्टम] विश्लेषण के लिए तैयार...",
+      }),
+      l({
+        es: "[CHECK] Esperando archivo...",
+        en: "[CHECK] Waiting for file...",
+        fr: "[CHECK] En attente du fichier...",
+        de: "[CHECK] Warte auf Datei...",
+        pt: "[CHECK] Aguardando arquivo...",
+        ru: "[CHECK] Ожидание файла...",
+        zh: "[CHECK] 等待文件中...",
+        ar: "[CHECK] في انتظار الملف...",
+        hi: "[CHECK] फ़ाइल की प्रतीक्षा...",
+      }),
+      l({
+        es: "Analizando SHA-256...",
+        en: "Analyzing SHA-256...",
+        fr: "Analyse de SHA-256...",
+        de: "SHA-256 wird analysiert...",
+        pt: "Analisando SHA-256...",
+        ru: "Анализ SHA-256...",
+        zh: "正在分析 SHA-256...",
+        ar: "جار تحليل SHA-256...",
+        hi: "SHA-256 का विश्लेषण...",
+      }),
+      l({
+        es: "Verificando firmas digitales del archivo...",
+        en: "Checking file digital signatures...",
+        fr: "Verification des signatures numeriques du fichier...",
+        de: "Digitale Signaturen der Datei werden geprueft...",
+        pt: "Verificando assinaturas digitais do arquivo...",
+        ru: "Проверка цифровых подписей файла...",
+        zh: "正在验证文件数字签名...",
+        ar: "جار التحقق من التواقيع الرقمية للملف...",
+        hi: "फ़ाइल के डिजिटल हस्ताक्षर जाँचे जा रहे हैं...",
+      }),
+      l({
+        es: "Extrayendo metadatos DOCX/PDF...",
+        en: "Extracting DOCX/PDF metadata...",
+        fr: "Extraction des metadonnees DOCX/PDF...",
+        de: "DOCX/PDF-Metadaten werden extrahiert...",
+        pt: "Extraindo metadados DOCX/PDF...",
+        ru: "Извлечение метаданных DOCX/PDF...",
+        zh: "正在提取 DOCX/PDF 元数据...",
+        ar: "جار استخراج بيانات DOCX/PDF الوصفية...",
+        hi: "DOCX/PDF मेटाडेटा निकाला जा रहा है...",
+      }),
+      l({
+        es: "Analizando estructura XML del DOCX...",
+        en: "Analyzing DOCX XML structure...",
+        fr: "Analyse de la structure XML du DOCX...",
+        de: "DOCX-XML-Struktur wird analysiert...",
+        pt: "Analisando estrutura XML do DOCX...",
+        ru: "Анализ XML-структуры DOCX...",
+        zh: "正在分析 DOCX XML 结构...",
+        ar: "جار تحليل بنية XML في DOCX...",
+        hi: "DOCX XML संरचना का विश्लेषण...",
+      }),
+      l({
+        es: "Leyendo propiedades de creacion/modificacion...",
+        en: "Reading creation/modification properties...",
+        fr: "Lecture des proprietes de creation/modification...",
+        de: "Eigenschaften fuer Erstellung/Aenderung werden gelesen...",
+        pt: "Lendo propriedades de criacao/modificacao...",
+        ru: "Чтение свойств создания/изменения...",
+        zh: "正在读取创建/修改属性...",
+        ar: "جار قراءة خصائص الإنشاء/التعديل...",
+        hi: "निर्माण/संशोधन गुण पढ़े जा रहे हैं...",
+      }),
+      l({
+        es: "Calculando editing time vs word count...",
+        en: "Calculating editing time vs word count...",
+        fr: "Calcul du temps d edition vs nombre de mots...",
+        de: "Bearbeitungszeit vs. Wortanzahl wird berechnet...",
+        pt: "Calculando tempo de edicao vs contagem de palavras...",
+        ru: "Расчет времени редактирования и количества слов...",
+        zh: "正在计算编辑时间与词数比...",
+        ar: "جار حساب وقت التحرير مقابل عدد الكلمات...",
+        hi: "एडिटिंग समय बनाम शब्द संख्या की गणना...",
+      }),
+      l({
+        es: "Analizando estructura y huellas de exportacion...",
+        en: "Analyzing structure and export traces...",
+        fr: "Analyse de la structure et des traces d export...",
+        de: "Struktur und Exportspuren werden analysiert...",
+        pt: "Analisando estrutura e rastros de exportacao...",
+        ru: "Анализ структуры и следов экспорта...",
+        zh: "正在分析结构与导出痕迹...",
+        ar: "جار تحليل البنية وآثار التصدير...",
+        hi: "संरचना और एक्सपोर्ट ट्रेस का विश्लेषण...",
+      }),
+      l({
+        es: "Calculando entropia y uniformidad sintactica...",
+        en: "Calculating entropy and syntactic uniformity...",
+        fr: "Calcul de l entropie et de l uniformite syntaxique...",
+        de: "Entropie und syntaktische Gleichfoermigkeit werden berechnet...",
+        pt: "Calculando entropia e uniformidade sintatica...",
+        ru: "Расчет энтропии и синтаксической однородности...",
+        zh: "正在计算熵与句法一致性...",
+        ar: "جار حساب الإنتروبيا والاتساق النحوي...",
+        hi: "एंट्रॉपी और वाक्य-विन्यास एकरूपता की गणना...",
+      }),
+      l({
+        es: "CAPA 2: Ejecutando analisis de consistencia de estilo...",
+        en: "LAYER 2: Running style consistency analysis...",
+        fr: "COUCHE 2 : Analyse de la coherence de style...",
+        de: "SCHICHT 2: Stilkonsistenz-Analyse wird ausgefuehrt...",
+        pt: "CAMADA 2: Executando analise de consistencia de estilo...",
+        ru: "СЛОЙ 2: Анализ согласованности стиля...",
+        zh: "第2层：正在执行风格一致性分析...",
+        ar: "الطبقة 2: تنفيذ تحليل اتساق الأسلوب...",
+        hi: "परत 2: शैली सुसंगतता विश्लेषण चल रहा है...",
+      }),
+      l({
+        es: "Correlacionando señales IA + metadatos forenses...",
+        en: "Correlating AI signals + forensic metadata...",
+        fr: "Correlation des signaux IA + metadonnees techniques...",
+        de: "KI-Signale + forensische Metadaten werden korreliert...",
+        pt: "Correlacionando sinais de IA + metadados tecnicos...",
+        ru: "Сопоставление сигналов ИИ и технических метаданных...",
+        zh: "正在关联 AI 信号与技术元数据...",
+        ar: "جار ربط إشارات الذكاء الاصطناعي مع البيانات الوصفية التقنية...",
+        hi: "AI संकेत + तकनीकी मेटाडेटा का सहसंबंध...",
+      }),
+      l({
+        es: "Correlacionando anomalias...",
+        en: "Correlating anomalies...",
+        fr: "Correlation des anomalies...",
+        de: "Anomalien werden korreliert...",
+        pt: "Correlacionando anomalias...",
+        ru: "Сопоставление аномалий...",
+        zh: "正在关联异常...",
+        ar: "جار ربط الشذوذات...",
+        hi: "विसंगतियों का सहसंबंध...",
+      }),
+      l({
+        es: "CAPA 4: Calculando cobertura de evidencia y confianza...",
+        en: "LAYER 4: Calculating evidence coverage and confidence...",
+        fr: "COUCHE 4 : Calcul de la couverture des preuves et confiance...",
+        de: "SCHICHT 4: Belegabdeckung und Vertrauen werden berechnet...",
+        pt: "CAMADA 4: Calculando cobertura de evidencias e confianca...",
+        ru: "СЛОЙ 4: Расчет покрытия доказательств и уверенности...",
+        zh: "第4层：正在计算证据覆盖率与置信度...",
+        ar: "الطبقة 4: حساب تغطية الأدلة والثقة...",
+        hi: "परत 4: साक्ष्य कवरेज और कॉन्फिडेंस की गणना...",
+      }),
+      l({
+        es: "CAPA 5: Aplicando reglas conservadoras Zero Guessing...",
+        en: "LAYER 5: Applying conservative Zero Guessing rules...",
+        fr: "COUCHE 5 : Application des regles conservatrices Zero Guessing...",
+        de: "SCHICHT 5: Konservative Zero-Guessing-Regeln werden angewandt...",
+        pt: "CAMADA 5: Aplicando regras conservadoras Zero Guessing...",
+        ru: "СЛОЙ 5: Применение консервативных правил Zero Guessing...",
+        zh: "第5层：正在应用保守的 Zero Guessing 规则...",
+        ar: "الطبقة 5: تطبيق قواعد Zero Guessing المحافظة...",
+        hi: "परत 5: Zero Guessing के सतर्क नियम लागू...",
+      }),
+      l({
+        es: "Compilando acta pericial...",
+        en: "Compiling technical report...",
+        fr: "Compilation du rapport technique...",
+        de: "Technischer Bericht wird erstellt...",
+        pt: "Compilando relatorio tecnico...",
+        ru: "Формирование технического отчета...",
+        zh: "正在生成技术报告...",
+        ar: "جار إعداد التقرير التقني...",
+        hi: "तकनीकी रिपोर्ट संकलित की जा रही है...",
+      }),
     ];
   }
 
   function imgLogs() {
     return [
-      l({ es: '[SISTEMA] Listo para analizar...', en: '[SYSTEM] Ready to analyze...', fr: '[SYSTEME] Pret pour analyser...', de: '[SYSTEM] Bereit zur Analyse...', pt: '[SISTEMA] Pronto para analisar...', ru: '[СИСТЕМА] Готово к анализу...', zh: '[系统] 已准备分析...', ar: '[النظام] جاهز للتحليل...', hi: '[सिस्टम] विश्लेषण के लिए तैयार...' }),
-      l({ es: '[CHECK] Esperando archivo...', en: '[CHECK] Waiting for file...', fr: '[CHECK] En attente du fichier...', de: '[CHECK] Warte auf Datei...', pt: '[CHECK] Aguardando arquivo...', ru: '[CHECK] Ожидание файла...', zh: '[CHECK] 等待文件中...', ar: '[CHECK] في انتظار الملف...', hi: '[CHECK] फ़ाइल की प्रतीक्षा...' }),
-      l({ es: 'Analizando SHA-256...', en: 'Analyzing SHA-256...', fr: 'Analyse de SHA-256...', de: 'SHA-256 wird analysiert...', pt: 'Analisando SHA-256...', ru: 'Анализ SHA-256...', zh: '正在分析 SHA-256...', ar: 'جار تحليل SHA-256...', hi: 'SHA-256 का विश्लेषण...' }),
-      l({ es: 'Verificando consistencia de captura y compresion...', en: 'Checking capture and compression consistency...', fr: 'Verification de la coherence capture/compression...', de: 'Konsistenz von Aufnahme und Kompression wird geprueft...', pt: 'Verificando consistencia de captura e compressao...', ru: 'Проверка согласованности захвата и сжатия...', zh: '正在验证采集与压缩一致性...', ar: 'جار التحقق من اتساق الالتقاط والضغط...', hi: 'कैप्चर और कंप्रेशन की सुसंगतता जाँची जा रही है...' }),
-      l({ es: 'Decodificando evidencia...', en: 'Decoding evidence...', fr: 'Decodage de la preuve...', de: 'Beweisdaten werden decodiert...', pt: 'Decodificando evidencia...', ru: 'Декодирование материала...', zh: '正在解码证据...', ar: 'جار فك ترميز الدليل...', hi: 'साक्ष्य डिकोड किया जा रहा है...' }),
-      l({ es: 'Clasificando tipo de contenido con IA de pre-validacion...', en: 'Classifying content type with AI pre-validation...', fr: 'Classification du contenu avec pre-validation IA...', de: 'Inhaltstyp mit KI-Vorvalidierung wird klassifiziert...', pt: 'Classificando tipo de conteudo com pre-validacao de IA...', ru: 'Классификация типа контента с ИИ-предпроверкой...', zh: '正在使用 AI 预校验分类内容类型...', ar: 'جار تصنيف نوع المحتوى عبر تحقق أولي بالذكاء الاصطناعي...', hi: 'AI प्री-वैलिडेशन से कंटेंट टाइप वर्गीकृत हो रहा है...' }),
-      l({ es: 'Revisando zonas con posible edicion...', en: 'Reviewing areas with possible edits...', fr: 'Analyse des zones avec edition possible...', de: 'Bereiche mit moeglicher Bearbeitung werden geprueft...', pt: 'Revisando zonas com possivel edicao...', ru: 'Проверка зон с возможным редактированием...', zh: '正在检查可能编辑区域...', ar: 'جار مراجعة المناطق ذات التعديل المحتمل...', hi: 'संभावित एडिट वाले क्षेत्रों की समीक्षा...' }),
-      l({ es: 'CAPA 2: Extrayendo OCR y consistencia tipografica visual...', en: 'LAYER 2: Extracting OCR and visual typography consistency...', fr: 'COUCHE 2 : Extraction OCR et coherence typographique visuelle...', de: 'SCHICHT 2: OCR und visuelle Typokonsistenz werden extrahiert...', pt: 'CAMADA 2: Extraindo OCR e consistencia tipografica visual...', ru: 'СЛОЙ 2: Извлечение OCR и визуальной типографики...', zh: '第2层：提取 OCR 与视觉排版一致性...', ar: 'الطبقة 2: استخراج OCR واتساق الطباعة بصريا...', hi: 'परत 2: OCR और दृश्य टाइपोग्राफी सुसंगतता निकाली जा रही है...' }),
-      l({ es: 'Comprobando si viene de foto real de camara...', en: 'Checking if it comes from a real camera photo...', fr: 'Verification d une origine photo camera reelle...', de: 'Pruefung, ob es von einem echten Kamerafoto stammt...', pt: 'Verificando se vem de foto real de camera...', ru: 'Проверка, получено ли с реальной камеры...', zh: '正在检查是否来自真实相机照片...', ar: 'جار التحقق مما إذا كانت من صورة كاميرا حقيقية...', hi: 'जांच रहे हैं कि यह असली कैमरा फोटो से आया है या नहीं...' }),
-      l({ es: 'Correlacionando PRNU/ELA con veredicto visual IA...', en: 'Correlating PRNU/ELA with AI visual verdict...', fr: 'Correlation PRNU/ELA avec verdict visuel IA...', de: 'PRNU/ELA wird mit KI-Bildurteil korreliert...', pt: 'Correlacionando PRNU/ELA com veredito visual da IA...', ru: 'Сопоставление PRNU/ELA с визуальным вердиктом ИИ...', zh: '正在关联 PRNU/ELA 与 AI 视觉结论...', ar: 'جار ربط PRNU/ELA مع الحكم البصري للذكاء الاصطناعي...', hi: 'PRNU/ELA को AI विज़ुअल निर्णय से जोड़ा जा रहा है...' }),
-      l({ es: 'CAPA 3: Analisis de ruido y pixeles de frontera...', en: 'LAYER 3: Noise and edge-pixel analysis...', fr: 'COUCHE 3 : Analyse du bruit et des pixels de bord...', de: 'SCHICHT 3: Rausch- und Randpixelanalyse...', pt: 'CAMADA 3: Analise de ruido e pixels de borda...', ru: 'СЛОЙ 3: Анализ шума и граничных пикселей...', zh: '第3层：噪声与边界像素分析...', ar: 'الطبقة 3: تحليل الضوضاء وبكسلات الحواف...', hi: 'परत 3: शोर और किनारे-पिक्सेल विश्लेषण...' }),
-      l({ es: 'Normalizando metricas...', en: 'Normalizing metrics...', fr: 'Normalisation des metriques...', de: 'Metriken werden normalisiert...', pt: 'Normalizando metricas...', ru: 'Нормализация метрик...', zh: '正在标准化指标...', ar: 'جار توحيد المقاييس...', hi: 'मेट्रिक्स नॉर्मलाइज़ किए जा रहे हैं...' }),
-      l({ es: 'CAPA 4: Calculando cobertura visual y confianza...', en: 'LAYER 4: Calculating visual coverage and confidence...', fr: 'COUCHE 4 : Calcul de couverture visuelle et confiance...', de: 'SCHICHT 4: Visuelle Abdeckung und Vertrauen werden berechnet...', pt: 'CAMADA 4: Calculando cobertura visual e confianca...', ru: 'СЛОЙ 4: Расчет визуального покрытия и уверенности...', zh: '第4层：正在计算视觉覆盖率与置信度...', ar: 'الطبقة 4: حساب التغطية البصرية والثقة...', hi: 'परत 4: दृश्य कवरेज और कॉन्फिडेंस की गणना...' }),
-      l({ es: 'CAPA 5: Aplicando reglas conservadoras Zero Guessing...', en: 'LAYER 5: Applying conservative Zero Guessing rules...', fr: 'COUCHE 5 : Application des regles conservatrices Zero Guessing...', de: 'SCHICHT 5: Konservative Zero-Guessing-Regeln werden angewandt...', pt: 'CAMADA 5: Aplicando regras conservadoras Zero Guessing...', ru: 'СЛОЙ 5: Применение консервативных правил Zero Guessing...', zh: '第5层：正在应用保守的 Zero Guessing 规则...', ar: 'الطبقة 5: تطبيق قواعد Zero Guessing المحافظة...', hi: 'परत 5: Zero Guessing के सतर्क नियम लागू...' }),
-      l({ es: 'Correlacionando anomalias...', en: 'Correlating anomalies...', fr: 'Correlation des anomalies...', de: 'Anomalien werden korreliert...', pt: 'Correlacionando anomalias...', ru: 'Сопоставление аномалий...', zh: '正在关联异常...', ar: 'جار ربط الشذوذات...', hi: 'विसंगतियों का सहसंबंध...' }),
-      l({ es: 'Compilando acta pericial...', en: 'Compiling technical report...', fr: 'Compilation du rapport technique...', de: 'Technischer Bericht wird erstellt...', pt: 'Compilando relatorio tecnico...', ru: 'Формирование технического отчета...', zh: '正在生成技术报告...', ar: 'جار إعداد التقرير التقني...', hi: 'तकनीकी रिपोर्ट संकलित की जा रही है...' })
+      l({
+        es: "[SISTEMA] Listo para analizar...",
+        en: "[SYSTEM] Ready to analyze...",
+        fr: "[SYSTEME] Pret pour analyser...",
+        de: "[SYSTEM] Bereit zur Analyse...",
+        pt: "[SISTEMA] Pronto para analisar...",
+        ru: "[СИСТЕМА] Готово к анализу...",
+        zh: "[系统] 已准备分析...",
+        ar: "[النظام] جاهز للتحليل...",
+        hi: "[सिस्टम] विश्लेषण के लिए तैयार...",
+      }),
+      l({
+        es: "[CHECK] Esperando archivo...",
+        en: "[CHECK] Waiting for file...",
+        fr: "[CHECK] En attente du fichier...",
+        de: "[CHECK] Warte auf Datei...",
+        pt: "[CHECK] Aguardando arquivo...",
+        ru: "[CHECK] Ожидание файла...",
+        zh: "[CHECK] 等待文件中...",
+        ar: "[CHECK] في انتظار الملف...",
+        hi: "[CHECK] फ़ाइल की प्रतीक्षा...",
+      }),
+      l({
+        es: "Analizando SHA-256...",
+        en: "Analyzing SHA-256...",
+        fr: "Analyse de SHA-256...",
+        de: "SHA-256 wird analysiert...",
+        pt: "Analisando SHA-256...",
+        ru: "Анализ SHA-256...",
+        zh: "正在分析 SHA-256...",
+        ar: "جار تحليل SHA-256...",
+        hi: "SHA-256 का विश्लेषण...",
+      }),
+      l({
+        es: "Verificando consistencia de captura y compresion...",
+        en: "Checking capture and compression consistency...",
+        fr: "Verification de la coherence capture/compression...",
+        de: "Konsistenz von Aufnahme und Kompression wird geprueft...",
+        pt: "Verificando consistencia de captura e compressao...",
+        ru: "Проверка согласованности захвата и сжатия...",
+        zh: "正在验证采集与压缩一致性...",
+        ar: "جار التحقق من اتساق الالتقاط والضغط...",
+        hi: "कैप्चर और कंप्रेशन की सुसंगतता जाँची जा रही है...",
+      }),
+      l({
+        es: "Decodificando evidencia...",
+        en: "Decoding evidence...",
+        fr: "Decodage de la preuve...",
+        de: "Beweisdaten werden decodiert...",
+        pt: "Decodificando evidencia...",
+        ru: "Декодирование материала...",
+        zh: "正在解码证据...",
+        ar: "جار فك ترميز الدليل...",
+        hi: "साक्ष्य डिकोड किया जा रहा है...",
+      }),
+      l({
+        es: "Clasificando tipo de contenido con IA de pre-validacion...",
+        en: "Classifying content type with AI pre-validation...",
+        fr: "Classification du contenu avec pre-validation IA...",
+        de: "Inhaltstyp mit KI-Vorvalidierung wird klassifiziert...",
+        pt: "Classificando tipo de conteudo com pre-validacao de IA...",
+        ru: "Классификация типа контента с ИИ-предпроверкой...",
+        zh: "正在使用 AI 预校验分类内容类型...",
+        ar: "جار تصنيف نوع المحتوى عبر تحقق أولي بالذكاء الاصطناعي...",
+        hi: "AI प्री-वैलिडेशन से कंटेंट टाइप वर्गीकृत हो रहा है...",
+      }),
+      l({
+        es: "Revisando zonas con posible edicion...",
+        en: "Reviewing areas with possible edits...",
+        fr: "Analyse des zones avec edition possible...",
+        de: "Bereiche mit moeglicher Bearbeitung werden geprueft...",
+        pt: "Revisando zonas com possivel edicao...",
+        ru: "Проверка зон с возможным редактированием...",
+        zh: "正在检查可能编辑区域...",
+        ar: "جار مراجعة المناطق ذات التعديل المحتمل...",
+        hi: "संभावित एडिट वाले क्षेत्रों की समीक्षा...",
+      }),
+      l({
+        es: "CAPA 2: Extrayendo OCR y consistencia tipografica visual...",
+        en: "LAYER 2: Extracting OCR and visual typography consistency...",
+        fr: "COUCHE 2 : Extraction OCR et coherence typographique visuelle...",
+        de: "SCHICHT 2: OCR und visuelle Typokonsistenz werden extrahiert...",
+        pt: "CAMADA 2: Extraindo OCR e consistencia tipografica visual...",
+        ru: "СЛОЙ 2: Извлечение OCR и визуальной типографики...",
+        zh: "第2层：提取 OCR 与视觉排版一致性...",
+        ar: "الطبقة 2: استخراج OCR واتساق الطباعة بصريا...",
+        hi: "परत 2: OCR और दृश्य टाइपोग्राफी सुसंगतता निकाली जा रही है...",
+      }),
+      l({
+        es: "Comprobando si viene de foto real de camara...",
+        en: "Checking if it comes from a real camera photo...",
+        fr: "Verification d une origine photo camera reelle...",
+        de: "Pruefung, ob es von einem echten Kamerafoto stammt...",
+        pt: "Verificando se vem de foto real de camera...",
+        ru: "Проверка, получено ли с реальной камеры...",
+        zh: "正在检查是否来自真实相机照片...",
+        ar: "جار التحقق مما إذا كانت من صورة كاميرا حقيقية...",
+        hi: "जांच रहे हैं कि यह असली कैमरा फोटो से आया है या नहीं...",
+      }),
+      l({
+        es: "Correlacionando PRNU/ELA con veredicto visual IA...",
+        en: "Correlating PRNU/ELA with AI visual verdict...",
+        fr: "Correlation PRNU/ELA avec verdict visuel IA...",
+        de: "PRNU/ELA wird mit KI-Bildurteil korreliert...",
+        pt: "Correlacionando PRNU/ELA com veredito visual da IA...",
+        ru: "Сопоставление PRNU/ELA с визуальным вердиктом ИИ...",
+        zh: "正在关联 PRNU/ELA 与 AI 视觉结论...",
+        ar: "جار ربط PRNU/ELA مع الحكم البصري للذكاء الاصطناعي...",
+        hi: "PRNU/ELA को AI विज़ुअल निर्णय से जोड़ा जा रहा है...",
+      }),
+      l({
+        es: "CAPA 3: Analisis de ruido y pixeles de frontera...",
+        en: "LAYER 3: Noise and edge-pixel analysis...",
+        fr: "COUCHE 3 : Analyse du bruit et des pixels de bord...",
+        de: "SCHICHT 3: Rausch- und Randpixelanalyse...",
+        pt: "CAMADA 3: Analise de ruido e pixels de borda...",
+        ru: "СЛОЙ 3: Анализ шума и граничных пикселей...",
+        zh: "第3层：噪声与边界像素分析...",
+        ar: "الطبقة 3: تحليل الضوضاء وبكسلات الحواف...",
+        hi: "परत 3: शोर और किनारे-पिक्सेल विश्लेषण...",
+      }),
+      l({
+        es: "Normalizando metricas...",
+        en: "Normalizing metrics...",
+        fr: "Normalisation des metriques...",
+        de: "Metriken werden normalisiert...",
+        pt: "Normalizando metricas...",
+        ru: "Нормализация метрик...",
+        zh: "正在标准化指标...",
+        ar: "جار توحيد المقاييس...",
+        hi: "मेट्रिक्स नॉर्मलाइज़ किए जा रहे हैं...",
+      }),
+      l({
+        es: "CAPA 4: Calculando cobertura visual y confianza...",
+        en: "LAYER 4: Calculating visual coverage and confidence...",
+        fr: "COUCHE 4 : Calcul de couverture visuelle et confiance...",
+        de: "SCHICHT 4: Visuelle Abdeckung und Vertrauen werden berechnet...",
+        pt: "CAMADA 4: Calculando cobertura visual e confianca...",
+        ru: "СЛОЙ 4: Расчет визуального покрытия и уверенности...",
+        zh: "第4层：正在计算视觉覆盖率与置信度...",
+        ar: "الطبقة 4: حساب التغطية البصرية والثقة...",
+        hi: "परत 4: दृश्य कवरेज और कॉन्फिडेंस की गणना...",
+      }),
+      l({
+        es: "CAPA 5: Aplicando reglas conservadoras Zero Guessing...",
+        en: "LAYER 5: Applying conservative Zero Guessing rules...",
+        fr: "COUCHE 5 : Application des regles conservatrices Zero Guessing...",
+        de: "SCHICHT 5: Konservative Zero-Guessing-Regeln werden angewandt...",
+        pt: "CAMADA 5: Aplicando regras conservadoras Zero Guessing...",
+        ru: "СЛОЙ 5: Применение консервативных правил Zero Guessing...",
+        zh: "第5层：正在应用保守的 Zero Guessing 规则...",
+        ar: "الطبقة 5: تطبيق قواعد Zero Guessing المحافظة...",
+        hi: "परत 5: Zero Guessing के सतर्क नियम लागू...",
+      }),
+      l({
+        es: "Correlacionando anomalias...",
+        en: "Correlating anomalies...",
+        fr: "Correlation des anomalies...",
+        de: "Anomalien werden korreliert...",
+        pt: "Correlacionando anomalias...",
+        ru: "Сопоставление аномалий...",
+        zh: "正在关联异常...",
+        ar: "جار ربط الشذوذات...",
+        hi: "विसंगतियों का सहसंबंध...",
+      }),
+      l({
+        es: "Compilando acta pericial...",
+        en: "Compiling technical report...",
+        fr: "Compilation du rapport technique...",
+        de: "Technischer Bericht wird erstellt...",
+        pt: "Compilando relatorio tecnico...",
+        ru: "Формирование технического отчета...",
+        zh: "正在生成技术报告...",
+        ar: "جار إعداد التقرير التقني...",
+        hi: "तकनीकी रिपोर्ट संकलित की जा रही है...",
+      }),
     ];
   }
   function docKeepaliveLogs() {
     return [
-      l({ es: 'Esperando respuesta del motor IA', en: 'Waiting for AI engine response', fr: 'En attente de la reponse du moteur IA', de: 'Warte auf Antwort der KI-Engine', pt: 'Aguardando resposta do motor de IA', ru: 'Ожидание ответа ИИ-движка', zh: '等待 AI 引擎响应', ar: 'في انتظار استجابة محرك الذكاء الاصطناعي', hi: 'AI इंजन के उत्तर की प्रतीक्षा' }),
-      l({ es: 'Correlacionando trazas de metadatos', en: 'Correlating metadata traces', fr: 'Correlation des traces de metadonnees', de: 'Metadaten-Spuren werden korreliert', pt: 'Correlacionando rastros de metadados', ru: 'Сопоставление следов метаданных', zh: '正在关联元数据轨迹', ar: 'جار ربط آثار البيانات الوصفية', hi: 'मेटाडेटा ट्रेस का सहसंबंध' }),
-      l({ es: 'Validando consistencia pericial', en: 'Validating technical consistency', fr: 'Validation de la coherence technique', de: 'Technische Konsistenz wird validiert', pt: 'Validando consistencia tecnica', ru: 'Проверка технической согласованности', zh: '正在验证技术一致性', ar: 'جار التحقق من الاتساق التقني', hi: 'तकनीकी सुसंगतता सत्यापित की जा रही है' })
+      l({
+        es: "Esperando respuesta del motor IA",
+        en: "Waiting for AI engine response",
+        fr: "En attente de la reponse du moteur IA",
+        de: "Warte auf Antwort der KI-Engine",
+        pt: "Aguardando resposta do motor de IA",
+        ru: "Ожидание ответа ИИ-движка",
+        zh: "等待 AI 引擎响应",
+        ar: "في انتظار استجابة محرك الذكاء الاصطناعي",
+        hi: "AI इंजन के उत्तर की प्रतीक्षा",
+      }),
+      l({
+        es: "Correlacionando trazas de metadatos",
+        en: "Correlating metadata traces",
+        fr: "Correlation des traces de metadonnees",
+        de: "Metadaten-Spuren werden korreliert",
+        pt: "Correlacionando rastros de metadados",
+        ru: "Сопоставление следов метаданных",
+        zh: "正在关联元数据轨迹",
+        ar: "جار ربط آثار البيانات الوصفية",
+        hi: "मेटाडेटा ट्रेस का सहसंबंध",
+      }),
+      l({
+        es: "Validando consistencia pericial",
+        en: "Validating technical consistency",
+        fr: "Validation de la coherence technique",
+        de: "Technische Konsistenz wird validiert",
+        pt: "Validando consistencia tecnica",
+        ru: "Проверка технической согласованности",
+        zh: "正在验证技术一致性",
+        ar: "جار التحقق من الاتساق التقني",
+        hi: "तकनीकी सुसंगतता सत्यापित की जा रही है",
+      }),
     ];
   }
   function imgKeepaliveLogs() {
     return [
-      l({ es: 'Esperando respuesta del detector visual IA', en: 'Waiting for AI visual detector response', fr: 'En attente de la reponse du detecteur visuel IA', de: 'Warte auf Antwort des KI-Bilddetektors', pt: 'Aguardando resposta do detector visual de IA', ru: 'Ожидание ответа визуального ИИ-детектора', zh: '等待 AI 视觉检测器响应', ar: 'في انتظار استجابة كاشف الذكاء الاصطناعي البصري', hi: 'AI विज़ुअल डिटेक्टर के उत्तर की प्रतीक्षा' }),
-      l({ es: 'Fusionando señales PRNU/ELA', en: 'Merging PRNU/ELA signals', fr: 'Fusion des signaux PRNU/ELA', de: 'PRNU/ELA-Signale werden zusammengefuehrt', pt: 'Fundindo sinais PRNU/ELA', ru: 'Объединение сигналов PRNU/ELA', zh: '正在融合 PRNU/ELA 信号', ar: 'جار دمج إشارات PRNU/ELA', hi: 'PRNU/ELA संकेतों का एकीकरण' }),
-      l({ es: 'Ajustando indice de riesgo visual', en: 'Adjusting visual risk index', fr: 'Ajustement de l indice de risque visuel', de: 'Visueller Risikoindex wird angepasst', pt: 'Ajustando indice de risco visual', ru: 'Настройка индекса визуального риска', zh: '正在调整视觉风险指数', ar: 'جار ضبط مؤشر المخاطر البصرية', hi: 'विज़ुअल जोखिम सूचकांक समायोजित किया जा रहा है' })
+      l({
+        es: "Esperando respuesta del detector visual IA",
+        en: "Waiting for AI visual detector response",
+        fr: "En attente de la reponse du detecteur visuel IA",
+        de: "Warte auf Antwort des KI-Bilddetektors",
+        pt: "Aguardando resposta do detector visual de IA",
+        ru: "Ожидание ответа визуального ИИ-детектора",
+        zh: "等待 AI 视觉检测器响应",
+        ar: "في انتظار استجابة كاشف الذكاء الاصطناعي البصري",
+        hi: "AI विज़ुअल डिटेक्टर के उत्तर की प्रतीक्षा",
+      }),
+      l({
+        es: "Fusionando señales PRNU/ELA",
+        en: "Merging PRNU/ELA signals",
+        fr: "Fusion des signaux PRNU/ELA",
+        de: "PRNU/ELA-Signale werden zusammengefuehrt",
+        pt: "Fundindo sinais PRNU/ELA",
+        ru: "Объединение сигналов PRNU/ELA",
+        zh: "正在融合 PRNU/ELA 信号",
+        ar: "جار دمج إشارات PRNU/ELA",
+        hi: "PRNU/ELA संकेतों का एकीकरण",
+      }),
+      l({
+        es: "Ajustando indice de riesgo visual",
+        en: "Adjusting visual risk index",
+        fr: "Ajustement de l indice de risque visuel",
+        de: "Visueller Risikoindex wird angepasst",
+        pt: "Ajustando indice de risco visual",
+        ru: "Настройка индекса визуального риска",
+        zh: "正在调整视觉风险指数",
+        ar: "جار ضبط مؤشر المخاطر البصرية",
+        hi: "विज़ुअल जोखिम सूचकांक समायोजित किया जा रहा है",
+      }),
     ];
   }
 
   const IDLE_TELEMETRY_LINES = [
-    '[SISTEMA] Listo para analizar...',
-    '[CHECK] Esperando archivo...',
-    '[SISTEMA] Preparando entorno...',
-    '[CHECK] Todo listo para comenzar.',
-    '[SISTEMA] ScanIt disponible.'
+    "[SISTEMA] Listo para analizar...",
+    "[CHECK] Esperando archivo...",
+    "[SISTEMA] Preparando entorno...",
+    "[CHECK] Todo listo para comenzar.",
+    "[SISTEMA] ScanIt disponible.",
   ];
 
   function telemetryLocaleTag(code: string) {
     const map: Record<string, string> = {
-      es: 'es-ES',
-      en: 'en-US',
-      fr: 'fr-FR',
-      de: 'de-DE',
-      pt: 'pt-PT',
-      ru: 'ru-RU',
-      zh: 'zh-CN',
-      ar: 'ar-SA',
-      hi: 'hi-IN'
+      es: "es-ES",
+      en: "en-US",
+      fr: "fr-FR",
+      de: "de-DE",
+      pt: "pt-PT",
+      ru: "ru-RU",
+      zh: "zh-CN",
+      ar: "ar-SA",
+      hi: "hi-IN",
     };
-    return map[code] ?? 'en-US';
+    return map[code] ?? "en-US";
   }
 
-  function telemetrySequence(kind: 'document' | 'image') {
-    return kind === 'document' ? docLogs() : imgLogs();
+  function telemetrySequence(kind: "document" | "image") {
+    return kind === "document" ? docLogs() : imgLogs();
   }
 
-  function telemetryKeepalive(kind: 'document' | 'image') {
-    return kind === 'document' ? docKeepaliveLogs() : imgKeepaliveLogs();
+  function telemetryKeepalive(kind: "document" | "image") {
+    return kind === "document" ? docKeepaliveLogs() : imgKeepaliveLogs();
   }
 
-  function telemetryLineAt(kind: 'document' | 'image', idx: number) {
+  function telemetryLineAt(kind: "document" | "image", idx: number) {
     const seq = telemetrySequence(kind);
-    if (idx < seq.length) return seq[idx] ?? '';
+    if (idx < seq.length) return seq[idx] ?? "";
     const keepalive = telemetryKeepalive(kind);
-    const base = keepalive[idx % keepalive.length] ?? keepalive[0] ?? '';
-    return `${base}${'.'.repeat((idx % 3) + 1)}`;
+    const base = keepalive[idx % keepalive.length] ?? keepalive[0] ?? "";
+    return `${base}${".".repeat((idx % 3) + 1)}`;
   }
 
-  function rebuildTelemetryLogs(kind: 'document' | 'image', steps: number) {
+  function rebuildTelemetryLogs(kind: "document" | "image", steps: number) {
     const rebuilt: string[] = [];
     for (let i = 0; i < steps; i += 1) {
       rebuilt.push(telemetryLineAt(kind, i));
@@ -293,11 +703,11 @@
 
   function idleLine(idx: number) {
     const keys = [
-      'scanit.telemetry.idle.ready',
-      'scanit.telemetry.idle.waiting',
-      'scanit.telemetry.idle.preparing',
-      'scanit.telemetry.idle.done',
-      'scanit.telemetry.idle.available'
+      "scanit.telemetry.idle.ready",
+      "scanit.telemetry.idle.waiting",
+      "scanit.telemetry.idle.preparing",
+      "scanit.telemetry.idle.done",
+      "scanit.telemetry.idle.available",
     ];
     return $t(keys[idx] ?? keys[0]);
   }
@@ -328,7 +738,7 @@
   }
 
   function randomHexChar() {
-    const chars = '0123456789abcdef';
+    const chars = "0123456789abcdef";
     return chars[Math.floor(Math.random() * chars.length)];
   }
 
@@ -337,15 +747,19 @@
   }
 
   function nowStamp() {
-    return new Date().toLocaleTimeString(telemetryLocaleTag($locale), { hour12: false });
+    return new Date().toLocaleTimeString(telemetryLocaleTag($locale), {
+      hour12: false,
+    });
   }
 
   $effect(() => {
     const activeLocale = $locale;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     if (busy || visualScanning) return;
     stopIdleTelemetry();
-    scanLogs = [`${idleLine(0)} ${new Date().toLocaleTimeString(telemetryLocaleTag(activeLocale))}`];
+    scanLogs = [
+      `${idleLine(0)} ${new Date().toLocaleTimeString(telemetryLocaleTag(activeLocale))}`,
+    ];
     startIdleTelemetry();
   });
 
@@ -362,19 +776,19 @@
   function telemetryLevel(line: string) {
     const l = line.toLowerCase();
     if (
-      l.startsWith('error:') ||
-      l.includes('[fail]') ||
-      l.includes('alerta') ||
-      l.includes('sospecha') ||
-      l.includes('anomalia') ||
-      l.includes('anomal')
+      l.startsWith("error:") ||
+      l.includes("[fail]") ||
+      l.includes("alerta") ||
+      l.includes("sospecha") ||
+      l.includes("anomalia") ||
+      l.includes("anomal")
     ) {
-      return 'ALERT';
+      return "ALERT";
     }
-    if (l.includes('[check]')) return 'CHECK';
-    if (l.includes('[audit]')) return 'AUDIT';
-    if (l.includes('groq') || l.includes('ia')) return 'AI';
-    return 'SYSTEM';
+    if (l.includes("[check]")) return "CHECK";
+    if (l.includes("[audit]")) return "AUDIT";
+    if (l.includes("groq") || l.includes("ia")) return "AI";
+    return "SYSTEM";
   }
 
   function telemetryRenderLine(line: string) {
@@ -384,15 +798,21 @@
 
   function isAnomalyTelemetryLine(line: string) {
     const l = line.toLowerCase();
-    return l.includes('alerta') || l.includes('sospecha') || l.includes('timeline') || l.includes('ratio');
+    return (
+      l.includes("alerta") ||
+      l.includes("sospecha") ||
+      l.includes("timeline") ||
+      l.includes("ratio")
+    );
   }
 
   function telemetryPrefixClass(line: string) {
     const l = line.toLowerCase();
-    if (l.includes('[fail]') || l.startsWith('error:')) return 'telemetry-line-fail';
-    if (l.includes('[check]')) return 'telemetry-line-check';
-    if (l.includes('[audit]')) return 'telemetry-line-audit';
-    return '';
+    if (l.includes("[fail]") || l.startsWith("error:"))
+      return "telemetry-line-fail";
+    if (l.includes("[check]")) return "telemetry-line-check";
+    if (l.includes("[audit]")) return "telemetry-line-audit";
+    return "";
   }
 
   function startDataGlitch(finalSha: string, finalPercent: string) {
@@ -414,13 +834,13 @@
         return;
       }
       glitchSha = finalSha
-        .split('')
+        .split("")
         .map((ch) => (/^[0-9a-f]$/i.test(ch) ? randomHexChar() : ch))
-        .join('');
+        .join("");
       glitchPercent = finalPercent
-        .split('')
+        .split("")
         .map((ch) => (/\d/.test(ch) ? randomDigit() : ch))
-        .join('');
+        .join("");
     }, 55);
   }
 
@@ -429,12 +849,12 @@
     scanLogs = [];
     scanStep = 0;
     activeTelemetryKind = null;
-    activeTelemetryLocale = '';
+    activeTelemetryLocale = "";
     showResult = false;
     showResultModal = false;
     visualScanning = false;
     scanStartedAt = 0;
-    telemetryPhase = '';
+    telemetryPhase = "";
     telemetryPhaseSeconds = 0;
     telemetrySlowPhase = false;
     if (telemetryTimer) {
@@ -453,37 +873,37 @@
     telemetrySlowPhase = false;
   }
 
-  function startTelemetry(kind: 'document' | 'image') {
+  function startTelemetry(kind: "document" | "image") {
     stopIdleTelemetry();
     resetTelemetry();
     activeTelemetryKind = kind;
-    activeTelemetryLocale = String($locale ?? 'en');
+    activeTelemetryLocale = String($locale ?? "en");
     visualScanning = true;
     scanStartedAt = Date.now();
     setTelemetryPhase(
-      kind === 'document'
+      kind === "document"
         ? l({
-            es: 'Inicializando analisis de documento',
-            en: 'Initializing document analysis',
-            fr: 'Initialisation de l analyse du document',
-            de: 'Dokumentanalyse wird initialisiert',
-            pt: 'Inicializando analise de documento',
-            ru: 'Инициализация анализа документа',
-            zh: '正在初始化文档分析',
-            ar: 'جار تهيئة تحليل المستند',
-            hi: 'दस्तावेज़ विश्लेषण शुरू किया जा रहा है'
+            es: "Inicializando analisis de documento",
+            en: "Initializing document analysis",
+            fr: "Initialisation de l analyse du document",
+            de: "Dokumentanalyse wird initialisiert",
+            pt: "Inicializando analise de documento",
+            ru: "Инициализация анализа документа",
+            zh: "正在初始化文档分析",
+            ar: "جار تهيئة تحليل المستند",
+            hi: "दस्तावेज़ विश्लेषण शुरू किया जा रहा है",
           })
         : l({
-            es: 'Inicializando analisis de imagen',
-            en: 'Initializing image analysis',
-            fr: 'Initialisation de l analyse d image',
-            de: 'Bildanalyse wird initialisiert',
-            pt: 'Inicializando analise de imagem',
-            ru: 'Инициализация анализа изображения',
-            zh: '正在初始化图像分析',
-            ar: 'جار تهيئة تحليل الصورة',
-            hi: 'इमेज विश्लेषण शुरू किया जा रहा है'
-          })
+            es: "Inicializando analisis de imagen",
+            en: "Initializing image analysis",
+            fr: "Initialisation de l analyse d image",
+            de: "Bildanalyse wird initialisiert",
+            pt: "Inicializando analise de imagem",
+            ru: "Инициализация анализа изображения",
+            zh: "正在初始化图像分析",
+            ar: "جار تهيئة تحليل الصورة",
+            hi: "इमेज विश्लेषण शुरू किया जा रहा है",
+          }),
     );
     phaseTimer = setInterval(() => {
       telemetryPhaseSeconds += 1;
@@ -502,7 +922,7 @@
         return;
       }
       const keepAlive = telemetryKeepalive(kind);
-      const dots = '.'.repeat((scanStep % 3) + 1);
+      const dots = ".".repeat((scanStep % 3) + 1);
       const msg = `${keepAlive[scanStep % keepAlive.length]}${dots}`;
       scanLogs = [...scanLogs, msg].slice(-MAX_LOG_LINES);
       scanStep += 1;
@@ -520,32 +940,34 @@
     }
     setTelemetryPhase(
       l({
-        es: 'Finalizando resultado',
-        en: 'Finalizing result',
-        fr: 'Finalisation du resultat',
-        de: 'Ergebnis wird finalisiert',
-        pt: 'Finalizando resultado',
-        ru: 'Формирование результата',
-        zh: '正在完成结果',
-        ar: 'جار إنهاء النتيجة',
-        hi: 'परिणाम अंतिम किया जा रहा है'
-      })
+        es: "Finalizando resultado",
+        en: "Finalizing result",
+        fr: "Finalisation du resultat",
+        de: "Ergebnis wird finalisiert",
+        pt: "Finalizando resultado",
+        ru: "Формирование результата",
+        zh: "正在完成结果",
+        ar: "جار إنهاء النتيجة",
+        hi: "परिणाम अंतिम किया जा रहा है",
+      }),
     );
     scanLogs = [
       ...scanLogs,
       l({
-        es: '[CHECK] Analisis completado. Generando resultado...',
-        en: '[CHECK] Analysis completed. Generating result...',
-        fr: '[CHECK] Analyse terminee. Generation du resultat...',
-        de: '[CHECK] Analyse abgeschlossen. Ergebnis wird erstellt...',
-        pt: '[CHECK] Analise concluida. Gerando resultado...',
-        ru: '[CHECK] Анализ завершен. Формирование результата...',
-        zh: '[CHECK] 分析完成。正在生成结果...',
-        ar: '[CHECK] اكتمل التحليل. جارٍ إنشاء النتيجة...',
-        hi: '[CHECK] विश्लेषण पूरा हुआ। परिणाम बनाया जा रहा है...'
-      })
+        es: "[CHECK] Analisis completado. Generando resultado...",
+        en: "[CHECK] Analysis completed. Generating result...",
+        fr: "[CHECK] Analyse terminee. Generation du resultat...",
+        de: "[CHECK] Analyse abgeschlossen. Ergebnis wird erstellt...",
+        pt: "[CHECK] Analise concluida. Gerando resultado...",
+        ru: "[CHECK] Анализ завершен. Формирование результата...",
+        zh: "[CHECK] 分析完成。正在生成结果...",
+        ar: "[CHECK] اكتمل التحليل. جارٍ إنشاء النتيجة...",
+        hi: "[CHECK] विश्लेषण पूरा हुआ। परिणाम बनाया जा रहा है...",
+      }),
     ].slice(-MAX_LOG_LINES);
-    const elapsed = scanStartedAt ? Date.now() - scanStartedAt : MIN_CINEMATIC_MS;
+    const elapsed = scanStartedAt
+      ? Date.now() - scanStartedAt
+      : MIN_CINEMATIC_MS;
     const remaining = Math.max(0, MIN_CINEMATIC_MS - elapsed);
     window.setTimeout(() => {
       showResult = true;
@@ -553,11 +975,15 @@
       activeTelemetryKind = null;
       if (documentResult || imageResult) {
         showResultModal = true;
-        if (mode === 'document' && documentResult) {
-          const pct = documentResult.linguisticAi ? `${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%` : 'N/D';
+        if (mode === "document" && documentResult) {
+          const pct = documentResult.linguisticAi
+            ? `${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%`
+            : "N/D";
           startDataGlitch(documentHash, pct);
-        } else if (mode === 'image' && imageResult) {
-          const pct = imageResult.visualAi ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%` : 'N/D';
+        } else if (mode === "image" && imageResult) {
+          const pct = imageResult.visualAi
+            ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%`
+            : "N/D";
           startDataGlitch(imageHash, pct);
         }
         startIdleTelemetry();
@@ -569,42 +995,48 @@
 
   function reopenResultModal() {
     if (!showResult) return;
-    if (mode === 'document' && !documentResult) return;
-    if (mode === 'image' && !imageResult) return;
+    if (mode === "document" && !documentResult) return;
+    if (mode === "image" && !imageResult) return;
     showResultModal = true;
   }
 
   function updateFooterClock() {
     const now = new Date();
-    footerClock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
-    const city = tz.split('/').pop()?.replace(/_/g, ' ') || 'Local';
-    const locale = (navigator.language || 'es-ES').toUpperCase();
-    const region = locale.includes('-') ? locale.split('-').pop() : locale;
+    footerClock = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Local";
+    const city = tz.split("/").pop()?.replace(/_/g, " ") || "Local";
+    const locale = (navigator.language || "es-ES").toUpperCase();
+    const region = locale.includes("-") ? locale.split("-").pop() : locale;
     footerGeo = `${city} / ${region}`;
   }
 
   onMount(() => {
     updateFooterClock();
     footerTimer = setInterval(updateFooterClock, 1000);
-    customCursorEnabled = !('ontouchstart' in window) && (navigator.maxTouchPoints ?? 0) === 0;
+    customCursorEnabled =
+      !("ontouchstart" in window) && (navigator.maxTouchPoints ?? 0) === 0;
 
     // PWA: mostramos ayuda de instalacion solo en movil y solo si NO estamos ya en modo app.
     try {
-      const ua = navigator.userAgent || '';
+      const ua = navigator.userAgent || "";
       const isIOS = /iPad|iPhone|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
-      const isMobile = window.matchMedia?.('(max-width: 820px)')?.matches ?? false;
+      const isMobile =
+        window.matchMedia?.("(max-width: 820px)")?.matches ?? false;
       const isStandalone =
         // iOS Safari (web app mode)
         Boolean((navigator as any).standalone) ||
         // General
-        Boolean(window.matchMedia?.('(display-mode: standalone)')?.matches);
+        Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches);
 
-      installPlatform = isIOS ? 'ios' : isAndroid ? 'android' : 'other';
-      showInstallPrompt = isMobile && !isStandalone && (installPlatform === 'ios' || installPlatform === 'android');
+      installPlatform = isIOS ? "ios" : isAndroid ? "android" : "other";
+      showInstallPrompt =
+        isMobile &&
+        !isStandalone &&
+        (installPlatform === "ios" || installPlatform === "android");
       try {
-        if (localStorage.getItem(INSTALL_HINT_LS_KEY) === '1') showInstallPrompt = false;
+        if (localStorage.getItem(INSTALL_HINT_LS_KEY) === "1")
+          showInstallPrompt = false;
       } catch {
         // Ignorar si localStorage no esta disponible.
       }
@@ -614,7 +1046,8 @@
 
     startIdleTelemetry();
     const isInteractive = (el: EventTarget | null) =>
-      el instanceof Element && Boolean(el.closest('button, a, input, [role="button"]'));
+      el instanceof Element &&
+      Boolean(el.closest('button, a, input, [role="button"]'));
     const onMouseMove = (e: MouseEvent) => {
       if (!customCursorEnabled) return;
       cursorX = e.clientX;
@@ -626,11 +1059,11 @@
       cursorVisible = false;
       cursorHover = false;
     };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseout', onMouseLeave);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseout", onMouseLeave);
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseout', onMouseLeave);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseout", onMouseLeave);
     };
   });
 
@@ -644,20 +1077,20 @@
 
   function requestDocumentPreview(file: File) {
     const lower = file.name.toLowerCase();
-    docPreviewHtml = '';
+    docPreviewHtml = "";
     docPreviewLoading = false;
-    docPreviewError = '';
+    docPreviewError = "";
     if (docPreviewPdfUrl) URL.revokeObjectURL(docPreviewPdfUrl);
-    docPreviewPdfUrl = '';
+    docPreviewPdfUrl = "";
     pendingDocPreviewFile = file;
-    if (lower.endsWith('.pdf')) {
-      docPreviewKind = 'pdf';
+    if (lower.endsWith(".pdf")) {
+      docPreviewKind = "pdf";
       docPreviewPdfUrl = URL.createObjectURL(file);
       pendingDocPreviewFile = null;
       return;
     }
-    if (lower.endsWith('.docx')) {
-      docPreviewKind = 'docx';
+    if (lower.endsWith(".docx")) {
+      docPreviewKind = "docx";
       docPreviewLoading = true;
       return;
     }
@@ -669,13 +1102,17 @@
     const f = pendingDocPreviewFile;
     const kind = docPreviewKind;
     void (async () => {
-      if (!f || kind !== 'docx') return;
+      if (!f || kind !== "docx") return;
       try {
         await tick();
         const buf = await f.arrayBuffer();
-        const converted = await mammoth.convertToHtml({ arrayBuffer: buf as any });
-        const htmlBody = String(converted?.value ?? '').trim();
-        const safeBody = htmlBody || '<p>Documento sin contenido extraible en vista previa.</p>';
+        const converted = await mammoth.convertToHtml({
+          arrayBuffer: buf as any,
+        });
+        const htmlBody = String(converted?.value ?? "").trim();
+        const safeBody =
+          htmlBody ||
+          "<p>Documento sin contenido extraible en vista previa.</p>";
         docPreviewHtml = `<!doctype html>
 <html lang="es">
 <head>
@@ -719,8 +1156,8 @@
 </body>
 </html>`;
       } catch {
-        docPreviewError = 'No se pudo generar la vista previa del documento.';
-        docPreviewHtml = '';
+        docPreviewError = "No se pudo generar la vista previa del documento.";
+        docPreviewHtml = "";
       } finally {
         docPreviewLoading = false;
         pendingDocPreviewFile = null;
@@ -729,42 +1166,43 @@
   });
 
   const verdictLabel: Record<Verdict, string> = {
-    integro: 'Integro',
-    anomalias_detectadas: 'Anomalias detectadas',
-    no_concluyente: 'No concluyente'
+    integro: "Integro",
+    anomalias_detectadas: "Anomalias detectadas",
+    no_concluyente: "No concluyente",
   };
 
   function currentVerdict(): Verdict | null {
-    if (mode === 'document') return documentResult?.verdict ?? null;
+    if (mode === "document") return documentResult?.verdict ?? null;
     return imageResult?.verdict ?? null;
   }
 
   function downloadToneClass() {
     const verdict = currentVerdict();
-    if (verdict === 'integro') return 'is-clean';
-    if (verdict === 'anomalias_detectadas') return 'is-suspicious';
-    if (verdict === 'no_concluyente') return 'is-inconclusive';
-    return '';
+    if (verdict === "integro") return "is-clean";
+    if (verdict === "anomalias_detectadas") return "is-suspicious";
+    if (verdict === "no_concluyente") return "is-inconclusive";
+    return "";
   }
 
   function panicCriticalActive() {
-    const docCritical = (documentResult?.linguisticAi?.suspicionPercent ?? 0) >= 100;
+    const docCritical =
+      (documentResult?.linguisticAi?.suspicionPercent ?? 0) >= 100;
     const imgCritical = (imageResult?.visualAi?.suspicionPercent ?? 0) >= 100;
     return docCritical || imgCritical;
   }
 
   function coverageTone(score: number | null | undefined) {
-    if (typeof score !== 'number') return 'coverage-amber';
-    if (score >= 80) return 'coverage-green';
-    if (score >= 55) return 'coverage-amber';
-    return 'coverage-red';
+    if (typeof score !== "number") return "coverage-amber";
+    if (score >= 80) return "coverage-green";
+    if (score >= 55) return "coverage-amber";
+    return "coverage-red";
   }
 
   async function hashSha256(file: File) {
     const data = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', data);
+    const digest = await crypto.subtle.digest("SHA-256", data);
     const arr = Array.from(new Uint8Array(digest));
-    return arr.map((x) => x.toString(16).padStart(2, '0')).join('');
+    return arr.map((x) => x.toString(16).padStart(2, "0")).join("");
   }
 
   async function yieldUiFrame() {
@@ -772,11 +1210,11 @@
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
 
-  function openPicker(kind: 'document' | 'image') {
+  function openPicker(kind: "document" | "image") {
     const now = Date.now();
     if (now - lastPickerOpenAt < 420) return;
     lastPickerOpenAt = now;
-    if (kind === 'document') {
+    if (kind === "document") {
       documentInputRef?.click();
       return;
     }
@@ -797,14 +1235,14 @@
         ru: `Файл превышает веб-лимит ${maxMb} МБ. Сожмите его или экспортируйте меньшую версию.`,
         zh: `文件超过 ${maxMb} MB 的网页分析限制，请压缩或导出更小版本。`,
         ar: `الملف يتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطه أو تصديره بحجم أصغر.`,
-        hi: `फ़ाइल ${maxMb} MB वेब सीमा से बड़ी है। इसे compress करें या छोटा export करें।`
+        hi: `फ़ाइल ${maxMb} MB वेब सीमा से बड़ी है। इसे compress करें या छोटा export करें।`,
       });
       documentFile = null;
       return;
     }
     documentFile = picked;
     documentResult = null;
-    error = '';
+    error = "";
     showResult = false;
     if (documentFile) requestDocumentPreview(documentFile);
     startIdleTelemetry();
@@ -824,17 +1262,17 @@
         ru: `Изображение превышает веб-лимит ${maxMb} МБ. Сожмите перед загрузкой.`,
         zh: `图片超过 ${maxMb} MB 的网页分析限制，请先压缩后上传。`,
         ar: `الصورة تتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطها قبل الرفع.`,
-        hi: `छवि ${maxMb} MB वेब सीमा से बड़ी है। अपलोड से पहले compress करें।`
+        hi: `छवि ${maxMb} MB वेब सीमा से बड़ी है। अपलोड से पहले compress करें।`,
       });
       imageFile = null;
       return;
     }
     imageFile = picked;
     imageResult = null;
-    error = '';
+    error = "";
     showResult = false;
     if (imagePreview) URL.revokeObjectURL(imagePreview);
-    imagePreview = imageFile ? URL.createObjectURL(imageFile) : '';
+    imagePreview = imageFile ? URL.createObjectURL(imageFile) : "";
     startIdleTelemetry();
   }
 
@@ -851,9 +1289,9 @@
     dragActive = false;
     const file = e.dataTransfer?.files?.[0] ?? null;
     if (!file) return;
-    if (mode === 'document') {
+    if (mode === "document") {
       if (!/\.(docx|pdf)$/i.test(file.name)) {
-        error = 'Formato no soportado. Usa .docx o .pdf.';
+        error = "Formato no soportado. Usa .docx o .pdf.";
         return;
       }
       if (file.size > MAX_UPLOAD_BYTES) {
@@ -867,20 +1305,20 @@
           ru: `Файл превышает веб-лимит ${maxMb} МБ. Сожмите его или экспортируйте меньшую версию.`,
           zh: `文件超过 ${maxMb} MB 的网页分析限制，请压缩或导出更小版本。`,
           ar: `الملف يتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطه أو تصديره بحجم أصغر.`,
-          hi: `फ़ाइल ${maxMb} MB वेब सीमा से बड़ी है। इसे compress करें या छोटा export करें।`
+          hi: `फ़ाइल ${maxMb} MB वेब सीमा से बड़ी है। इसे compress करें या छोटा export करें।`,
         });
         return;
       }
       documentFile = file;
       documentResult = null;
       showResult = false;
-      error = '';
+      error = "";
       requestDocumentPreview(file);
       startIdleTelemetry();
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      error = 'Formato no soportado. Usa una imagen.';
+    if (!file.type.startsWith("image/")) {
+      error = "Formato no soportado. Usa una imagen.";
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -894,91 +1332,105 @@
         ru: `Изображение превышает веб-лимит ${maxMb} МБ. Сожмите перед загрузкой.`,
         zh: `图片超过 ${maxMb} MB 的网页分析限制，请先压缩后上传。`,
         ar: `الصورة تتجاوز حد ${maxMb} ميغابايت لتحليل الويب. قم بضغطها قبل الرفع.`,
-        hi: `छवि ${maxMb} MB वेब सीमा से बड़ी है। अपलोड से पहले compress करें।`
+        hi: `छवि ${maxMb} MB वेब सीमा से बड़ी है। अपलोड से पहले compress करें।`,
       });
       return;
     }
     imageFile = file;
     imageResult = null;
     showResult = false;
-    error = '';
+    error = "";
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     imagePreview = URL.createObjectURL(file);
     startIdleTelemetry();
   }
 
   function shouldShowPdfResizeHelp() {
-    if (mode !== 'document' || !error) return false;
+    if (mode !== "document" || !error) return false;
     const lower = error.toLowerCase();
     return (
-      lower.includes('payload') ||
-      lower.includes('too large') ||
-      lower.includes('request entity') ||
-      lower.includes('413') ||
-      lower.includes('limite') ||
-      lower.includes('limit') ||
-      lower.includes('mb')
+      lower.includes("payload") ||
+      lower.includes("too large") ||
+      lower.includes("request entity") ||
+      lower.includes("413") ||
+      lower.includes("limite") ||
+      lower.includes("limit") ||
+      lower.includes("mb")
     );
   }
 
   async function auditDocument() {
     if (!documentFile) return;
     busy = true;
-    error = '';
-    startTelemetry('document');
+    error = "";
+    startTelemetry("document");
     try {
       setTelemetryPhase(
         l({
-          es: 'Calculando huella SHA-256',
-          en: 'Calculating SHA-256 fingerprint',
-          fr: 'Calcul de l empreinte SHA-256',
-          de: 'SHA-256-Fingerabdruck wird berechnet',
-          pt: 'Calculando impressao SHA-256',
-          ru: 'Вычисление отпечатка SHA-256',
-          zh: '正在计算 SHA-256 指纹',
-          ar: 'جار حساب بصمة SHA-256',
-          hi: 'SHA-256 फिंगरप्रिंट की गणना'
-        })
+          es: "Calculando huella SHA-256",
+          en: "Calculating SHA-256 fingerprint",
+          fr: "Calcul de l empreinte SHA-256",
+          de: "SHA-256-Fingerabdruck wird berechnet",
+          pt: "Calculando impressao SHA-256",
+          ru: "Вычисление отпечатка SHA-256",
+          zh: "正在计算 SHA-256 指纹",
+          ar: "جار حساب بصمة SHA-256",
+          hi: "SHA-256 फिंगरप्रिंट की गणना",
+        }),
       );
-      scanLogs = [...scanLogs, 'Preparando hash SHA-256...'];
+      scanLogs = [...scanLogs, "Preparando hash SHA-256..."];
       await yieldUiFrame();
       documentHash = await hashSha256(documentFile);
-      scanLogs = [...scanLogs, 'Enviando a extractor forense...'];
+      scanLogs = [...scanLogs, "Enviando a extractor forense..."];
       await yieldUiFrame();
       const form = new FormData();
-      form.append('file', documentFile);
+      form.append("file", documentFile);
       setTelemetryPhase(
         l({
-          es: 'Subiendo archivo al motor de analisis',
-          en: 'Uploading file to analysis engine',
-          fr: 'Envoi du fichier au moteur d analyse',
-          de: 'Datei wird zur Analyse hochgeladen',
-          pt: 'Enviando arquivo para o motor de analise',
-          ru: 'Загрузка файла в модуль анализа',
-          zh: '正在将文件上传到分析引擎',
-          ar: 'جار رفع الملف إلى محرك التحليل',
-          hi: 'फ़ाइल विश्लेषण इंजन पर अपलोड हो रही है'
-        })
+          es: "Subiendo archivo al motor de analisis",
+          en: "Uploading file to analysis engine",
+          fr: "Envoi du fichier au moteur d analyse",
+          de: "Datei wird zur Analyse hochgeladen",
+          pt: "Enviando arquivo para o motor de analise",
+          ru: "Загрузка файла в модуль анализа",
+          zh: "正在将文件上传到分析引擎",
+          ar: "جار رفع الملف إلى محرك التحليل",
+          hi: "फ़ाइल विश्लेषण इंजन पर अपलोड हो रही है",
+        }),
       );
-      const response = await fetch('/api/audit-document', { method: 'POST', body: form });
+      const response = await fetch("/api/audit-document", {
+        method: "POST",
+        body: form,
+      });
       if (!response.ok) {
-        let serverMsg = '';
+        let serverMsg = "";
         try {
           const body = await response.clone().json();
-          const baseError = String(body?.error || body?.message || '').trim();
-          const detailsShort = body?.details ? String(body.details).slice(0, 180) : '';
-          serverMsg = detailsShort ? `${baseError} (${detailsShort})` : baseError;
+          const baseError = String(body?.error || body?.message || "").trim();
+          const detailsShort = body?.details
+            ? String(body.details).slice(0, 180)
+            : "";
+          serverMsg = detailsShort
+            ? `${baseError} (${detailsShort})`
+            : baseError;
           if (body?.details)
-            scanLogs = [...scanLogs, `Diagnostico: ${String(body.details).slice(0, 160)}`].slice(-MAX_LOG_LINES);
+            scanLogs = [
+              ...scanLogs,
+              `Diagnostico: ${String(body.details).slice(0, 160)}`,
+            ].slice(-MAX_LOG_LINES);
         } catch {
           try {
             serverMsg = (await response.clone().text()).slice(0, 180);
           } catch {
-            serverMsg = 'No se pudo leer la respuesta de error del servidor.';
+            serverMsg = "No se pudo leer la respuesta de error del servidor.";
           }
         }
         const upper = serverMsg.toUpperCase();
-        if (response.status === 413 || upper.includes('FUNCTION_PAYLOAD_TOO_LARGE') || upper.includes('REQUEST ENTITY TOO LARGE')) {
+        if (
+          response.status === 413 ||
+          upper.includes("FUNCTION_PAYLOAD_TOO_LARGE") ||
+          upper.includes("REQUEST ENTITY TOO LARGE")
+        ) {
           const maxMb = (MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0);
           throw new Error(
             l({
@@ -990,132 +1442,202 @@
               ru: `Файл превышает лимит загрузки сервера (около ${maxMb} МБ). Сожмите его или экспортируйте меньшую версию.`,
               zh: `文件超过服务器上传限制（约 ${maxMb} MB），请压缩或导出更小版本。`,
               ar: `الملف يتجاوز حد رفع الخادم (حوالي ${maxMb} ميغابايت). قم بضغطه أو تصديره بحجم أصغر.`,
-              hi: `फ़ाइल सर्वर अपलोड सीमा (लगभग ${maxMb} MB) से बड़ी है। इसे compress करें या छोटा export करें।`
-            })
+              hi: `फ़ाइल सर्वर अपलोड सीमा (लगभग ${maxMb} MB) से बड़ी है। इसे compress करें या छोटा export करें।`,
+            }),
           );
         }
-        throw new Error(serverMsg || 'No se pudo auditar el documento.');
+        throw new Error(serverMsg || "No se pudo auditar el documento.");
       }
-      scanLogs = [...scanLogs, 'Verificando consistencia de respuesta...'];
+      scanLogs = [...scanLogs, "Verificando consistencia de respuesta..."];
       setTelemetryPhase(
         l({
-          es: 'Correlacionando evidencias tecnicas',
-          en: 'Correlating technical evidence',
-          fr: 'Correlation des preuves techniques',
-          de: 'Technische Belege werden korreliert',
-          pt: 'Correlacionando evidencias tecnicas',
-          ru: 'Сопоставление технических доказательств',
-          zh: '正在关联技术证据',
-          ar: 'جار ربط الأدلة التقنية',
-          hi: 'तकनीकी साक्ष्यों का सहसंबंध'
-        })
+          es: "Correlacionando evidencias tecnicas",
+          en: "Correlating technical evidence",
+          fr: "Correlation des preuves techniques",
+          de: "Technische Belege werden korreliert",
+          pt: "Correlacionando evidencias tecnicas",
+          ru: "Сопоставление технических доказательств",
+          zh: "正在关联技术证据",
+          ar: "جار ربط الأدلة التقنية",
+          hi: "तकनीकी साक्ष्यों का सहसंबंध",
+        }),
       );
       await yieldUiFrame();
       documentResult = await response.json();
-      scanLogs = [...scanLogs, '[AUDIT] Correlacion de metadatos y firma interna completada.'].slice(-MAX_LOG_LINES);
-      if (documentResult?.anomalies?.some((a) => a.code === 'DOCX_AUTHOR_MISMATCH' || a.code === 'DOCX_TIMELINE_MISMATCH')) {
-        scanLogs = [...scanLogs, '[ALERTA] Inconsistencia en metadatos internos DOCX.'].slice(-MAX_LOG_LINES);
+      scanLogs = [
+        ...scanLogs,
+        "[AUDIT] Correlacion de metadatos y firma interna completada.",
+      ].slice(-MAX_LOG_LINES);
+      if (
+        documentResult?.anomalies?.some(
+          (a) =>
+            a.code === "DOCX_AUTHOR_MISMATCH" ||
+            a.code === "DOCX_TIMELINE_MISMATCH",
+        )
+      ) {
+        scanLogs = [
+          ...scanLogs,
+          "[ALERTA] Inconsistencia en metadatos internos DOCX.",
+        ].slice(-MAX_LOG_LINES);
       }
       if (documentResult?.pdfSignature) {
-        const sigStatus = String(documentResult.pdfSignature.status || 'unknown');
-        const sigPrefix = sigStatus === 'structural_tampered' ? '[FAIL]' : '[CHECK]';
-        scanLogs = [...scanLogs, `${sigPrefix} Firma PDF: ${documentResult.pdfSignature.reason}`].slice(-MAX_LOG_LINES);
+        const sigStatus = String(
+          documentResult.pdfSignature.status || "unknown",
+        );
+        const sigPrefix =
+          sigStatus === "structural_tampered" ? "[FAIL]" : "[CHECK]";
+        scanLogs = [
+          ...scanLogs,
+          `${sigPrefix} Firma PDF: ${documentResult.pdfSignature.reason}`,
+        ].slice(-MAX_LOG_LINES);
       }
-      scanLogs = [...scanLogs, 'CAPA 2: evaluando consistencia de estilo y entropia textual...'].slice(-MAX_LOG_LINES);
-      if (documentResult?.extension === 'pdf') {
+      scanLogs = [
+        ...scanLogs,
+        "CAPA 2: evaluando consistencia de estilo y entropia textual...",
+      ].slice(-MAX_LOG_LINES);
+      if (documentResult?.extension === "pdf") {
         const pages = documentResult.metrics?.pageCount;
-        if (typeof pages === 'number' && pages > 0) {
-          scanLogs = [...scanLogs, `Paginas detectadas: ${pages}`].slice(-MAX_LOG_LINES);
-          scanLogs = [...scanLogs, `Extraccion de texto completada: ${pages}/${pages} paginas.`].slice(
-            -MAX_LOG_LINES
+        if (typeof pages === "number" && pages > 0) {
+          scanLogs = [...scanLogs, `Paginas detectadas: ${pages}`].slice(
+            -MAX_LOG_LINES,
           );
+          scanLogs = [
+            ...scanLogs,
+            `Extraccion de texto completada: ${pages}/${pages} paginas.`,
+          ].slice(-MAX_LOG_LINES);
         }
       }
       if (documentResult?.linguisticAi) {
-        scanLogs = [...scanLogs, 'Veredicto lingüistico (Groq) recibido...'];
+        scanLogs = [...scanLogs, "Veredicto lingüistico (Groq) recibido..."];
         if (documentResult.linguisticAi.suspicionPercent >= 100) {
-          scanLogs = [...scanLogs, 'ALERTA CRITICA: sospecha del 100% detectada.'].slice(-MAX_LOG_LINES);
+          scanLogs = [
+            ...scanLogs,
+            "ALERTA CRITICA: sospecha del 100% detectada.",
+          ].slice(-MAX_LOG_LINES);
         }
       } else {
         const reason =
-          documentResult?.linguisticAiStatus?.reason ?? 'Analisis lingüistico opcional omitido en esta auditoria.';
+          documentResult?.linguisticAiStatus?.reason ??
+          "Analisis lingüistico opcional omitido en esta auditoria.";
         const lowerReason = reason.toLowerCase();
-        if (lowerReason.includes('safe mode')) {
-          scanLogs = [...scanLogs, `[CHECK] Modo estabilidad activo: ${reason}`].slice(-MAX_LOG_LINES);
+        if (lowerReason.includes("safe mode")) {
+          scanLogs = [
+            ...scanLogs,
+            `[CHECK] Modo estabilidad activo: ${reason}`,
+          ].slice(-MAX_LOG_LINES);
         } else {
-          scanLogs = [...scanLogs, `Analisis lingüistico omitido: ${reason}`].slice(-MAX_LOG_LINES);
+          scanLogs = [
+            ...scanLogs,
+            `Analisis lingüistico omitido: ${reason}`,
+          ].slice(-MAX_LOG_LINES);
         }
-        if (lowerReason.includes('dibujo') || lowerReason.includes('no textual') || lowerReason.includes('insuficiente')) {
-          scanLogs = [...scanLogs, 'ERROR: Contenido no apto para auditoría académica.'].slice(-MAX_LOG_LINES);
+        if (
+          lowerReason.includes("dibujo") ||
+          lowerReason.includes("no textual") ||
+          lowerReason.includes("insuficiente")
+        ) {
+          scanLogs = [
+            ...scanLogs,
+            "ERROR: Contenido no apto para auditoría académica.",
+          ].slice(-MAX_LOG_LINES);
         }
       }
-      if (documentResult?.policy?.forcedNoConclusive && documentResult?.policy?.reason) {
-        scanLogs = [...scanLogs, `ALERTA: ${documentResult.policy.reason}`].slice(-MAX_LOG_LINES);
+      if (
+        documentResult?.policy?.forcedNoConclusive &&
+        documentResult?.policy?.reason
+      ) {
+        scanLogs = [
+          ...scanLogs,
+          `ALERTA: ${documentResult.policy.reason}`,
+        ].slice(-MAX_LOG_LINES);
       }
       if (documentResult?.confidence) {
-        scanLogs = [...scanLogs, `CAPA 4: cobertura de evidencia ${documentResult.confidence.score}/100`].slice(-MAX_LOG_LINES);
+        scanLogs = [
+          ...scanLogs,
+          `CAPA 4: cobertura de evidencia ${documentResult.confidence.score}/100`,
+        ].slice(-MAX_LOG_LINES);
       }
-      if (documentResult?.ocrStatus?.state === 'recommended') {
-        scanLogs = [...scanLogs, `[AUDIT] OCR requerido: ${documentResult.ocrStatus.reason}`].slice(-MAX_LOG_LINES);
+      if (documentResult?.ocrStatus?.state === "recommended") {
+        scanLogs = [
+          ...scanLogs,
+          `[AUDIT] OCR requerido: ${documentResult.ocrStatus.reason}`,
+        ].slice(-MAX_LOG_LINES);
         const ocrProbe = await runBasicPdfOcrProbe(documentFile, (line) => {
           scanLogs = [...scanLogs, line].slice(-MAX_LOG_LINES);
         });
         if (ocrProbe) {
           documentResult.ocrProbe = ocrProbe;
           if (ocrProbe.chars < 20) {
-            scanLogs = [...scanLogs, '[FAIL] OCR detecta contenido insuficiente en portada/bloque inicial.'].slice(-MAX_LOG_LINES);
+            scanLogs = [
+              ...scanLogs,
+              "[FAIL] OCR detecta contenido insuficiente en portada/bloque inicial.",
+            ].slice(-MAX_LOG_LINES);
             documentResult.anomalies = [
               ...documentResult.anomalies,
               {
-                code: 'PDF_OCR_EMPTY',
-                severity: 'red',
-                message: 'OCR basico: portada y primer bloque con texto insuficiente para sostener veredicto positivo.'
-              }
+                code: "PDF_OCR_EMPTY",
+                severity: "red",
+                message:
+                  "OCR basico: portada y primer bloque con texto insuficiente para sostener veredicto positivo.",
+              },
             ];
-            documentResult.verdict = 'no_concluyente';
+            documentResult.verdict = "no_concluyente";
             documentResult.policy = {
               zeroGuessing: true,
               forcedNoConclusive: true,
-              reason: 'Zero Guessing Policy: OCR basico no encuentra contenido textual suficiente en el PDF sin capa de texto.'
+              reason:
+                "Zero Guessing Policy: OCR basico no encuentra contenido textual suficiente en el PDF sin capa de texto.",
             };
           } else {
-            scanLogs = [...scanLogs, `[CHECK] OCR basico OK (${ocrProbe.chars} caracteres estimados).`].slice(-MAX_LOG_LINES);
+            scanLogs = [
+              ...scanLogs,
+              `[CHECK] OCR basico OK (${ocrProbe.chars} caracteres estimados).`,
+            ].slice(-MAX_LOG_LINES);
           }
         } else {
-          scanLogs = [...scanLogs, '[FAIL] OCR basico no pudo ejecutarse.'].slice(-MAX_LOG_LINES);
+          scanLogs = [
+            ...scanLogs,
+            "[FAIL] OCR basico no pudo ejecutarse.",
+          ].slice(-MAX_LOG_LINES);
         }
       }
       if (
         documentResult &&
         documentResult.metrics.wordCount > 1000 &&
-        typeof documentResult.metrics.editingMinutes === 'number' &&
+        typeof documentResult.metrics.editingMinutes === "number" &&
         documentResult.metrics.editingMinutes < 20 &&
-        documentResult.verdict === 'integro'
+        documentResult.verdict === "integro"
       ) {
-        scanLogs = [...scanLogs, '[FAIL] Correlacion obligatoria: ratio temporal incompatible con veredicto integro.'].slice(-MAX_LOG_LINES);
-        documentResult.verdict = 'no_concluyente';
+        scanLogs = [
+          ...scanLogs,
+          "[FAIL] Correlacion obligatoria: ratio temporal incompatible con veredicto integro.",
+        ].slice(-MAX_LOG_LINES);
+        documentResult.verdict = "no_concluyente";
         documentResult.policy = {
           zeroGuessing: true,
           forcedNoConclusive: true,
           reason:
-            'Correlacion obligatoria: texto extenso generado en ventana temporal anomala para una sesion nueva; se bloquea veredicto positivo.'
+            "Correlacion obligatoria: texto extenso generado en ventana temporal anomala para una sesion nueva; se bloquea veredicto positivo.",
         };
       } else {
-        scanLogs = [...scanLogs, '[CHECK] Correlacion obligatoria de timeline/volumen completada.'].slice(-MAX_LOG_LINES);
+        scanLogs = [
+          ...scanLogs,
+          "[CHECK] Correlacion obligatoria de timeline/volumen completada.",
+        ].slice(-MAX_LOG_LINES);
       }
       if (documentResult) {
         appendCustodyRecord({
-          mode: 'document',
+          mode: "document",
           fileName: documentResult.fileName,
           hash: documentHash,
           verdict: documentResult.verdict,
           anomalyIndex: documentResult.anomalyIndex,
-          confidenceScore: documentResult.confidence?.score ?? null
+          confidenceScore: documentResult.confidence?.score ?? null,
         });
       }
       generatedAt = new Date().toISOString();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Error inesperado.';
+      error = e instanceof Error ? e.message : "Error inesperado.";
     } finally {
       busy = false;
       finishTelemetry();
@@ -1125,165 +1647,204 @@
   async function auditImage() {
     if (!imageFile || !imagePreview) return;
     busy = true;
-    error = '';
-    startTelemetry('image');
+    error = "";
+    startTelemetry("image");
     try {
       setTelemetryPhase(
         l({
-          es: 'Calculando huella SHA-256',
-          en: 'Calculating SHA-256 fingerprint',
-          fr: 'Calcul de l empreinte SHA-256',
-          de: 'SHA-256-Fingerabdruck wird berechnet',
-          pt: 'Calculando impressao SHA-256',
-          ru: 'Вычисление отпечатка SHA-256',
-          zh: '正在计算 SHA-256 指纹',
-          ar: 'جار حساب بصمة SHA-256',
-          hi: 'SHA-256 फिंगरप्रिंट की गणना'
-        })
+          es: "Calculando huella SHA-256",
+          en: "Calculating SHA-256 fingerprint",
+          fr: "Calcul de l empreinte SHA-256",
+          de: "SHA-256-Fingerabdruck wird berechnet",
+          pt: "Calculando impressao SHA-256",
+          ru: "Вычисление отпечатка SHA-256",
+          zh: "正在计算 SHA-256 指纹",
+          ar: "جار حساب بصمة SHA-256",
+          hi: "SHA-256 फिंगरप्रिंट की गणना",
+        }),
       );
-      scanLogs = [...scanLogs, 'Preparando hash SHA-256...'];
+      scanLogs = [...scanLogs, "Preparando hash SHA-256..."];
       await yieldUiFrame();
       imageHash = await hashSha256(imageFile);
-      scanLogs = [...scanLogs, 'Pre-validacion visual IA: tipo de evidencia...'].slice(-MAX_LOG_LINES);
+      scanLogs = [
+        ...scanLogs,
+        "Pre-validacion visual IA: tipo de evidencia...",
+      ].slice(-MAX_LOG_LINES);
       await yieldUiFrame();
 
       const form = new FormData();
-      form.append('file', imageFile);
+      form.append("file", imageFile);
 
       let visualAi: {
         suspicionPercent: number;
         reasons: string[];
-        origin: 'Origen: Dispositivo Digital (Captura)' | 'Origen: Captura Óptica (Cámara)';
+        origin:
+          | "Origen: Dispositivo Digital (Captura)"
+          | "Origen: Captura Óptica (Cámara)";
         ocrTextSample?: string;
         ocrEstimatedChars?: number;
         styleConsistency?: number;
       } | null = null;
-      let visualAiStatus: { state: 'ok' | 'omitted' | 'error' | 'blocked'; reason: string } | null = null;
-      let visualPrecheck:
-        | { allowed: boolean; category: 'documento' | 'captura_software' | 'texto_academico' | 'irrelevante'; reason: string }
-        | null = null;
+      let visualAiStatus: {
+        state: "ok" | "omitted" | "error" | "blocked";
+        reason: string;
+      } | null = null;
+      let visualPrecheck: {
+        allowed: boolean;
+        category:
+          | "documento"
+          | "captura_software"
+          | "texto_academico"
+          | "irrelevante";
+        reason: string;
+      } | null = null;
       try {
-        scanLogs = [...scanLogs, 'Enviando imagen al detective visual (Groq)...'].slice(-MAX_LOG_LINES);
+        scanLogs = [
+          ...scanLogs,
+          "Enviando imagen al detective visual (Groq)...",
+        ].slice(-MAX_LOG_LINES);
         setTelemetryPhase(
           l({
-            es: 'Ejecutando analisis visual IA',
-            en: 'Running visual AI analysis',
-            fr: 'Execution de l analyse visuelle IA',
-            de: 'Visuelle KI-Analyse wird ausgefuehrt',
-            pt: 'Executando analise visual por IA',
-            ru: 'Выполняется визуальный ИИ-анализ',
-            zh: '正在执行视觉 AI 分析',
-            ar: 'جار تنفيذ التحليل البصري بالذكاء الاصطناعي',
-            hi: 'विजुअल AI विश्लेषण चल रहा है'
-          })
+            es: "Ejecutando analisis visual IA",
+            en: "Running visual AI analysis",
+            fr: "Execution de l analyse visuelle IA",
+            de: "Visuelle KI-Analyse wird ausgefuehrt",
+            pt: "Executando analise visual por IA",
+            ru: "Выполняется визуальный ИИ-анализ",
+            zh: "正在执行视觉 AI 分析",
+            ar: "جار تنفيذ التحليل البصري بالذكاء الاصطناعي",
+            hi: "विजुअल AI विश्लेषण चल रहा है",
+          }),
         );
         await yieldUiFrame();
-        const aiResp = await fetch('/api/audit-image-ai', { method: 'POST', body: form });
+        const aiResp = await fetch("/api/audit-image-ai", {
+          method: "POST",
+          body: form,
+        });
         if (aiResp.ok) {
           const aiBody = await aiResp.json();
           visualPrecheck = aiBody?.precheck ?? null;
           visualAi = aiBody?.verdict ?? null;
           visualAiStatus = aiBody?.status ?? null;
         } else {
-          visualAiStatus = { state: 'error', reason: 'No se pudo consultar el modulo visual IA.' };
+          visualAiStatus = {
+            state: "error",
+            reason: "No se pudo consultar el modulo visual IA.",
+          };
         }
       } catch (e) {
         visualAiStatus = {
-          state: 'error',
-          reason: `Fallo de red en analisis visual IA: ${e instanceof Error ? e.message : String(e)}`
+          state: "error",
+          reason: `Fallo de red en analisis visual IA: ${e instanceof Error ? e.message : String(e)}`,
         };
       }
 
-      if (visualAiStatus?.state === 'blocked') {
+      if (visualAiStatus?.state === "blocked") {
         scanLogs = [
           ...scanLogs,
-          'ERROR: Contenido no apto para auditoría académica.',
-          `Motivo tecnico: ${visualPrecheck?.reason ?? 'Contenido no documental o irrelevante.'}`
+          "ERROR: Contenido no apto para auditoría académica.",
+          `Motivo tecnico: ${visualPrecheck?.reason ?? "Contenido no documental o irrelevante."}`,
         ].slice(-MAX_LOG_LINES);
-        error = 'Contenido no apto para auditoría académica. Sube una evidencia documental válida.';
+        error =
+          "Contenido no apto para auditoría académica. Sube una evidencia documental válida.";
         return;
       }
 
-      scanLogs = [...scanLogs, 'Cargando imagen en visor...'];
+      scanLogs = [...scanLogs, "Cargando imagen en visor..."];
       setTelemetryPhase(
         l({
-          es: 'Validando consistencia visual por zonas',
-          en: 'Validating visual consistency by regions',
-          fr: 'Validation de la coherence visuelle par zones',
-          de: 'Visuelle Konsistenz nach Bereichen wird geprueft',
-          pt: 'Validando consistencia visual por zonas',
-          ru: 'Проверка визуальной согласованности по зонам',
-          zh: '正在按区域验证视觉一致性',
-          ar: 'جار التحقق من الاتساق البصري حسب المناطق',
-          hi: 'क्षेत्रों के अनुसार दृश्य संगति सत्यापित की जा रही है'
-        })
+          es: "Validando consistencia visual por zonas",
+          en: "Validating visual consistency by regions",
+          fr: "Validation de la coherence visuelle par zones",
+          de: "Visuelle Konsistenz nach Bereichen wird geprueft",
+          pt: "Validando consistencia visual por zonas",
+          ru: "Проверка визуальной согласованности по зонам",
+          zh: "正在按区域验证视觉一致性",
+          ar: "جار التحقق من الاتساق البصري حسب المناطق",
+          hi: "क्षेत्रों के अनुसार दृश्य संगति सत्यापित की जा रही है",
+        }),
       );
       await yieldUiFrame();
       const img = await loadImage(imagePreview);
-      scanLogs = [...scanLogs, 'Analizando posibles retoques locales...'];
+      scanLogs = [...scanLogs, "Analizando posibles retoques locales..."];
       await yieldUiFrame();
       const ela = runEla(img, 0.76);
-      scanLogs = [...scanLogs, 'Comprobando huella de captura de camara...'];
+      scanLogs = [...scanLogs, "Comprobando huella de captura de camara..."];
       await yieldUiFrame();
       const prnu = estimatePrnu(img);
-      scanLogs = [...scanLogs, 'CAPA 3: evaluando consistencia de ruido entre zonas...'].slice(-MAX_LOG_LINES);
+      scanLogs = [
+        ...scanLogs,
+        "CAPA 3: evaluando consistencia de ruido entre zonas...",
+      ].slice(-MAX_LOG_LINES);
       const noiseConsistency = estimateNoiseConsistency(img);
-      scanLogs = [...scanLogs, 'CAPA 3: evaluando bloques de compresion y pixeles frontera...'].slice(-MAX_LOG_LINES);
+      scanLogs = [
+        ...scanLogs,
+        "CAPA 3: evaluando bloques de compresion y pixeles frontera...",
+      ].slice(-MAX_LOG_LINES);
       const jpegGridInconsistency = estimateJpegGridInconsistency(img);
       const anomalies: Anomaly[] = [];
 
       if (visualAi && visualAi.suspicionPercent >= 85) {
         anomalies.push({
-          code: 'VISUAL_AI_VERY_HIGH',
-          severity: 'red',
-          message: `Sospecha visual IA muy alta (${visualAi.suspicionPercent.toFixed(0)}%).`
+          code: "VISUAL_AI_VERY_HIGH",
+          severity: "red",
+          message: `Sospecha visual IA muy alta (${visualAi.suspicionPercent.toFixed(0)}%).`,
         });
       } else if (visualAi && visualAi.suspicionPercent >= 70) {
         anomalies.push({
-          code: 'VISUAL_AI_HIGH',
-          severity: 'amber',
-          message: `Sospecha visual IA elevada (${visualAi.suspicionPercent.toFixed(0)}%).`
+          code: "VISUAL_AI_HIGH",
+          severity: "amber",
+          message: `Sospecha visual IA elevada (${visualAi.suspicionPercent.toFixed(0)}%).`,
         });
       }
       if (noiseConsistency < 0.42) {
         anomalies.push({
-          code: 'NOISE_CONSISTENCY_LOW',
-          severity: 'amber',
-          message: `Consistencia de ruido baja (${(noiseConsistency * 100).toFixed(0)}%): posible composicion por zonas.`
+          code: "NOISE_CONSISTENCY_LOW",
+          severity: "amber",
+          message: `Consistencia de ruido baja (${(noiseConsistency * 100).toFixed(0)}%): posible composicion por zonas.`,
         });
       }
       if (jpegGridInconsistency > 0.5) {
         anomalies.push({
-          code: 'JPEG_GRID_INCONSISTENT',
-          severity: 'amber',
-          message: `Patron de bloques inconsistente (${(jpegGridInconsistency * 100).toFixed(0)}%): posible edicion localizada.`
+          code: "JPEG_GRID_INCONSISTENT",
+          severity: "amber",
+          message: `Patron de bloques inconsistente (${(jpegGridInconsistency * 100).toFixed(0)}%): posible edicion localizada.`,
         });
       }
 
-      const red = anomalies.filter((a) => a.severity === 'red').length;
-      const amber = anomalies.filter((a) => a.severity === 'amber').length;
-      let verdict: Verdict = 'no_concluyente';
-      if (red > 0 || amber >= 2) verdict = 'anomalias_detectadas';
-      else if (amber === 0 && prnu >= 0.15) verdict = 'integro';
+      const red = anomalies.filter((a) => a.severity === "red").length;
+      const amber = anomalies.filter((a) => a.severity === "amber").length;
+      let verdict: Verdict = "no_concluyente";
+      if (red > 0 || amber >= 2) verdict = "anomalias_detectadas";
+      else if (amber === 0 && prnu >= 0.15) verdict = "integro";
       let forcedNoConclusive = false;
       let forcedReason: string | null = null;
-      if (verdict === 'integro' && (!visualAi || (visualAi.ocrEstimatedChars ?? 0) < 50)) {
-        verdict = 'no_concluyente';
+      if (
+        verdict === "integro" &&
+        (!visualAi || (visualAi.ocrEstimatedChars ?? 0) < 50)
+      ) {
+        verdict = "no_concluyente";
         forcedNoConclusive = true;
         forcedReason =
-          'Zero Guessing Policy: no se clasifica como integro sin cobertura OCR/visual suficiente para evidencia documental.';
+          "Zero Guessing Policy: no se clasifica como integro sin cobertura OCR/visual suficiente para evidencia documental.";
       }
 
       if (visualAi) {
         scanLogs = [
           ...scanLogs,
-          `Veredicto visual IA recibido (${visualAi.suspicionPercent.toFixed(0)}%) - ${visualAi.origin}.`
+          `Veredicto visual IA recibido (${visualAi.suspicionPercent.toFixed(0)}%) - ${visualAi.origin}.`,
         ].slice(-MAX_LOG_LINES);
         if (visualAi.suspicionPercent >= 100) {
-          scanLogs = [...scanLogs, 'ALERTA CRITICA: sospecha del 100% detectada.'].slice(-MAX_LOG_LINES);
+          scanLogs = [
+            ...scanLogs,
+            "ALERTA CRITICA: sospecha del 100% detectada.",
+          ].slice(-MAX_LOG_LINES);
         }
       } else if (visualAiStatus?.reason) {
-        scanLogs = [...scanLogs, `Analisis visual IA omitido: ${visualAiStatus.reason}`].slice(-MAX_LOG_LINES);
+        scanLogs = [
+          ...scanLogs,
+          `Analisis visual IA omitido: ${visualAiStatus.reason}`,
+        ].slice(-MAX_LOG_LINES);
       }
 
       imageResult = {
@@ -1302,9 +1863,10 @@
         visualPrecheck,
         evidenceCoverage: {
           ocrReadable: (visualAi?.ocrEstimatedChars ?? 0) >= 50,
-          styleConsistencyAvailable: typeof visualAi?.styleConsistency === 'number',
+          styleConsistencyAvailable:
+            typeof visualAi?.styleConsistency === "number",
           pixelForensicsAvailable: true,
-          visualAiAvailable: Boolean(visualAi)
+          visualAiAvailable: Boolean(visualAi),
         },
         confidence: {
           score: Math.max(
@@ -1313,35 +1875,52 @@
               100,
               Math.round(
                 100 -
-                  (anomalies.filter((a) => a.severity === 'red').length * 18 + anomalies.filter((a) => a.severity === 'amber').length * 9) -
-                  ((visualAi?.ocrEstimatedChars ?? 0) < 50 ? 16 : 0)
-              )
-            )
+                  (anomalies.filter((a) => a.severity === "red").length * 18 +
+                    anomalies.filter((a) => a.severity === "amber").length *
+                      9) -
+                  ((visualAi?.ocrEstimatedChars ?? 0) < 50 ? 16 : 0),
+              ),
+            ),
           ),
           reasons: [
-            ...(visualAi?.ocrEstimatedChars ?? 0) < 50 ? ['OCR visual limitado para esta evidencia.'] : [],
-            ...(jpegGridInconsistency > 0.5 ? ['Patron de compresion con inestabilidad por zonas.'] : []),
-            ...(noiseConsistency < 0.42 ? ['Ruido de imagen heterogeneo entre regiones.'] : [])
-          ]
+            ...((visualAi?.ocrEstimatedChars ?? 0) < 50
+              ? ["OCR visual limitado para esta evidencia."]
+              : []),
+            ...(jpegGridInconsistency > 0.5
+              ? ["Patron de compresion con inestabilidad por zonas."]
+              : []),
+            ...(noiseConsistency < 0.42
+              ? ["Ruido de imagen heterogeneo entre regiones."]
+              : []),
+          ],
         },
-        policy: { zeroGuessing: true, forcedNoConclusive, reason: forcedReason }
+        policy: {
+          zeroGuessing: true,
+          forcedNoConclusive,
+          reason: forcedReason,
+        },
       };
       if (imageResult.policy?.forcedNoConclusive && imageResult.policy.reason) {
-        scanLogs = [...scanLogs, `ALERTA: ${imageResult.policy.reason}`].slice(-MAX_LOG_LINES);
+        scanLogs = [...scanLogs, `ALERTA: ${imageResult.policy.reason}`].slice(
+          -MAX_LOG_LINES,
+        );
       }
       if (imageResult.confidence) {
-        scanLogs = [...scanLogs, `CAPA 4: cobertura visual ${imageResult.confidence.score}/100`].slice(-MAX_LOG_LINES);
+        scanLogs = [
+          ...scanLogs,
+          `CAPA 4: cobertura visual ${imageResult.confidence.score}/100`,
+        ].slice(-MAX_LOG_LINES);
       }
       appendCustodyRecord({
-        mode: 'image',
+        mode: "image",
         fileName: imageResult.fileName,
         hash: imageHash,
         verdict: imageResult.verdict,
-        anomalyIndex: imageResult.anomalyIndex
+        anomalyIndex: imageResult.anomalyIndex,
       });
       generatedAt = new Date().toISOString();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Error analizando imagen.';
+      error = e instanceof Error ? e.message : "Error analizando imagen.";
     } finally {
       busy = false;
       finishTelemetry();
@@ -1352,58 +1931,73 @@
     return await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+      img.onerror = () => reject(new Error("No se pudo leer la imagen."));
       img.src = url;
     });
   }
 
-  async function runBasicPdfOcrProbe(file: File, pushLog: (line: string) => void) {
+  async function runBasicPdfOcrProbe(
+    file: File,
+    pushLog: (line: string) => void,
+  ) {
     try {
-      pushLog('[AUDIT] OCR basico: render de portada PDF.');
+      pushLog("[AUDIT] OCR basico: render de portada PDF.");
       await yieldUiFrame();
       const [{ getDocument }, tesseract] = await Promise.all([
-        import('pdfjs-dist'),
-        import('tesseract.js')
+        import("pdfjs-dist"),
+        import("tesseract.js"),
       ]);
       const data = new Uint8Array(await file.arrayBuffer());
-      const loadingTask = getDocument({ data, useWorkerFetch: false, isEvalSupported: false, disableFontFace: true });
+      const loadingTask = getDocument({
+        data,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        disableFontFace: true,
+      });
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1.35 });
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
       if (!ctx) return null;
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
-      await page.render({ canvasContext: ctx as any, viewport, canvas } as any).promise;
-      pushLog('[CHECK] OCR basico: reconocimiento primer bloque.');
+      await page.render({ canvasContext: ctx as any, viewport, canvas } as any)
+        .promise;
+      pushLog("[CHECK] OCR basico: reconocimiento primer bloque.");
       await yieldUiFrame();
-      const result = await tesseract.recognize(canvas, 'spa');
-      const text = String(result?.data?.text ?? '').replace(/\s+/g, ' ').trim();
+      const result = await tesseract.recognize(canvas, "spa");
+      const text = String(result?.data?.text ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
       const sample = text.slice(0, 220);
-      return { sample, chars: text.length, source: 'tesseract-first-page' as const };
+      return {
+        sample,
+        chars: text.length,
+        source: "tesseract-first-page" as const,
+      };
     } catch {
       return null;
     }
   }
 
   function runEla(img: HTMLImageElement, quality: number) {
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = img.width;
     canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas no disponible.');
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas no disponible.");
     ctx.drawImage(img, 0, 0);
     const original = ctx.getImageData(0, 0, img.width, img.height);
-    const recompressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+    const recompressedDataUrl = canvas.toDataURL("image/jpeg", quality);
     const rec = new Image();
     rec.src = recompressedDataUrl;
 
-    const c2 = document.createElement('canvas');
+    const c2 = document.createElement("canvas");
     c2.width = img.width;
     c2.height = img.height;
-    const x2 = c2.getContext('2d');
-    if (!x2) throw new Error('Canvas no disponible.');
+    const x2 = c2.getContext("2d");
+    if (!x2) throw new Error("Canvas no disponible.");
     x2.drawImage(rec, 0, 0);
     const recompressed = x2.getImageData(0, 0, img.width, img.height);
 
@@ -1419,11 +2013,11 @@
   }
 
   function estimatePrnu(img: HTMLImageElement) {
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = img.width;
     canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas no disponible.');
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas no disponible.");
     ctx.drawImage(img, 0, 0);
     const data = ctx.getImageData(0, 0, img.width, img.height).data;
 
@@ -1455,11 +2049,11 @@
   }
 
   function estimateNoiseConsistency(img: HTMLImageElement) {
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = img.width;
     canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas no disponible.');
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas no disponible.");
     ctx.drawImage(img, 0, 0);
     const data = ctx.getImageData(0, 0, img.width, img.height).data;
     const blocks = 4;
@@ -1470,8 +2064,16 @@
       for (let bx = 0; bx < blocks; bx += 1) {
         let sum = 0;
         let n = 0;
-        for (let y = by * bh + 1; y < Math.min((by + 1) * bh - 1, img.height - 1); y += 2) {
-          for (let x = bx * bw + 1; x < Math.min((bx + 1) * bw - 1, img.width - 1); x += 2) {
+        for (
+          let y = by * bh + 1;
+          y < Math.min((by + 1) * bh - 1, img.height - 1);
+          y += 2
+        ) {
+          for (
+            let x = bx * bw + 1;
+            x < Math.min((bx + 1) * bw - 1, img.width - 1);
+            x += 2
+          ) {
             const i = (y * img.width + x) * 4;
             const e = (y * img.width + x + 1) * 4;
             const s = ((y + 1) * img.width + x) * 4;
@@ -1487,17 +2089,18 @@
     }
     if (!energies.length) return 0;
     const mean = energies.reduce((a, b) => a + b, 0) / energies.length;
-    const variance = energies.reduce((a, b) => a + (b - mean) ** 2, 0) / energies.length;
+    const variance =
+      energies.reduce((a, b) => a + (b - mean) ** 2, 0) / energies.length;
     const cv = mean > 0 ? Math.sqrt(variance) / mean : 1;
     return Math.max(0, Math.min(1, 1 - cv));
   }
 
   function estimateJpegGridInconsistency(img: HTMLImageElement) {
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = img.width;
     canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas no disponible.');
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas no disponible.");
     ctx.drawImage(img, 0, 0);
     const data = ctx.getImageData(0, 0, img.width, img.height).data;
     let edge8 = 0;
@@ -1525,13 +2128,13 @@
     return Math.max(0, Math.min(1, Math.abs(m8 - mO) / (mO + 0.0001)));
   }
 
-  const INSTALL_HINT_LS_KEY = 'scanit_pwa_install_seen_v1';
+  const INSTALL_HINT_LS_KEY = "scanit_pwa_install_seen_v1";
 
   function dismissInstallHint() {
     showInstallPrompt = false;
     showInstallModal = false;
     try {
-      localStorage.setItem(INSTALL_HINT_LS_KEY, '1');
+      localStorage.setItem(INSTALL_HINT_LS_KEY, "1");
     } catch {
       // No rompe la app si localStorage falla.
     }
@@ -1541,26 +2144,26 @@
     resetTelemetry();
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     if (docPreviewPdfUrl) URL.revokeObjectURL(docPreviewPdfUrl);
-    imagePreview = '';
-    docPreviewPdfUrl = '';
+    imagePreview = "";
+    docPreviewPdfUrl = "";
     documentFile = null;
     imageFile = null;
     documentResult = null;
     imageResult = null;
-    documentHash = '';
-    imageHash = '';
-    error = '';
-    generatedAt = '';
+    documentHash = "";
+    imageHash = "";
+    error = "";
+    generatedAt = "";
     docPreviewKind = null;
-    docPreviewHtml = '';
+    docPreviewHtml = "";
     docPreviewLoading = false;
-    docPreviewError = '';
+    docPreviewError = "";
     pendingDocPreviewFile = null;
   }
 
   function downloadCertificate() {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const now = new Date(generatedAt || Date.now()).toLocaleString('es-ES');
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const now = new Date(generatedAt || Date.now()).toLocaleString("es-ES");
     const left = 36;
     const right = 560;
     const bottom = 790;
@@ -1574,16 +2177,21 @@
       y = 52;
     };
 
-    const line = (text: string, color: [number, number, number] = BLACK, delta = 14, bold = false) => {
+    const line = (
+      text: string,
+      color: [number, number, number] = BLACK,
+      delta = 14,
+      bold = false,
+    ) => {
       ensure(delta + 2);
-      doc.setFont('courier', bold ? 'bold' : 'normal');
+      doc.setFont("courier", bold ? "bold" : "normal");
       doc.setFontSize(10);
       doc.setTextColor(color[0], color[1], color[2]);
       // Mantiene acentos/ñ; limpia solo controles y algunos símbolos problemáticos para la fuente base.
       const safeText = text
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
-        .replace(/[⚠️]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+        .replace(/[⚠️]/g, "")
+        .replace(/\s+/g, " ")
         .trim();
       const wrapped = doc.splitTextToSize(safeText, right - left);
       doc.text(wrapped, left, y);
@@ -1591,186 +2199,330 @@
     };
 
     const separator = () => {
-      line('--------------------------------------------------------------------------', BLACK);
+      line(
+        "--------------------------------------------------------------------------",
+        BLACK,
+      );
     };
 
     const bar = (value: number, size = 20) => {
       const clamped = Math.max(0, Math.min(100, value));
       const filled = Math.round((clamped / 100) * size);
-      return `[${'#'.repeat(filled)}${'-'.repeat(size - filled)}] ${clamped.toFixed(0)}%`;
+      return `[${"#".repeat(filled)}${"-".repeat(size - filled)}] ${clamped.toFixed(0)}%`;
     };
 
     // Cabecera terminal legible
     doc.setFillColor(245, 245, 245);
-    doc.rect(28, 28, 540, 64, 'F');
-    line('##  _SCANIT_TERMINAL_FORENSE_v1', BLACK, 12, true);
-    line('##  INFORME PERICIAL DE INTEGRIDAD ACADEMICA', BLACK, 14, true);
-    line('> INFORME PERICIAL / TERMINAL FORENSE', BLACK);
+    doc.rect(28, 28, 540, 64, "F");
+    line("##  _SCANIT_TERMINAL_FORENSE_v1", BLACK, 12, true);
+    line("##  INFORME PERICIAL DE INTEGRIDAD ACADEMICA", BLACK, 14, true);
+    line("> INFORME PERICIAL / TERMINAL FORENSE", BLACK);
     separator();
 
     line(`[+] Fecha de emision: ${now}`);
-    line('[+] Naturaleza: Informe pericial tecnico');
+    line("[+] Naturaleza: Informe pericial tecnico");
     separator();
-    line('# EVIDENCIA FISICA (NUCLEO DEL INFORME)', BLACK, 14, true);
-    if (mode === 'document' && documentResult) {
+    line("# EVIDENCIA FISICA (NUCLEO DEL INFORME)", BLACK, 14, true);
+    if (mode === "document" && documentResult) {
       line(`[+] Archivo: ${documentResult.fileName}`);
       line(`[+] SHA-256 (huella unica): ${documentHash}`, BLACK, 14, true);
       line(
-        `[+] Timeline verificable: Creacion ${documentResult.timeline.created ?? 'N/D'} | Modificacion ${documentResult.timeline.modified ?? 'N/D'}`,
+        `[+] Timeline verificable: Creacion ${documentResult.timeline.created ?? "N/D"} | Modificacion ${documentResult.timeline.modified ?? "N/D"}`,
         BLACK,
         14,
-        true
+        true,
       );
-      line(`[+] Veredicto final: ${verdictLabel[documentResult.verdict]}`, BLACK, 14, true);
+      line(
+        `[+] Veredicto final: ${verdictLabel[documentResult.verdict]}`,
+        BLACK,
+        14,
+        true,
+      );
       if (documentResult.evidenceCoverage?.officialPdfSource) {
-        line('[+] Fuente oficial detectada: SI (emisor gubernamental/organismo publico reconocido).', BLACK, 14, true);
-      } else if (documentResult.extension === 'pdf') {
-        line('[+] Fuente oficial detectada: NO/NO CONCLUYENTE en metadatos de emisor.');
+        line(
+          "[+] Fuente oficial detectada: SI (emisor gubernamental/organismo publico reconocido).",
+          BLACK,
+          14,
+          true,
+        );
+      } else if (documentResult.extension === "pdf") {
+        line(
+          "[+] Fuente oficial detectada: NO/NO CONCLUYENTE en metadatos de emisor.",
+        );
       }
-    } else if (mode === 'image' && imageResult) {
+    } else if (mode === "image" && imageResult) {
       line(`[+] Archivo: ${imageResult.fileName}`);
       line(`[+] SHA-256 (huella unica): ${imageHash}`, BLACK, 14, true);
       line(`[+] Timeline verificable: N/D (evidencia visual)`, BLACK, 14, true);
-      line(`[+] Veredicto final: ${verdictLabel[imageResult.verdict]}`, BLACK, 14, true);
+      line(
+        `[+] Veredicto final: ${verdictLabel[imageResult.verdict]}`,
+        BLACK,
+        14,
+        true,
+      );
       line(`[+] Resolucion: ${imageResult.width}x${imageResult.height}`);
     }
     separator();
 
-    line('# INDICADORES CUANTIFICABLES (ZERO GUESSING POLICY)');
-    if (mode === 'document' && documentResult) {
-      const anomalyPct = Math.max(0, Math.min(100, (documentResult.anomalyIndex / 10) * 100));
+    line("# INDICADORES CUANTIFICABLES (ZERO GUESSING POLICY)");
+    if (mode === "document" && documentResult) {
+      const anomalyPct = Math.max(
+        0,
+        Math.min(100, (documentResult.anomalyIndex / 10) * 100),
+      );
       const ratioRaw = documentResult.metrics.ratioWordsPerMinute ?? 0;
       const ratioPct = Math.max(0, Math.min(100, (ratioRaw / 120) * 100));
       line(`> Indice de Anomalias: ${bar(anomalyPct)}`, BLACK, 14, true);
       line(`> Ratio palabras/min: ${bar(ratioPct)}`, BLACK, 14, true);
-      line(`> Ratio bruto: ${ratioRaw ? ratioRaw.toFixed(2) : 'N/D'}`);
+      line(`> Ratio bruto: ${ratioRaw ? ratioRaw.toFixed(2) : "N/D"}`);
       line(`> Entropia textual: ${documentResult.metrics.textEntropy}`);
-      line(`> Uniformidad sintactica: ${documentResult.metrics.syntaxUniformityCoefficient ?? 'N/D'}`);
-      line(`> Diversidad lexical: ${documentResult.metrics.lexicalDiversity ?? 'N/D'}`);
-      line(`> Consistencia de estilo (capa 2): ${documentResult.metrics.styleConsistencyIndex ?? 'N/D'}`);
-      line(`> Confianza del informe: ${documentResult.confidence ? `${documentResult.confidence.score}/100` : 'N/D'}`);
-    } else if (mode === 'image' && imageResult) {
-      const anomalyPct = Math.max(0, Math.min(100, (imageResult.anomalyIndex / 10) * 100));
-      const visualPct = Math.max(0, Math.min(100, imageResult.visualAi?.suspicionPercent ?? 0));
+      line(
+        `> Uniformidad sintactica: ${documentResult.metrics.syntaxUniformityCoefficient ?? "N/D"}`,
+      );
+      line(
+        `> Diversidad lexical: ${documentResult.metrics.lexicalDiversity ?? "N/D"}`,
+      );
+      line(
+        `> Consistencia de estilo (capa 2): ${documentResult.metrics.styleConsistencyIndex ?? "N/D"}`,
+      );
+      line(
+        `> Confianza del informe: ${documentResult.confidence ? `${documentResult.confidence.score}/100` : "N/D"}`,
+      );
+    } else if (mode === "image" && imageResult) {
+      const anomalyPct = Math.max(
+        0,
+        Math.min(100, (imageResult.anomalyIndex / 10) * 100),
+      );
+      const visualPct = Math.max(
+        0,
+        Math.min(100, imageResult.visualAi?.suspicionPercent ?? 0),
+      );
       line(`> Indice de Anomalias: ${bar(anomalyPct)}`, BLACK, 14, true);
       line(`> Sospecha visual IA: ${bar(visualPct)}`, BLACK, 14, true);
       line(`> Huella de camara: ${imageResult.prnuScore}`);
       line(`> Riesgo de retoque local: ${imageResult.elaScore}`);
-      line(`> Consistencia de ruido (capa 3): ${imageResult.noiseConsistency ?? 'N/D'}`);
-      line(`> Inconsistencia bloques JPEG (capa 3): ${imageResult.jpegGridInconsistency ?? 'N/D'}`);
-      line(`> OCR estimado (capa 2): ${imageResult.visualAi?.ocrEstimatedChars ?? 'N/D'} caracteres`);
-      line(`> Consistencia estilo visual (capa 2): ${imageResult.visualAi?.styleConsistency ?? 'N/D'}`);
-      line(`> Origen estimado: ${imageResult.visualAi?.origin ?? 'N/D'}`);
+      line(
+        `> Consistencia de ruido (capa 3): ${imageResult.noiseConsistency ?? "N/D"}`,
+      );
+      line(
+        `> Inconsistencia bloques JPEG (capa 3): ${imageResult.jpegGridInconsistency ?? "N/D"}`,
+      );
+      line(
+        `> OCR estimado (capa 2): ${imageResult.visualAi?.ocrEstimatedChars ?? "N/D"} caracteres`,
+      );
+      line(
+        `> Consistencia estilo visual (capa 2): ${imageResult.visualAi?.styleConsistency ?? "N/D"}`,
+      );
+      line(`> Origen estimado: ${imageResult.visualAi?.origin ?? "N/D"}`);
     }
     separator();
 
-    line('# HALLAZGOS');
-    if (mode === 'document' && documentResult) {
+    line("# HALLAZGOS");
+    if (mode === "document" && documentResult) {
       line(`> Palabras: ${documentResult.metrics.wordCount}`);
-      line(`> Tiempo de edicion (min): ${documentResult.metrics.editingMinutes ?? 'N/D'}`);
-      line(`> Ratio palabras/min: ${documentResult.metrics.ratioWordsPerMinute?.toFixed(2) ?? 'N/D'}`);
-      if (documentResult.anomalies.some((a) => a.code === 'TIMELINE_SPEED_MISMATCH')) {
-        line('> [ALERTA ROJA] CORRELACION OBLIGATORIA: velocidad de generacion textual incompatible con veredicto positivo.', BLACK, 14, true);
+      line(
+        `> Tiempo de edicion (min): ${documentResult.metrics.editingMinutes ?? "N/D"}`,
+      );
+      line(
+        `> Ratio palabras/min: ${documentResult.metrics.ratioWordsPerMinute?.toFixed(2) ?? "N/D"}`,
+      );
+      if (
+        documentResult.anomalies.some(
+          (a) => a.code === "TIMELINE_SPEED_MISMATCH",
+        )
+      ) {
+        line(
+          "> [ALERTA ROJA] CORRELACION OBLIGATORIA: velocidad de generacion textual incompatible con veredicto positivo.",
+          BLACK,
+          14,
+          true,
+        );
       }
-      if (documentResult.anomalies.some((a) => a.code === 'DOCX_AUTHOR_MISMATCH' || a.code === 'DOCX_TIMELINE_MISMATCH')) {
-        line('> [ALERTA] DOCX FORENSICS: inconsistencia detectada en metadatos internos (autor/fechas).', BLACK, 14, true);
+      if (
+        documentResult.anomalies.some(
+          (a) =>
+            a.code === "DOCX_AUTHOR_MISMATCH" ||
+            a.code === "DOCX_TIMELINE_MISMATCH",
+        )
+      ) {
+        line(
+          "> [ALERTA] DOCX FORENSICS: inconsistencia detectada en metadatos internos (autor/fechas).",
+          BLACK,
+          14,
+          true,
+        );
       }
-      if (!documentResult.anomalies.length) line('[+] Sin anomalias relevantes');
+      if (!documentResult.anomalies.length)
+        line("[+] Sin anomalias relevantes");
       for (const a of documentResult.anomalies) {
-        const prefix = a.severity === 'red' ? '[ALERTA ROJA] ' : '';
-        line(`- ${prefix}[${a.severity}] ${a.message}`, BLACK, 14, a.severity === 'red');
+        const prefix = a.severity === "red" ? "[ALERTA ROJA] " : "";
+        line(
+          `- ${prefix}[${a.severity}] ${a.message}`,
+          BLACK,
+          14,
+          a.severity === "red",
+        );
       }
       separator();
-      line('# INFORME EXTENDIDO (DETALLE TECNICO)');
-      line(`> Total de palabras detectadas: ${documentResult.metrics.wordCount}`);
-      line(`> Paginas analizadas: ${documentResult.metrics.pageCount ?? 'N/D'}`);
-      line(`> Coeficiente sintactico: ${documentResult.metrics.syntaxUniformityCoefficient ?? 'N/D'}`);
+      line("# INFORME EXTENDIDO (DETALLE TECNICO)");
+      line(
+        `> Total de palabras detectadas: ${documentResult.metrics.wordCount}`,
+      );
+      line(
+        `> Paginas analizadas: ${documentResult.metrics.pageCount ?? "N/D"}`,
+      );
+      line(
+        `> Coeficiente sintactico: ${documentResult.metrics.syntaxUniformityCoefficient ?? "N/D"}`,
+      );
       line(
         `> Fuente oficial detectada: ${
-          documentResult.evidenceCoverage?.officialPdfSource ? 'SI (metadatos compatibles con organismo oficial)' : 'NO/NO CONCLUYENTE'
-        }`
+          documentResult.evidenceCoverage?.officialPdfSource
+            ? "SI (metadatos compatibles con organismo oficial)"
+            : "NO/NO CONCLUYENTE"
+        }`,
       );
       if (documentResult.linguisticAi) {
-        line(`> Sospecha IA linguistica: ${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%`);
-        for (const r of documentResult.linguisticAi.reasons) line(`> Motivo tecnico: ${r}`);
+        line(
+          `> Sospecha IA linguistica: ${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%`,
+        );
+        for (const r of documentResult.linguisticAi.reasons)
+          line(`> Motivo tecnico: ${r}`);
       } else {
-        line(`> Estado IA linguistica: ${documentResult.linguisticAiStatus?.reason ?? 'No disponible'}`);
+        line(
+          `> Estado IA linguistica: ${documentResult.linguisticAiStatus?.reason ?? "No disponible"}`,
+        );
       }
-      if (documentResult.ocrStatus) line(`> Estado OCR: ${documentResult.ocrStatus.reason}`);
-      if (documentResult.policy?.forcedNoConclusive && documentResult.policy.reason) {
-        line(`> Salvaguarda anti-falso positivo: ${documentResult.policy.reason}`);
+      if (documentResult.ocrStatus)
+        line(`> Estado OCR: ${documentResult.ocrStatus.reason}`);
+      if (
+        documentResult.policy?.forcedNoConclusive &&
+        documentResult.policy.reason
+      ) {
+        line(
+          `> Salvaguarda anti-falso positivo: ${documentResult.policy.reason}`,
+        );
       }
-    } else if (mode === 'image' && imageResult) {
+    } else if (mode === "image" && imageResult) {
       line(`> Indice de anomalias: ${imageResult.anomalyIndex}`);
-      line(`> Sospecha visual IA: ${imageResult.visualAi ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%` : 'N/D'}`);
-      if (!imageResult.anomalies.length) line('[+] Sin anomalias relevantes');
+      line(
+        `> Sospecha visual IA: ${imageResult.visualAi ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%` : "N/D"}`,
+      );
+      if (!imageResult.anomalies.length) line("[+] Sin anomalias relevantes");
       for (const a of imageResult.anomalies) {
-        const prefix = a.severity === 'red' ? '[ALERTA ROJA] ' : '';
-        line(`- ${prefix}[${a.severity}] ${a.message}`, BLACK, 14, a.severity === 'red');
+        const prefix = a.severity === "red" ? "[ALERTA ROJA] " : "";
+        line(
+          `- ${prefix}[${a.severity}] ${a.message}`,
+          BLACK,
+          14,
+          a.severity === "red",
+        );
       }
       separator();
-      line('# INFORME EXTENDIDO (DETALLE VISUAL)');
-      line(`> Resolucion analizada: ${imageResult.width}x${imageResult.height}`);
+      line("# INFORME EXTENDIDO (DETALLE VISUAL)");
+      line(
+        `> Resolucion analizada: ${imageResult.width}x${imageResult.height}`,
+      );
       line(`> Huella de camara (PRNU): ${imageResult.prnuScore}`);
       line(`> Riesgo de retoque local (ELA): ${imageResult.elaScore}`);
-      line(`> Consistencia de ruido por zonas: ${imageResult.noiseConsistency ?? 'N/D'}`);
-      line(`> Inconsistencia bloques JPEG: ${imageResult.jpegGridInconsistency ?? 'N/D'}`);
-      line(`> OCR estimado: ${imageResult.visualAi?.ocrEstimatedChars ?? 'N/D'} caracteres`);
-      if (imageResult.visualAi?.ocrTextSample) line(`> Muestra OCR: ${imageResult.visualAi.ocrTextSample}`);
-      line(`> Origen estimado: ${imageResult.visualAi?.origin ?? 'N/D'}`);
+      line(
+        `> Consistencia de ruido por zonas: ${imageResult.noiseConsistency ?? "N/D"}`,
+      );
+      line(
+        `> Inconsistencia bloques JPEG: ${imageResult.jpegGridInconsistency ?? "N/D"}`,
+      );
+      line(
+        `> OCR estimado: ${imageResult.visualAi?.ocrEstimatedChars ?? "N/D"} caracteres`,
+      );
+      if (imageResult.visualAi?.ocrTextSample)
+        line(`> Muestra OCR: ${imageResult.visualAi.ocrTextSample}`);
+      line(`> Origen estimado: ${imageResult.visualAi?.origin ?? "N/D"}`);
       if (imageResult.visualAi?.reasons?.length) {
-        line('# DETECTIVE VISUAL (GROQ)', BLACK, 14, true);
+        line("# DETECTIVE VISUAL (GROQ)", BLACK, 14, true);
         for (const r of imageResult.visualAi.reasons) line(`> ${r}`);
       }
     }
     separator();
 
-    line('# GLOSARIO TECNICO');
-    line('> SHA-256: huella criptografica unica del archivo.');
-    line('> Timeline: marcas temporales de creacion y modificacion.');
-    line('> Ratio palabras/min: densidad de escritura frente a tiempo reportado.');
-    line('> Indice de anomalias: pondera alertas rojas y ambar.');
-    line('> Zero Guessing Policy: decisiones con metrica cuantificable (entropia, ratio, timeline, hash), no por intuicion de estilo.');
+    line("# GLOSARIO TECNICO");
+    line("> SHA-256: huella criptografica unica del archivo.");
+    line("> Timeline: marcas temporales de creacion y modificacion.");
+    line(
+      "> Ratio palabras/min: densidad de escritura frente a tiempo reportado.",
+    );
+    line("> Indice de anomalias: pondera alertas rojas y ambar.");
+    line(
+      "> Zero Guessing Policy: decisiones con metrica cuantificable (entropia, ratio, timeline, hash), no por intuicion de estilo.",
+    );
 
     doc.save(`ScanIt-Certificado-${Date.now()}.pdf`);
   }
 </script>
 
-<main class="dashboard" class:panic-mode={panicCriticalActive()} dir={$locale === 'ar' ? 'rtl' : 'ltr'}>
+<main
+  class="dashboard"
+  class:panic-mode={panicCriticalActive()}
+  dir={$locale === "ar" ? "rtl" : "ltr"}
+>
   <section class="hero glass">
     <div class="hero-left">
-      <p class="eyebrow">{$t('scanit.header.title')}</p>
+      <p class="eyebrow">{$t("scanit.header.title")}</p>
       <h1>ScanIt</h1>
-      <p class="subtitle">{$t('scanit.header.subtitle')}</p>
+      <p class="subtitle">{$t("scanit.header.subtitle")}</p>
       <div class="hero-badges">
-        <span>{$t('scanit.badges.fileIdentity')}</span>
-        <span>{$t('scanit.badges.workTime')}</span>
-        <span>{$t('scanit.badges.realData')}</span>
+        <span>{$t("scanit.badges.fileIdentity")}</span>
+        <span>{$t("scanit.badges.workTime")}</span>
+        <span>{$t("scanit.badges.realData")}</span>
       </div>
     </div>
     <div class="hero-right">
       <div class="hero-actions">
         <LanguageSelect />
-          {#if showInstallPrompt}
-            <button class="ghost ghost-info" onclick={() => (showInstallModal = true)}>
-              {l({
-                es: 'Instalar app',
-                en: 'Install app',
-                fr: 'Installer l application',
-                de: 'App installieren',
-                pt: 'Instalar app',
-                ru: 'Установить приложение',
-                zh: '安装应用',
-                ar: 'تثبيت التطبيق',
-                hi: 'ऐप इंस्टॉल करें'
-              })}
-            </button>
-          {/if}
-        <button class="ghost ghost-info" onclick={() => (showScienceModal = true)}>
-          {l({ es: 'Como funciona', en: 'How it works', fr: 'Comment ca marche', de: 'So funktioniert es', pt: 'Como funciona', ru: 'Как это работает', zh: '工作原理', ar: 'كيف يعمل', hi: 'यह कैसे काम करता है' })}
+        {#if showInstallPrompt}
+          <button
+            class="ghost ghost-info"
+            onclick={() => (showInstallModal = true)}
+          >
+            {l({
+              es: "Instalar app",
+              en: "Install app",
+              fr: "Installer l application",
+              de: "App installieren",
+              pt: "Instalar app",
+              ru: "Установить приложение",
+              zh: "安装应用",
+              ar: "تثبيت التطبيق",
+              hi: "ऐप इंस्टॉल करें",
+            })}
+          </button>
+        {/if}
+        <button
+          class="ghost ghost-info"
+          onclick={() => (showScienceModal = true)}
+        >
+          {l({
+            es: "Como funciona",
+            en: "How it works",
+            fr: "Comment ca marche",
+            de: "So funktioniert es",
+            pt: "Como funciona",
+            ru: "Как это работает",
+            zh: "工作原理",
+            ar: "كيف يعمل",
+            hi: "यह कैसे काम करता है",
+          })}
         </button>
         <button class="ghost" onclick={resetAll}>
-          {l({ es: 'Limpiar sesion', en: 'Clear session', fr: 'Nettoyer la session', de: 'Sitzung leeren', pt: 'Limpar sessao', ru: 'Очистить сессию', zh: '清除会话', ar: 'مسح الجلسة', hi: 'सत्र साफ करें' })}
+          {l({
+            es: "Limpiar sesion",
+            en: "Clear session",
+            fr: "Nettoyer la session",
+            de: "Sitzung leeren",
+            pt: "Limpar sessao",
+            ru: "Очистить сессию",
+            zh: "清除会话",
+            ar: "مسح الجلسة",
+            hi: "सत्र साफ करें",
+          })}
         </button>
       </div>
     </div>
@@ -1779,42 +2531,59 @@
   <section class="workspace">
     <aside class="mode-rail glass">
       <p class="rail-title">
-        {l({ es: 'Modulos', en: 'Modules', fr: 'Modules', de: 'Module', pt: 'Modulos', ru: 'Модули', zh: '模块', ar: 'الوحدات', hi: 'मॉड्यूल' })}
+        {l({
+          es: "Modulos",
+          en: "Modules",
+          fr: "Modules",
+          de: "Module",
+          pt: "Modulos",
+          ru: "Модули",
+          zh: "模块",
+          ar: "الوحدات",
+          hi: "मॉड्यूल",
+        })}
       </p>
-      <button class:active={mode === 'document'} onclick={() => (mode = 'document')}>
+      <button
+        class:active={mode === "document"}
+        onclick={() => (mode = "document")}
+      >
         <span class="module-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
-            <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+            <path
+              d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"
+            />
             <path d="M14 3.5v4h4" />
             <path d="M9 12h6M9 16h6" />
           </svg>
         </span>
         <span>
-          <strong>{$t('scanit.modules.verifyDocument')}</strong>
+          <strong>{$t("scanit.modules.verifyDocument")}</strong>
           <small>Word/PDF</small>
         </span>
       </button>
-      <button class:active={mode === 'image'} onclick={() => (mode = 'image')}>
+      <button class:active={mode === "image"} onclick={() => (mode = "image")}>
         <span class="module-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
-            <path d="M8 15l2.2-2.2a1 1 0 0 1 1.4 0l1.2 1.2 2.4-2.4a1 1 0 0 1 1.4 0L19 14" />
+            <path
+              d="M8 15l2.2-2.2a1 1 0 0 1 1.4 0l1.2 1.2 2.4-2.4a1 1 0 0 1 1.4 0L19 14"
+            />
             <circle cx="9" cy="9.5" r="1.4" />
           </svg>
         </span>
         <span>
-          <strong>{$t('scanit.modules.reviewCapture')}</strong>
+          <strong>{$t("scanit.modules.reviewCapture")}</strong>
           <small>
             {l({
-              es: 'Imagen o captura',
-              en: 'Image or screenshot',
-              fr: 'Image ou capture',
-              de: 'Bild oder Screenshot',
-              pt: 'Imagem ou captura',
-              ru: 'Изображение или скриншот',
-              zh: '图像或截图',
-              ar: 'صورة أو لقطة شاشة',
-              hi: 'छवि या स्क्रीनशॉट'
+              es: "Imagen o captura",
+              en: "Image or screenshot",
+              fr: "Image ou capture",
+              de: "Bild oder Screenshot",
+              pt: "Imagem ou captura",
+              ru: "Изображение или скриншот",
+              zh: "图像或截图",
+              ar: "صورة أو لقطة شاشة",
+              hi: "छवि या स्क्रीनशॉट",
             })}
           </small>
         </span>
@@ -1822,15 +2591,15 @@
     </aside>
 
     <section class="panel glass">
-      {#if mode === 'document'}
-        <h2>{$t('scanit.main.title')}</h2>
+      {#if mode === "document"}
+        <h2>{$t("scanit.main.title")}</h2>
         <p class="panel-sub">
-          {$t('scanit.main.description')}
+          {$t("scanit.main.description")}
         </p>
         <section class="scan-grid">
           <div
             class="viewer glass"
-            class:active-zone={mode === 'document'}
+            class:active-zone={mode === "document"}
             class:empty-zone={!documentFile}
             class:drag={dragActive}
             ondragover={onDragOver}
@@ -1839,25 +2608,25 @@
             role="button"
             tabindex="0"
             aria-label="Zona de carga de documento"
-            onclick={() => openPicker('document')}
-            onpointerup={() => openPicker('document')}
-            ontouchend={() => openPicker('document')}
-            onkeydown={(e) => e.key === 'Enter' && openPicker('document')}
+            onclick={() => openPicker("document")}
+            onpointerup={() => openPicker("document")}
+            ontouchend={() => openPicker("document")}
+            onkeydown={(e) => e.key === "Enter" && openPicker("document")}
           >
             <div class="viewer-head">
               <div class="viewer-title">
                 <span class="dot"></span>
                 <span>
                   {l({
-                    es: 'Visor Forense',
-                    en: 'Forensic Viewer',
-                    fr: 'Visionneuse technique',
-                    de: 'Forensischer Viewer',
-                    pt: 'Visualizador Forense',
-                    ru: 'Технический просмотр',
-                    zh: '取证查看器',
-                    ar: 'عارض التحليل',
-                    hi: 'फॉरेंसिक व्यूअर'
+                    es: "Visor Forense",
+                    en: "Forensic Viewer",
+                    fr: "Visionneuse technique",
+                    de: "Forensischer Viewer",
+                    pt: "Visualizador Forense",
+                    ru: "Технический просмотр",
+                    zh: "取证查看器",
+                    ar: "عارض التحليل",
+                    hi: "फॉरेंसिक व्यूअर",
                   })}
                 </span>
               </div>
@@ -1876,7 +2645,7 @@
 
             <div class="viewer-body">
               <div class="doc-frame">
-                {#if documentFile && docPreviewKind === 'pdf'}
+                {#if documentFile && docPreviewKind === "pdf"}
                   <div class="pdf-frame">
                     {#if docPreviewPdfUrl}
                       <div class="pdf-viewport">
@@ -1888,39 +2657,53 @@
                         ></iframe>
                       </div>
                     {:else}
-                      <div class="pdf-fallback">No se pudo cargar la vista previa PDF.</div>
+                      <div class="pdf-fallback">
+                        No se pudo cargar la vista previa PDF.
+                      </div>
                     {/if}
                     <div class="pdf-neon"></div>
                   </div>
-                {:else if documentFile && docPreviewKind === 'docx'}
+                {:else if documentFile && docPreviewKind === "docx"}
                   <div class="docx-preview">
                     {#if docPreviewHtml}
-                      <iframe class="docx-iframe" srcdoc={docPreviewHtml} title="Vista previa DOCX"></iframe>
+                      <iframe
+                        class="docx-iframe"
+                        srcdoc={docPreviewHtml}
+                        title="Vista previa DOCX"
+                      ></iframe>
                     {:else}
-                      <div class="pdf-fallback">{docPreviewLoading ? 'Renderizando vista previa...' : 'No se pudo cargar la vista previa DOCX.'}</div>
+                      <div class="pdf-fallback">
+                        {docPreviewLoading
+                          ? "Renderizando vista previa..."
+                          : "No se pudo cargar la vista previa DOCX."}
+                      </div>
                     {/if}
                   </div>
                 {:else}
                   <div class="dropzone-callout">
                     <div class="doc-icon">
                       <svg viewBox="0 0 24 24" fill="none">
-                        <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+                        <path
+                          d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"
+                        />
                         <path d="M14 3.5v4h4" />
                         <path d="M9 12h6M9 16h6" />
                       </svg>
                     </div>
-                    <p class="dropzone-primary">{$t('scanit.dropzone.document')}</p>
+                    <p class="dropzone-primary">
+                      {$t("scanit.dropzone.document")}
+                    </p>
                     <p class="dropzone-secondary">
                       {l({
-                        es: 'Haz clic aqui o arrastra el archivo para abrirlo.',
-                        en: 'Click here or drag the file to open it.',
-                        fr: 'Cliquez ici ou glissez le fichier pour l ouvrir.',
-                        de: 'Hier klicken oder Datei hierher ziehen, um sie zu oeffnen.',
-                        pt: 'Clique aqui ou arraste o arquivo para abrir.',
-                        ru: 'Нажмите здесь или перетащите файл, чтобы открыть.',
-                        zh: '点击此处或拖拽文件到这里打开。',
-                        ar: 'انقر هنا أو اسحب الملف إلى هنا لفتحه.',
-                        hi: 'फ़ाइल खोलने के लिए यहां क्लिक करें या ड्रैग करें।'
+                        es: "Haz clic aqui o arrastra el archivo para abrirlo.",
+                        en: "Click here or drag the file to open it.",
+                        fr: "Cliquez ici ou glissez le fichier pour l ouvrir.",
+                        de: "Hier klicken oder Datei hierher ziehen, um sie zu oeffnen.",
+                        pt: "Clique aqui ou arraste o arquivo para abrir.",
+                        ru: "Нажмите здесь или перетащите файл, чтобы открыть.",
+                        zh: "点击此处或拖拽文件到这里打开。",
+                        ar: "انقر هنا أو اسحب الملف إلى هنا لفتحه.",
+                        hi: "फ़ाइल खोलने के लिए यहां क्लिक करें या ड्रैग करें।",
                       })}
                     </p>
                   </div>
@@ -1944,63 +2727,125 @@
             </div>
           </div>
 
-          <aside class="telemetry glass" aria-label={l({ es: 'Telemetria en vivo', en: 'Live telemetry', fr: 'Telemetrie en direct', de: 'Live-Telemetrie', pt: 'Telemetria em tempo real', ru: 'Телеметрия в реальном времени', zh: '实时遥测', ar: 'قياس عن بُعد مباشر', hi: 'लाइव टेलीमेट्री' })}>
+          <aside
+            class="telemetry glass"
+            aria-label={l({
+              es: "Telemetria en vivo",
+              en: "Live telemetry",
+              fr: "Telemetrie en direct",
+              de: "Live-Telemetrie",
+              pt: "Telemetria em tempo real",
+              ru: "Телеметрия в реальном времени",
+              zh: "实时遥测",
+              ar: "قياس عن بُعد مباشر",
+              hi: "लाइव टेलीमेट्री",
+            })}
+          >
             <div class="telemetry-head">
-              <span class="telemetry-title">{l({ es: 'Telemetria', en: 'Telemetry', fr: 'Telemetrie', de: 'Telemetrie', pt: 'Telemetria', ru: 'Телеметрия', zh: '遥测', ar: 'القياس عن بُعد', hi: 'टेलीमेट्री' })}</span>
-              <span class="telemetry-state">{busy || visualScanning ? l({ es: 'EN PROCESO', en: 'IN PROGRESS', fr: 'EN COURS', de: 'IN ARBEIT', pt: 'EM PROCESSO', ru: 'В ПРОЦЕССЕ', zh: '进行中', ar: 'قيد التنفيذ', hi: 'प्रगति में' }) : l({ es: 'LISTO', en: 'READY', fr: 'PRET', de: 'BEREIT', pt: 'PRONTO', ru: 'ГОТОВО', zh: '就绪', ar: 'جاهز', hi: 'तैयार' })}</span>
+              <span class="telemetry-title"
+                >{l({
+                  es: "Telemetria",
+                  en: "Telemetry",
+                  fr: "Telemetrie",
+                  de: "Telemetrie",
+                  pt: "Telemetria",
+                  ru: "Телеметрия",
+                  zh: "遥测",
+                  ar: "القياس عن بُعد",
+                  hi: "टेलीमेट्री",
+                })}</span
+              >
+              <span class="telemetry-state"
+                >{busy || visualScanning
+                  ? l({
+                      es: "EN PROCESO",
+                      en: "IN PROGRESS",
+                      fr: "EN COURS",
+                      de: "IN ARBEIT",
+                      pt: "EM PROCESSO",
+                      ru: "В ПРОЦЕССЕ",
+                      zh: "进行中",
+                      ar: "قيد التنفيذ",
+                      hi: "प्रगति में",
+                    })
+                  : l({
+                      es: "LISTO",
+                      en: "READY",
+                      fr: "PRET",
+                      de: "BEREIT",
+                      pt: "PRONTO",
+                      ru: "ГОТОВО",
+                      zh: "就绪",
+                      ar: "جاهز",
+                      hi: "तैयार",
+                    })}</span
+              >
             </div>
             {#if busy || visualScanning}
-              <p class="telemetry-phase">{telemetryPhase} · {telemetryPhaseSeconds}s</p>
+              <p class="telemetry-phase">
+                {telemetryPhase} · {telemetryPhaseSeconds}s
+              </p>
               {#if telemetrySlowPhase}
                 <p class="telemetry-phase-note">
                   {l({
-                    es: 'Archivo complejo detectado. Seguimos procesando, puede tardar un poco mas.',
-                    en: 'Complex file detected. Still processing, this may take a bit longer.',
-                    fr: 'Fichier complexe detecte. Traitement en cours, cela peut prendre un peu plus de temps.',
-                    de: 'Komplexe Datei erkannt. Verarbeitung laeuft weiter, dies kann etwas laenger dauern.',
-                    pt: 'Arquivo complexo detectado. Seguimos processando, pode demorar um pouco mais.',
-                    ru: 'Обнаружен сложный файл. Обработка продолжается, это может занять больше времени.',
-                    zh: '检测到复杂文件，正在继续处理，可能需要更长时间。',
-                    ar: 'تم اكتشاف ملف معقد. ما زلنا نعالجه وقد يستغرق ذلك وقتا أطول قليلا.',
-                    hi: 'जटिल फ़ाइल मिली है। प्रोसेसिंग जारी है, इसमें थोड़ा अधिक समय लग सकता है।'
+                    es: "Archivo complejo detectado. Seguimos procesando, puede tardar un poco mas.",
+                    en: "Complex file detected. Still processing, this may take a bit longer.",
+                    fr: "Fichier complexe detecte. Traitement en cours, cela peut prendre un peu plus de temps.",
+                    de: "Komplexe Datei erkannt. Verarbeitung laeuft weiter, dies kann etwas laenger dauern.",
+                    pt: "Arquivo complexo detectado. Seguimos processando, pode demorar um pouco mais.",
+                    ru: "Обнаружен сложный файл. Обработка продолжается, это может занять больше времени.",
+                    zh: "检测到复杂文件，正在继续处理，可能需要更长时间。",
+                    ar: "تم اكتشاف ملف معقد. ما زلنا نعالجه وقد يستغرق ذلك وقتا أطول قليلا.",
+                    hi: "जटिल फ़ाइल मिली है। प्रोसेसिंग जारी है, इसमें थोड़ा अधिक समय लग सकता है।",
                   })}
                 </p>
               {/if}
             {/if}
             <div class="telemetry-action">
               {#if documentFile}
-                <button class="cta cta-side" disabled={busy || visualScanning} onclick={auditDocument}>
-                  {busy ? 'Auditando...' : 'Iniciar Auditoria Forense'}
+                <button
+                  class="cta cta-side"
+                  disabled={busy || visualScanning}
+                  onclick={auditDocument}
+                >
+                  {busy ? "Auditando..." : "Iniciar Auditoria Forense"}
                 </button>
               {:else}
                 <p class="telemetry-hint">
                   {l({
-                    es: 'Sube un archivo para iniciar la auditoria.',
-                    en: 'Upload a file to start the audit.',
-                    fr: 'Importez un fichier pour lancer l audit.',
-                    de: 'Laden Sie eine Datei hoch, um die Pruefung zu starten.',
-                    pt: 'Envie um arquivo para iniciar a auditoria.',
-                    ru: 'Загрузите файл, чтобы начать проверку.',
-                    zh: '上传文件以开始审查。',
-                    ar: 'ارفع ملفا لبدء التدقيق.',
-                    hi: 'ऑडिट शुरू करने के लिए फ़ाइल अपलोड करें।'
+                    es: "Sube un archivo para iniciar la auditoria.",
+                    en: "Upload a file to start the audit.",
+                    fr: "Importez un fichier pour lancer l audit.",
+                    de: "Laden Sie eine Datei hoch, um die Pruefung zu starten.",
+                    pt: "Envie um arquivo para iniciar a auditoria.",
+                    ru: "Загрузите файл, чтобы начать проверку.",
+                    zh: "上传文件以开始审查。",
+                    ar: "ارفع ملفا لبدء التدقيق.",
+                    hi: "ऑडिट शुरू करने के लिए फ़ाइल अपलोड करें।",
                   })}
                 </p>
               {/if}
               {#if documentResult && showResult && !busy && !visualScanning}
-                <button class="ghost reopen-result" onclick={reopenResultModal}>Ver resultado</button>
-                <button class={`download ${downloadToneClass()}`} onclick={downloadCertificate}>
+                <button class="ghost reopen-result" onclick={reopenResultModal}
+                  >Ver resultado</button
+                >
+                <button
+                  class={`download ${downloadToneClass()}`}
+                  onclick={downloadCertificate}
+                >
                   Descargar Informe Completo
                 </button>
               {/if}
             </div>
             <div class="telemetry-body">
               {#if scanLogs.length === 0}
-                <p class="telemetry-empty">La consola aparecera aqui durante el escaneo.</p>
+                <p class="telemetry-empty">
+                  La consola aparecera aqui durante el escaneo.
+                </p>
               {:else}
                 {#each scanLogs as line, i (i)}
                   <p
-                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${telemetryPrefixClass(line)} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
+                    class={`telemetry-line ${line.startsWith("ERROR:") ? "telemetry-line-error" : ""} ${telemetryPrefixClass(line)} ${isAnomalyTelemetryLine(line) ? "telemetry-line-alert-once" : ""}`}
                     in:fade={{ duration: 160 }}
                   >
                     {telemetryRenderLine(line)}
@@ -2012,17 +2857,20 @@
             {#if error}
               <p class="error">{error}</p>
               {#if shouldShowPdfResizeHelp()}
-                <button class="ghost pdf-help-btn" onclick={() => (showPdfResizeHelpModal = true)}>
+                <button
+                  class="ghost pdf-help-btn"
+                  onclick={() => (showPdfResizeHelpModal = true)}
+                >
                   {l({
-                    es: 'Como reducir PDF',
-                    en: 'How to reduce PDF',
-                    fr: 'Comment reduire un PDF',
-                    de: 'PDF verkleinern',
-                    pt: 'Como reduzir PDF',
-                    ru: 'Как уменьшить PDF',
-                    zh: '如何压缩 PDF',
-                    ar: 'كيفية تقليل حجم PDF',
-                    hi: 'PDF का आकार कैसे कम करें'
+                    es: "Como reducir PDF",
+                    en: "How to reduce PDF",
+                    fr: "Comment reduire un PDF",
+                    de: "PDF verkleinern",
+                    pt: "Como reduzir PDF",
+                    ru: "Как уменьшить PDF",
+                    zh: "如何压缩 PDF",
+                    ar: "كيفية تقليل حجم PDF",
+                    hi: "PDF का आकार कैसे कम करें",
                   })}
                 </button>
               {/if}
@@ -2030,24 +2878,36 @@
           </aside>
         </section>
       {:else}
-        <h2>{l({ es: 'Modulo de Imagen', en: 'Image Module', fr: 'Module Image', de: 'Bildmodul', pt: 'Modulo de Imagem', ru: 'Модуль изображений', zh: '图像模块', ar: 'وحدة الصور', hi: 'इमेज मॉड्यूल' })}</h2>
+        <h2>
+          {l({
+            es: "Modulo de Imagen",
+            en: "Image Module",
+            fr: "Module Image",
+            de: "Bildmodul",
+            pt: "Modulo de Imagem",
+            ru: "Модуль изображений",
+            zh: "图像模块",
+            ar: "وحدة الصور",
+            hi: "इमेज मॉड्यूल",
+          })}
+        </h2>
         <p class="panel-sub">
           {l({
-            es: 'Verifica si la evidencia viene de una foto real de camara y detecta posibles retoques o pegados.',
-            en: 'Checks whether evidence comes from a real camera photo and detects possible edits or pasted areas.',
-            fr: 'Verifie si la preuve provient d une vraie photo de camera et detecte les retouches ou collages possibles.',
-            de: 'Prueft, ob der Nachweis von einem echten Kamerafoto stammt, und erkennt moegliche Bearbeitungen oder Einfuegungen.',
-            pt: 'Verifica se a evidencia vem de uma foto real de camera e detecta possiveis retoques ou colagens.',
-            ru: 'Проверяет, получено ли доказательство с реальной камеры, и выявляет возможные правки или вставки.',
-            zh: '检查证据是否来自真实相机照片，并检测可能的编辑或拼接区域。',
-            ar: 'يتحقق مما إذا كانت الأدلة من صورة كاميرا حقيقية ويكشف التعديلات أو اللصق المحتمل.',
-            hi: 'जांच करता है कि साक्ष्य वास्तविक कैमरा फोटो से आया है या नहीं और संभावित एडिट या पेस्ट क्षेत्रों का पता लगाता है।'
+            es: "Verifica si la evidencia viene de una foto real de camara y detecta posibles retoques o pegados.",
+            en: "Checks whether evidence comes from a real camera photo and detects possible edits or pasted areas.",
+            fr: "Verifie si la preuve provient d une vraie photo de camera et detecte les retouches ou collages possibles.",
+            de: "Prueft, ob der Nachweis von einem echten Kamerafoto stammt, und erkennt moegliche Bearbeitungen oder Einfuegungen.",
+            pt: "Verifica se a evidencia vem de uma foto real de camera e detecta possiveis retoques ou colagens.",
+            ru: "Проверяет, получено ли доказательство с реальной камеры, и выявляет возможные правки или вставки.",
+            zh: "检查证据是否来自真实相机照片，并检测可能的编辑或拼接区域。",
+            ar: "يتحقق مما إذا كانت الأدلة من صورة كاميرا حقيقية ويكشف التعديلات أو اللصق المحتمل.",
+            hi: "जांच करता है कि साक्ष्य वास्तविक कैमरा फोटो से आया है या नहीं और संभावित एडिट या पेस्ट क्षेत्रों का पता लगाता है।",
           })}
         </p>
         <section class="scan-grid">
           <div
             class="viewer glass"
-            class:active-zone={mode === 'image'}
+            class:active-zone={mode === "image"}
             class:empty-zone={!imagePreview}
             class:drag={dragActive}
             ondragover={onDragOver}
@@ -2056,25 +2916,25 @@
             role="button"
             tabindex="0"
             aria-label="Zona de carga de imagen"
-            onclick={() => openPicker('image')}
-            onpointerup={() => openPicker('image')}
-            ontouchend={() => openPicker('image')}
-            onkeydown={(e) => e.key === 'Enter' && openPicker('image')}
+            onclick={() => openPicker("image")}
+            onpointerup={() => openPicker("image")}
+            ontouchend={() => openPicker("image")}
+            onkeydown={(e) => e.key === "Enter" && openPicker("image")}
           >
             <div class="viewer-head">
               <div class="viewer-title">
                 <span class="dot"></span>
                 <span>
                   {l({
-                    es: 'Visor de Evidencia',
-                    en: 'Evidence Viewer',
-                    fr: 'Visionneuse des preuves',
-                    de: 'Beweis-Viewer',
-                    pt: 'Visualizador de Evidencias',
-                    ru: 'Просмотр доказательств',
-                    zh: '证据查看器',
-                    ar: 'عارض الأدلة',
-                    hi: 'साक्ष्य व्यूअर'
+                    es: "Visor de Evidencia",
+                    en: "Evidence Viewer",
+                    fr: "Visionneuse des preuves",
+                    de: "Beweis-Viewer",
+                    pt: "Visualizador de Evidencias",
+                    ru: "Просмотр доказательств",
+                    zh: "证据查看器",
+                    ar: "عارض الأدلة",
+                    hi: "साक्ष्य व्यूअर",
                   })}
                 </span>
               </div>
@@ -2094,7 +2954,11 @@
             <div class="viewer-body">
               {#if imagePreview}
                 <div class="img-frame">
-                  <img class="img-preview" src={imagePreview} alt="Previsualizacion de evidencia" />
+                  <img
+                    class="img-preview"
+                    src={imagePreview}
+                    alt="Previsualizacion de evidencia"
+                  />
                 </div>
               {:else}
                 <div class="img-placeholder" aria-hidden="true">
@@ -2102,34 +2966,36 @@
                     <div class="doc-icon">
                       <svg viewBox="0 0 24 24" fill="none">
                         <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
-                        <path d="M8 15l2.2-2.2a1 1 0 0 1 1.4 0l1.2 1.2 2.4-2.4a1 1 0 0 1 1.4 0L19 14" />
+                        <path
+                          d="M8 15l2.2-2.2a1 1 0 0 1 1.4 0l1.2 1.2 2.4-2.4a1 1 0 0 1 1.4 0L19 14"
+                        />
                         <circle cx="9" cy="9.5" r="1.4" />
                       </svg>
                     </div>
                     <p class="dropzone-primary">
                       {l({
-                        es: 'Arrastra una imagen',
-                        en: 'Drop an image',
-                        fr: 'Deposez une image',
-                        de: 'Bild hier ablegen',
-                        pt: 'Arraste uma imagem',
-                        ru: 'Перетащите изображение',
-                        zh: '拖放一张图片',
-                        ar: 'اسحب صورة',
-                        hi: 'एक छवि ड्रैग करें'
+                        es: "Arrastra una imagen",
+                        en: "Drop an image",
+                        fr: "Deposez une image",
+                        de: "Bild hier ablegen",
+                        pt: "Arraste uma imagem",
+                        ru: "Перетащите изображение",
+                        zh: "拖放一张图片",
+                        ar: "اسحب صورة",
+                        hi: "एक छवि ड्रैग करें",
                       })}
                     </p>
                     <p class="dropzone-secondary">
                       {l({
-                        es: 'Haz clic aqui o arrastra la imagen para abrirla.',
-                        en: 'Click here or drag the image to open it.',
-                        fr: 'Cliquez ici ou glissez l image pour l ouvrir.',
-                        de: 'Hier klicken oder Bild hierher ziehen, um es zu oeffnen.',
-                        pt: 'Clique aqui ou arraste a imagem para abrir.',
-                        ru: 'Нажмите здесь или перетащите изображение, чтобы открыть.',
-                        zh: '点击此处或拖拽图片到这里打开。',
-                        ar: 'انقر هنا أو اسحب الصورة إلى هنا لفتحها.',
-                        hi: 'छवि खोलने के लिए यहां क्लिक करें या ड्रैग करें।'
+                        es: "Haz clic aqui o arrastra la imagen para abrirla.",
+                        en: "Click here or drag the image to open it.",
+                        fr: "Cliquez ici ou glissez l image pour l ouvrir.",
+                        de: "Hier klicken oder Bild hierher ziehen, um es zu oeffnen.",
+                        pt: "Clique aqui ou arraste a imagem para abrir.",
+                        ru: "Нажмите здесь или перетащите изображение, чтобы открыть.",
+                        zh: "点击此处或拖拽图片到这里打开。",
+                        ar: "انقر هنا أو اسحب الصورة إلى هنا لفتحها.",
+                        hi: "छवि खोलने के लिए यहां क्लिक करें या ड्रैग करें।",
                       })}
                     </p>
                   </div>
@@ -2145,53 +3011,177 @@
             </div>
           </div>
 
-          <aside class="telemetry glass" aria-label={l({ es: 'Telemetria en vivo', en: 'Live telemetry', fr: 'Telemetrie en direct', de: 'Live-Telemetrie', pt: 'Telemetria em tempo real', ru: 'Телеметрия в реальном времени', zh: '实时遥测', ar: 'قياس عن بُعد مباشر', hi: 'लाइव टेलीमेट्री' })}>
+          <aside
+            class="telemetry glass"
+            aria-label={l({
+              es: "Telemetria en vivo",
+              en: "Live telemetry",
+              fr: "Telemetrie en direct",
+              de: "Live-Telemetrie",
+              pt: "Telemetria em tempo real",
+              ru: "Телеметрия в реальном времени",
+              zh: "实时遥测",
+              ar: "قياس عن بُعد مباشر",
+              hi: "लाइव टेलीमेट्री",
+            })}
+          >
             <div class="telemetry-head">
-              <span class="telemetry-title">{l({ es: 'Telemetria', en: 'Telemetry', fr: 'Telemetrie', de: 'Telemetrie', pt: 'Telemetria', ru: 'Телеметрия', zh: '遥测', ar: 'القياس عن بُعد', hi: 'टेलीमेट्री' })}</span>
-              <span class="telemetry-state">{busy || visualScanning ? l({ es: 'EN PROCESO', en: 'IN PROGRESS', fr: 'EN COURS', de: 'IN ARBEIT', pt: 'EM PROCESSO', ru: 'В ПРОЦЕССЕ', zh: '进行中', ar: 'قيد التنفيذ', hi: 'प्रगति में' }) : l({ es: 'LISTO', en: 'READY', fr: 'PRET', de: 'BEREIT', pt: 'PRONTO', ru: 'ГОТОВО', zh: '就绪', ar: 'جاهز', hi: 'तैयार' })}</span>
+              <span class="telemetry-title"
+                >{l({
+                  es: "Telemetria",
+                  en: "Telemetry",
+                  fr: "Telemetrie",
+                  de: "Telemetrie",
+                  pt: "Telemetria",
+                  ru: "Телеметрия",
+                  zh: "遥测",
+                  ar: "القياس عن بُعد",
+                  hi: "टेलीमेट्री",
+                })}</span
+              >
+              <span class="telemetry-state"
+                >{busy || visualScanning
+                  ? l({
+                      es: "EN PROCESO",
+                      en: "IN PROGRESS",
+                      fr: "EN COURS",
+                      de: "IN ARBEIT",
+                      pt: "EM PROCESSO",
+                      ru: "В ПРОЦЕССЕ",
+                      zh: "进行中",
+                      ar: "قيد التنفيذ",
+                      hi: "प्रगति में",
+                    })
+                  : l({
+                      es: "LISTO",
+                      en: "READY",
+                      fr: "PRET",
+                      de: "BEREIT",
+                      pt: "PRONTO",
+                      ru: "ГОТОВО",
+                      zh: "就绪",
+                      ar: "جاهز",
+                      hi: "तैयार",
+                    })}</span
+              >
             </div>
             {#if busy || visualScanning}
-              <p class="telemetry-phase">{telemetryPhase} · {telemetryPhaseSeconds}s</p>
+              <p class="telemetry-phase">
+                {telemetryPhase} · {telemetryPhaseSeconds}s
+              </p>
               {#if telemetrySlowPhase}
                 <p class="telemetry-phase-note">
                   {l({
-                    es: 'Archivo complejo detectado. Seguimos procesando, puede tardar un poco mas.',
-                    en: 'Complex file detected. Still processing, this may take a bit longer.',
-                    fr: 'Fichier complexe detecte. Traitement en cours, cela peut prendre un peu plus de temps.',
-                    de: 'Komplexe Datei erkannt. Verarbeitung laeuft weiter, dies kann etwas laenger dauern.',
-                    pt: 'Arquivo complexo detectado. Seguimos processando, pode demorar um pouco mais.',
-                    ru: 'Обнаружен сложный файл. Обработка продолжается, это может занять больше времени.',
-                    zh: '检测到复杂文件，正在继续处理，可能需要更长时间。',
-                    ar: 'تم اكتشاف ملف معقد. ما زلنا نعالجه وقد يستغرق ذلك وقتا أطول قليلا.',
-                    hi: 'जटिल फ़ाइल मिली है। प्रोसेसिंग जारी है, इसमें थोड़ा अधिक समय लग सकता है।'
+                    es: "Archivo complejo detectado. Seguimos procesando, puede tardar un poco mas.",
+                    en: "Complex file detected. Still processing, this may take a bit longer.",
+                    fr: "Fichier complexe detecte. Traitement en cours, cela peut prendre un peu plus de temps.",
+                    de: "Komplexe Datei erkannt. Verarbeitung laeuft weiter, dies kann etwas laenger dauern.",
+                    pt: "Arquivo complexo detectado. Seguimos processando, pode demorar um pouco mais.",
+                    ru: "Обнаружен сложный файл. Обработка продолжается, это может занять больше времени.",
+                    zh: "检测到复杂文件，正在继续处理，可能需要更长时间。",
+                    ar: "تم اكتشاف ملف معقد. ما زلنا نعالجه وقد يستغرق ذلك وقتا أطول قليلا.",
+                    hi: "जटिल फ़ाइल मिली है। प्रोसेसिंग जारी है, इसमें थोड़ा अधिक समय लग सकता है।",
                   })}
                 </p>
               {/if}
             {/if}
             <div class="telemetry-action">
               {#if imageFile}
-                <button class="cta cta-side" disabled={busy || visualScanning} onclick={auditImage}>
+                <button
+                  class="cta cta-side"
+                  disabled={busy || visualScanning}
+                  onclick={auditImage}
+                >
                   {busy
-                    ? l({ es: 'Certificando...', en: 'Certifying...', fr: 'Certification...', de: 'Zertifiziere...', pt: 'Certificando...', ru: 'Проверка...', zh: '认证中...', ar: 'جارٍ التحقق...', hi: 'सर्टिफाई किया जा रहा है...' })
-                    : l({ es: 'Iniciar Certificacion de Evidencia', en: 'Start Evidence Certification', fr: 'Demarrer la certification', de: 'Zertifizierung starten', pt: 'Iniciar certificacao da evidencia', ru: 'Запустить сертификацию', zh: '开始证据认证', ar: 'بدء اعتماد الأدلة', hi: 'साक्ष्य प्रमाणन शुरू करें' })}
+                    ? l({
+                        es: "Certificando...",
+                        en: "Certifying...",
+                        fr: "Certification...",
+                        de: "Zertifiziere...",
+                        pt: "Certificando...",
+                        ru: "Проверка...",
+                        zh: "认证中...",
+                        ar: "جارٍ التحقق...",
+                        hi: "सर्टिफाई किया जा रहा है...",
+                      })
+                    : l({
+                        es: "Iniciar Certificacion de Evidencia",
+                        en: "Start Evidence Certification",
+                        fr: "Demarrer la certification",
+                        de: "Zertifizierung starten",
+                        pt: "Iniciar certificacao da evidencia",
+                        ru: "Запустить сертификацию",
+                        zh: "开始证据认证",
+                        ar: "بدء اعتماد الأدلة",
+                        hi: "साक्ष्य प्रमाणन शुरू करें",
+                      })}
                 </button>
               {:else}
-                <p class="telemetry-hint">{l({ es: 'Sube una imagen para iniciar la certificacion.', en: 'Upload an image to start certification.', fr: 'Importez une image pour demarrer la certification.', de: 'Laden Sie ein Bild hoch, um die Zertifizierung zu starten.', pt: 'Envie uma imagem para iniciar a certificacao.', ru: 'Загрузите изображение, чтобы начать сертификацию.', zh: '上传图片以开始认证。', ar: 'ارفع صورة لبدء الاعتماد.', hi: 'प्रमाणीकरण शुरू करने के लिए छवि अपलोड करें।' })}</p>
+                <p class="telemetry-hint">
+                  {l({
+                    es: "Sube una imagen para iniciar la certificacion.",
+                    en: "Upload an image to start certification.",
+                    fr: "Importez une image pour demarrer la certification.",
+                    de: "Laden Sie ein Bild hoch, um die Zertifizierung zu starten.",
+                    pt: "Envie uma imagem para iniciar a certificacao.",
+                    ru: "Загрузите изображение, чтобы начать сертификацию.",
+                    zh: "上传图片以开始认证。",
+                    ar: "ارفع صورة لبدء الاعتماد.",
+                    hi: "प्रमाणीकरण शुरू करने के लिए छवि अपलोड करें।",
+                  })}
+                </p>
               {/if}
               {#if imageResult && showResult && !busy && !visualScanning}
-                <button class="ghost reopen-result" onclick={reopenResultModal}>{l({ es: 'Ver resultado', en: 'View result', fr: 'Voir le resultat', de: 'Ergebnis ansehen', pt: 'Ver resultado', ru: 'Посмотреть результат', zh: '查看结果', ar: 'عرض النتيجة', hi: 'परिणाम देखें' })}</button>
-                <button class={`download ${downloadToneClass()}`} onclick={downloadCertificate}>
-                  {l({ es: 'Descargar Informe Completo', en: 'Download Full Report', fr: 'Telecharger le rapport complet', de: 'Vollbericht herunterladen', pt: 'Baixar relatorio completo', ru: 'Скачать полный отчет', zh: '下载完整报告', ar: 'تنزيل التقرير الكامل', hi: 'पूर्ण रिपोर्ट डाउनलोड करें' })}
+                <button class="ghost reopen-result" onclick={reopenResultModal}
+                  >{l({
+                    es: "Ver resultado",
+                    en: "View result",
+                    fr: "Voir le resultat",
+                    de: "Ergebnis ansehen",
+                    pt: "Ver resultado",
+                    ru: "Посмотреть результат",
+                    zh: "查看结果",
+                    ar: "عرض النتيجة",
+                    hi: "परिणाम देखें",
+                  })}</button
+                >
+                <button
+                  class={`download ${downloadToneClass()}`}
+                  onclick={downloadCertificate}
+                >
+                  {l({
+                    es: "Descargar Informe Completo",
+                    en: "Download Full Report",
+                    fr: "Telecharger le rapport complet",
+                    de: "Vollbericht herunterladen",
+                    pt: "Baixar relatorio completo",
+                    ru: "Скачать полный отчет",
+                    zh: "下载完整报告",
+                    ar: "تنزيل التقرير الكامل",
+                    hi: "पूर्ण रिपोर्ट डाउनलोड करें",
+                  })}
                 </button>
               {/if}
             </div>
             <div class="telemetry-body">
               {#if scanLogs.length === 0}
-                <p class="telemetry-empty">{l({ es: 'La consola aparecera aqui durante el escaneo.', en: 'Console output appears here during scan.', fr: 'La console apparait ici pendant le scan.', de: 'Die Konsole erscheint waehrend des Scans hier.', pt: 'A consola aparecera aqui durante a verificacao.', ru: 'Вывод консоли появится здесь во время сканирования.', zh: '扫描期间控制台输出会显示在这里。', ar: 'سيظهر مخرجات وحدة التحكم هنا أثناء الفحص.', hi: 'स्कैन के दौरान कंसोल आउटपुट यहां दिखाई देगा।' })}</p>
+                <p class="telemetry-empty">
+                  {l({
+                    es: "La consola aparecera aqui durante el escaneo.",
+                    en: "Console output appears here during scan.",
+                    fr: "La console apparait ici pendant le scan.",
+                    de: "Die Konsole erscheint waehrend des Scans hier.",
+                    pt: "A consola aparecera aqui durante a verificacao.",
+                    ru: "Вывод консоли появится здесь во время сканирования.",
+                    zh: "扫描期间控制台输出会显示在这里。",
+                    ar: "سيظهر مخرجات وحدة التحكم هنا أثناء الفحص.",
+                    hi: "स्कैन के दौरान कंसोल आउटपुट यहां दिखाई देगा।",
+                  })}
+                </p>
               {:else}
                 {#each scanLogs as line, i (i)}
                   <p
-                    class={`telemetry-line ${line.startsWith('ERROR:') ? 'telemetry-line-error' : ''} ${telemetryPrefixClass(line)} ${isAnomalyTelemetryLine(line) ? 'telemetry-line-alert-once' : ''}`}
+                    class={`telemetry-line ${line.startsWith("ERROR:") ? "telemetry-line-error" : ""} ${telemetryPrefixClass(line)} ${isAnomalyTelemetryLine(line) ? "telemetry-line-alert-once" : ""}`}
                     in:fade={{ duration: 160 }}
                   >
                     {telemetryRenderLine(line)}
@@ -2203,17 +3193,20 @@
             {#if error}
               <p class="error">{error}</p>
               {#if shouldShowPdfResizeHelp()}
-                <button class="ghost pdf-help-btn" onclick={() => (showPdfResizeHelpModal = true)}>
+                <button
+                  class="ghost pdf-help-btn"
+                  onclick={() => (showPdfResizeHelpModal = true)}
+                >
                   {l({
-                    es: 'Como reducir PDF',
-                    en: 'How to reduce PDF',
-                    fr: 'Comment reduire un PDF',
-                    de: 'PDF verkleinern',
-                    pt: 'Como reduzir PDF',
-                    ru: 'Как уменьшить PDF',
-                    zh: '如何压缩 PDF',
-                    ar: 'كيفية تقليل حجم PDF',
-                    hi: 'PDF का आकार कैसे कम करें'
+                    es: "Como reducir PDF",
+                    en: "How to reduce PDF",
+                    fr: "Comment reduire un PDF",
+                    de: "PDF verkleinern",
+                    pt: "Como reduzir PDF",
+                    ru: "Как уменьшить PDF",
+                    zh: "如何压缩 PDF",
+                    ar: "كيفية تقليل حجم PDF",
+                    hi: "PDF का आकार कैसे कम करें",
                   })}
                 </button>
               {/if}
@@ -2226,19 +3219,38 @@
 
   <footer class="scanit-footer glass" aria-label="Footer ScanIt">
     <div class="kf-left">
-      <a href="https://github.com/moisesvalero" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+      <a
+        href="https://github.com/moisesvalero"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="GitHub"
+      >
         <svg viewBox="0 0 24 24" fill="none">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+          <path
+            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+          />
         </svg>
       </a>
-      <a href="https://www.linkedin.com/in/moisesvalero" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+      <a
+        href="https://www.linkedin.com/in/moisesvalero"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="LinkedIn"
+      >
         <svg viewBox="0 0 24 24" fill="none">
-          <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+          <path
+            d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"
+          />
           <rect x="2" y="9" width="4" height="12" />
           <circle cx="4" cy="4" r="2" />
         </svg>
       </a>
-      <a href="https://www.malt.es/profile/moisesvalerosanchez" target="_blank" rel="noopener noreferrer" aria-label="Malt">
+      <a
+        href="https://www.malt.es/profile/moisesvalerosanchez"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Malt"
+      >
         <svg viewBox="0 0 24 24" fill="none">
           <path d="M4 6h16v12H4z" />
           <path d="M8 15V9l4 3 4-3v6" />
@@ -2253,18 +3265,23 @@
       <span class="kf-copy">
         © 2026 ·
         {l({
-          es: 'Desarrollado por',
-          en: 'Developed by',
-          fr: 'Developpe par',
-          de: 'Entwickelt von',
-          pt: 'Desenvolvido por',
-          ru: 'Разработано',
-          zh: '开发者',
-          ar: 'تم التطوير بواسطة',
-          hi: 'द्वारा विकसित'
+          es: "Desarrollado por",
+          en: "Developed by",
+          fr: "Developpe par",
+          de: "Entwickelt von",
+          pt: "Desenvolvido por",
+          ru: "Разработано",
+          zh: "开发者",
+          ar: "تم التطوير بواسطة",
+          hi: "द्वारा विकसित",
         })}
       </span>
-      <a class="kf-author" href="https://moisesvalero.es/" target="_blank" rel="noopener noreferrer">Moisés Valero</a>
+      <a
+        class="kf-author"
+        href="https://moisesvalero.es/"
+        target="_blank"
+        rel="noopener noreferrer">Moisés Valero</a
+      >
     </div>
   </footer>
 
@@ -2275,97 +3292,145 @@
       tabindex="0"
       aria-label="Cerrar modal de metodologia"
       onclick={() => (showScienceModal = false)}
-      onkeydown={(e) => e.key === 'Enter' && (showScienceModal = false)}
+      onkeydown={(e) => e.key === "Enter" && (showScienceModal = false)}
     >
       <div
         class="science-modal glass"
         role="dialog"
         aria-modal="true"
-        aria-label={l({ es: 'Como funciona ScanIt', en: 'How ScanIt works', fr: 'Comment fonctionne ScanIt', de: 'So funktioniert ScanIt', pt: 'Como funciona o ScanIt', ru: 'Как работает ScanIt', zh: 'ScanIt 工作原理', ar: 'كيف يعمل ScanIt', hi: 'ScanIt कैसे काम करता है' })}
+        aria-label={l({
+          es: "Como funciona ScanIt",
+          en: "How ScanIt works",
+          fr: "Comment fonctionne ScanIt",
+          de: "So funktioniert ScanIt",
+          pt: "Como funciona o ScanIt",
+          ru: "Как работает ScanIt",
+          zh: "ScanIt 工作原理",
+          ar: "كيف يعمل ScanIt",
+          hi: "ScanIt कैसे काम करता है",
+        })}
         tabindex="0"
         onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.key === 'Escape' && (showScienceModal = false)}
+        onkeydown={(e) => e.key === "Escape" && (showScienceModal = false)}
       >
         <div class="science-modal-head">
-          <h3>{l({ es: 'Como funciona ScanIt', en: 'How ScanIt works', fr: 'Comment fonctionne ScanIt', de: 'So funktioniert ScanIt', pt: 'Como funciona o ScanIt', ru: 'Как работает ScanIt', zh: 'ScanIt 工作原理', ar: 'كيف يعمل ScanIt', hi: 'ScanIt कैसे काम करता है' })}</h3>
-          <button class="ghost science-close" onclick={() => (showScienceModal = false)}>{l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}</button>
+          <h3>
+            {l({
+              es: "Como funciona ScanIt",
+              en: "How ScanIt works",
+              fr: "Comment fonctionne ScanIt",
+              de: "So funktioniert ScanIt",
+              pt: "Como funciona o ScanIt",
+              ru: "Как работает ScanIt",
+              zh: "ScanIt 工作原理",
+              ar: "كيف يعمل ScanIt",
+              hi: "ScanIt कैसे काम करता है",
+            })}
+          </h3>
+          <button
+            class="ghost science-close"
+            onclick={() => (showScienceModal = false)}
+            >{l({
+              es: "Cerrar",
+              en: "Close",
+              fr: "Fermer",
+              de: "Schliessen",
+              pt: "Fechar",
+              ru: "Закрыть",
+              zh: "关闭",
+              ar: "إغلاق",
+              hi: "बंद करें",
+            })}</button
+          >
         </div>
         <div class="science-modal-body">
           <p>
             {l({
-              es: 'ScanIt ejecuta una verificacion multicapa para estimar integridad y originalidad del archivo. El proceso combina huella SHA-256, timeline de creacion/modificacion, metadatos internos, estructura del formato y consistencia del contenido. En documentos, revisa velocidad de escritura, señales de edicion y coherencia entre autoria y tiempos; en imagenes, revisa patrones de compresion, ruido y consistencia visual por zonas.',
-              en: 'ScanIt runs a multilayer verification to estimate file integrity and originality. The process combines SHA-256 fingerprint, creation/modification timeline, internal metadata, format structure, and content consistency. For documents, it checks writing speed, editing signals, and consistency between authorship and timing; for images, it checks compression patterns, noise, and regional visual consistency.',
-              fr: 'ScanIt execute une verification multicouche pour estimer l integrite et l originalite du fichier. Le processus combine l empreinte SHA-256, la timeline de creation/modification, les metadonnees internes, la structure du format et la coherence du contenu. Pour les documents, il verifie la vitesse d ecriture, les signaux d edition et la coherence entre auteur et temps ; pour les images, il verifie les motifs de compression, le bruit et la coherence visuelle par zones.',
-              de: 'ScanIt fuehrt eine mehrschichtige Pruefung durch, um Integritaet und Originalitaet der Datei einzuschaetzen. Der Prozess kombiniert SHA-256-Fingerabdruck, Erstellungs-/Aenderungs-Timeline, interne Metadaten, Formatstruktur und Inhaltskonsistenz. Bei Dokumenten werden Schreibgeschwindigkeit, Bearbeitungssignale und die Konsistenz zwischen Autorenschaft und Zeit geprueft; bei Bildern Komprimierungsmuster, Rauschen und visuelle Konsistenz nach Bereichen.',
-              pt: 'O ScanIt executa uma verificacao multicamadas para estimar a integridade e a originalidade do arquivo. O processo combina impressao SHA-256, timeline de criacao/modificacao, metadados internos, estrutura do formato e consistencia do conteudo. Em documentos, verifica velocidade de escrita, sinais de edicao e coerencia entre autoria e tempos; em imagens, verifica padroes de compressao, ruido e consistencia visual por zonas.',
-              ru: 'ScanIt выполняет многоуровневую проверку для оценки целостности и оригинальности файла. Процесс объединяет хэш SHA-256, временную линию создания/изменения, внутренние метаданные, структуру формата и согласованность содержания. Для документов проверяются скорость набора, признаки редактирования и согласованность авторства со временем; для изображений - паттерны сжатия, шум и визуальная согласованность по зонам.',
-              zh: 'ScanIt 采用多层验证来评估文件完整性和原创性。该流程结合 SHA-256 指纹、创建/修改时间线、内部元数据、格式结构以及内容一致性。对于文档，会检查写作速度、编辑信号以及作者与时间的一致性；对于图像，会检查压缩模式、噪声和分区视觉一致性。',
-              ar: 'ينفذ ScanIt تحققا متعدد الطبقات لتقدير سلامة الملف وأصالته. تجمع العملية بصمة SHA-256 والخط الزمني للإنشاء/التعديل والبيانات الوصفية الداخلية وبنية التنسيق واتساق المحتوى. في المستندات، يراجع سرعة الكتابة وإشارات التعديل واتساق التأليف مع الزمن؛ وفي الصور، يراجع أنماط الضغط والضوضاء والاتساق البصري حسب المناطق.',
-              hi: 'ScanIt फ़ाइल की अखंडता और मौलिकता का आकलन करने के लिए मल्टी-लेयर सत्यापन चलाता है। यह प्रक्रिया SHA-256 फिंगरप्रिंट, निर्माण/संशोधन टाइमलाइन, आंतरिक मेटाडेटा, फ़ॉर्मेट संरचना और सामग्री संगति को मिलाकर देखती है। दस्तावेज़ों में यह लेखन गति, एडिट संकेत और लेखकीय समय-संगति जांचता है; छवियों में कंप्रेशन पैटर्न, नॉइज़ और क्षेत्रीय दृश्य संगति जांचता है।'
+              es: "ScanIt ejecuta una verificacion multicapa para estimar integridad y originalidad del archivo. El proceso combina huella SHA-256, timeline de creacion/modificacion, metadatos internos, estructura del formato y consistencia del contenido. En documentos, revisa velocidad de escritura, señales de edicion y coherencia entre autoria y tiempos; en imagenes, revisa patrones de compresion, ruido y consistencia visual por zonas.",
+              en: "ScanIt runs a multilayer verification to estimate file integrity and originality. The process combines SHA-256 fingerprint, creation/modification timeline, internal metadata, format structure, and content consistency. For documents, it checks writing speed, editing signals, and consistency between authorship and timing; for images, it checks compression patterns, noise, and regional visual consistency.",
+              fr: "ScanIt execute une verification multicouche pour estimer l integrite et l originalite du fichier. Le processus combine l empreinte SHA-256, la timeline de creation/modification, les metadonnees internes, la structure du format et la coherence du contenu. Pour les documents, il verifie la vitesse d ecriture, les signaux d edition et la coherence entre auteur et temps ; pour les images, il verifie les motifs de compression, le bruit et la coherence visuelle par zones.",
+              de: "ScanIt fuehrt eine mehrschichtige Pruefung durch, um Integritaet und Originalitaet der Datei einzuschaetzen. Der Prozess kombiniert SHA-256-Fingerabdruck, Erstellungs-/Aenderungs-Timeline, interne Metadaten, Formatstruktur und Inhaltskonsistenz. Bei Dokumenten werden Schreibgeschwindigkeit, Bearbeitungssignale und die Konsistenz zwischen Autorenschaft und Zeit geprueft; bei Bildern Komprimierungsmuster, Rauschen und visuelle Konsistenz nach Bereichen.",
+              pt: "O ScanIt executa uma verificacao multicamadas para estimar a integridade e a originalidade do arquivo. O processo combina impressao SHA-256, timeline de criacao/modificacao, metadados internos, estrutura do formato e consistencia do conteudo. Em documentos, verifica velocidade de escrita, sinais de edicao e coerencia entre autoria e tempos; em imagens, verifica padroes de compressao, ruido e consistencia visual por zonas.",
+              ru: "ScanIt выполняет многоуровневую проверку для оценки целостности и оригинальности файла. Процесс объединяет хэш SHA-256, временную линию создания/изменения, внутренние метаданные, структуру формата и согласованность содержания. Для документов проверяются скорость набора, признаки редактирования и согласованность авторства со временем; для изображений - паттерны сжатия, шум и визуальная согласованность по зонам.",
+              zh: "ScanIt 采用多层验证来评估文件完整性和原创性。该流程结合 SHA-256 指纹、创建/修改时间线、内部元数据、格式结构以及内容一致性。对于文档，会检查写作速度、编辑信号以及作者与时间的一致性；对于图像，会检查压缩模式、噪声和分区视觉一致性。",
+              ar: "ينفذ ScanIt تحققا متعدد الطبقات لتقدير سلامة الملف وأصالته. تجمع العملية بصمة SHA-256 والخط الزمني للإنشاء/التعديل والبيانات الوصفية الداخلية وبنية التنسيق واتساق المحتوى. في المستندات، يراجع سرعة الكتابة وإشارات التعديل واتساق التأليف مع الزمن؛ وفي الصور، يراجع أنماط الضغط والضوضاء والاتساق البصري حسب المناطق.",
+              hi: "ScanIt फ़ाइल की अखंडता और मौलिकता का आकलन करने के लिए मल्टी-लेयर सत्यापन चलाता है। यह प्रक्रिया SHA-256 फिंगरप्रिंट, निर्माण/संशोधन टाइमलाइन, आंतरिक मेटाडेटा, फ़ॉर्मेट संरचना और सामग्री संगति को मिलाकर देखती है। दस्तावेज़ों में यह लेखन गति, एडिट संकेत और लेखकीय समय-संगति जांचता है; छवियों में कंप्रेशन पैटर्न, नॉइज़ और क्षेत्रीय दृश्य संगति जांचता है।",
             })}
           </p>
           <p>
             {l({
-              es: 'La plataforma prioriza evidencia comprobable frente a suposiciones. Por eso, cada resultado incluye tres indicadores operativos: veredicto, confianza del informe y semaforo de cobertura. La confianza no es una promesa absoluta: es una medida tecnica de cuanta evidencia util se pudo validar en esa sesion concreta. Cuanta mas cobertura y mas consistencia entre señales independientes, mayor fiabilidad del resultado.',
-              en: 'The platform prioritizes verifiable evidence over assumptions. That is why each result includes three operational indicators: verdict, report confidence, and coverage traffic light. Confidence is not an absolute promise: it is a technical measure of how much useful evidence could be validated in that specific session. The higher the coverage and consistency across independent signals, the more reliable the outcome.',
-              fr: 'La plateforme privilegie les preuves verifiables plutot que les suppositions. C est pourquoi chaque resultat inclut trois indicateurs operationnels : verdict, confiance du rapport et feu de couverture. La confiance n est pas une promesse absolue : c est une mesure technique de la quantite de preuves utiles validees dans cette session. Plus la couverture et la coherence entre signaux independants sont elevees, plus le resultat est fiable.',
-              de: 'Die Plattform priorisiert nachpruefbare Belege statt Annahmen. Deshalb enthaelt jedes Ergebnis drei operative Indikatoren: Urteil, Berichtsvertrauen und Abdeckungsampel. Vertrauen ist kein absolutes Versprechen, sondern ein technisches Mass dafuer, wie viele nuetzliche Belege in dieser Sitzung validiert werden konnten. Je hoeher Abdeckung und Konsistenz unabhaengiger Signale, desto verlaesslicher das Ergebnis.',
-              pt: 'A plataforma prioriza evidencia verificavel em vez de suposicoes. Por isso, cada resultado inclui tres indicadores operacionais: veredito, confianca do relatorio e semaforo de cobertura. A confianca nao e promessa absoluta: e uma medida tecnica de quanta evidencia util foi validada naquela sessao. Quanto maior a cobertura e a consistencia entre sinais independentes, maior a confiabilidade do resultado.',
-              ru: 'Платформа отдает приоритет проверяемым доказательствам, а не предположениям. Поэтому каждый результат включает три рабочих индикатора: вердикт, доверие к отчету и индикатор покрытия. Доверие не является абсолютной гарантией: это техническая мера того, сколько полезных доказательств удалось подтвердить в конкретной сессии. Чем выше покрытие и согласованность независимых сигналов, тем надежнее результат.',
-              zh: '平台优先采用可验证证据，而不是主观推测。因此每个结果都包含三个操作指标：结论、报告置信度和覆盖度信号灯。置信度并非绝对承诺，而是衡量该次会话中可验证有效证据数量的技术指标。覆盖度越高、独立信号越一致，结果越可靠。',
-              ar: 'تعطي المنصة الاولوية للادلة القابلة للتحقق بدلا من الافتراضات. لذلك يتضمن كل نتيجة ثلاثة مؤشرات تشغيلية: الحكم وثقة التقرير واشارة التغطية. الثقة ليست وعدا مطلقا؛ بل هي مقياس تقني لكمية الادلة المفيدة التي امكن التحقق منها في تلك الجلسة. كلما زادت التغطية واتساق الاشارات المستقلة، زادت موثوقية النتيجة.',
-              hi: 'प्लेटफ़ॉर्म अनुमानों की बजाय सत्यापित किए जा सकने वाले साक्ष्य को प्राथमिकता देता है। इसलिए हर परिणाम में तीन ऑपरेशनल संकेतक होते हैं: निर्णय, रिपोर्ट कॉन्फिडेंस और कवरेज सिग्नल। कॉन्फिडेंस कोई पूर्ण वादा नहीं है; यह उस सत्र में सत्यापित उपयोगी साक्ष्य की तकनीकी मात्रा है। कवरेज और स्वतंत्र संकेतों की संगति जितनी अधिक होगी, परिणाम उतना विश्वसनीय होगा।'
+              es: "La plataforma prioriza evidencia comprobable frente a suposiciones. Por eso, cada resultado incluye tres indicadores operativos: veredicto, confianza del informe y semaforo de cobertura. La confianza no es una promesa absoluta: es una medida tecnica de cuanta evidencia util se pudo validar en esa sesion concreta. Cuanta mas cobertura y mas consistencia entre señales independientes, mayor fiabilidad del resultado.",
+              en: "The platform prioritizes verifiable evidence over assumptions. That is why each result includes three operational indicators: verdict, report confidence, and coverage traffic light. Confidence is not an absolute promise: it is a technical measure of how much useful evidence could be validated in that specific session. The higher the coverage and consistency across independent signals, the more reliable the outcome.",
+              fr: "La plateforme privilegie les preuves verifiables plutot que les suppositions. C est pourquoi chaque resultat inclut trois indicateurs operationnels : verdict, confiance du rapport et feu de couverture. La confiance n est pas une promesse absolue : c est une mesure technique de la quantite de preuves utiles validees dans cette session. Plus la couverture et la coherence entre signaux independants sont elevees, plus le resultat est fiable.",
+              de: "Die Plattform priorisiert nachpruefbare Belege statt Annahmen. Deshalb enthaelt jedes Ergebnis drei operative Indikatoren: Urteil, Berichtsvertrauen und Abdeckungsampel. Vertrauen ist kein absolutes Versprechen, sondern ein technisches Mass dafuer, wie viele nuetzliche Belege in dieser Sitzung validiert werden konnten. Je hoeher Abdeckung und Konsistenz unabhaengiger Signale, desto verlaesslicher das Ergebnis.",
+              pt: "A plataforma prioriza evidencia verificavel em vez de suposicoes. Por isso, cada resultado inclui tres indicadores operacionais: veredito, confianca do relatorio e semaforo de cobertura. A confianca nao e promessa absoluta: e uma medida tecnica de quanta evidencia util foi validada naquela sessao. Quanto maior a cobertura e a consistencia entre sinais independentes, maior a confiabilidade do resultado.",
+              ru: "Платформа отдает приоритет проверяемым доказательствам, а не предположениям. Поэтому каждый результат включает три рабочих индикатора: вердикт, доверие к отчету и индикатор покрытия. Доверие не является абсолютной гарантией: это техническая мера того, сколько полезных доказательств удалось подтвердить в конкретной сессии. Чем выше покрытие и согласованность независимых сигналов, тем надежнее результат.",
+              zh: "平台优先采用可验证证据，而不是主观推测。因此每个结果都包含三个操作指标：结论、报告置信度和覆盖度信号灯。置信度并非绝对承诺，而是衡量该次会话中可验证有效证据数量的技术指标。覆盖度越高、独立信号越一致，结果越可靠。",
+              ar: "تعطي المنصة الاولوية للادلة القابلة للتحقق بدلا من الافتراضات. لذلك يتضمن كل نتيجة ثلاثة مؤشرات تشغيلية: الحكم وثقة التقرير واشارة التغطية. الثقة ليست وعدا مطلقا؛ بل هي مقياس تقني لكمية الادلة المفيدة التي امكن التحقق منها في تلك الجلسة. كلما زادت التغطية واتساق الاشارات المستقلة، زادت موثوقية النتيجة.",
+              hi: "प्लेटफ़ॉर्म अनुमानों की बजाय सत्यापित किए जा सकने वाले साक्ष्य को प्राथमिकता देता है। इसलिए हर परिणाम में तीन ऑपरेशनल संकेतक होते हैं: निर्णय, रिपोर्ट कॉन्फिडेंस और कवरेज सिग्नल। कॉन्फिडेंस कोई पूर्ण वादा नहीं है; यह उस सत्र में सत्यापित उपयोगी साक्ष्य की तकनीकी मात्रा है। कवरेज और स्वतंत्र संकेतों की संगति जितनी अधिक होगी, परिणाम उतना विश्वसनीय होगा।",
             })}
           </p>
           <p>
             {l({
-              es: 'Tambien incorpora controles de seguridad para reducir falsos positivos: si faltan datos clave o hay contradicciones entre señales, ScanIt bloquea veredictos optimistas y aplica',
-              en: 'It also includes safety controls to reduce false positives: if key data is missing or signals conflict, ScanIt blocks optimistic verdicts and applies',
-              fr: 'La plateforme integre aussi des controles de securite pour reduire les faux positifs : si des donnees cles manquent ou si les signaux se contredisent, ScanIt bloque les verdicts optimistes et applique',
-              de: 'Zusaetzlich umfasst die Plattform Sicherheitskontrollen zur Reduzierung von Fehlalarmen: Wenn Schluesseldaten fehlen oder Signale sich widersprechen, blockiert ScanIt optimistische Urteile und setzt',
-              pt: 'Tambem incorpora controles de seguranca para reduzir falsos positivos: se faltarem dados-chave ou houver contradicoes entre sinais, o ScanIt bloqueia vereditos otimistas e aplica',
-              ru: 'Также предусмотрены защитные механизмы для снижения ложноположительных срабатываний: если не хватает ключевых данных или сигналы противоречат друг другу, ScanIt блокирует оптимистичные вердикты и применяет',
-              zh: '平台还内置安全控制以减少误报：当关键数据缺失或信号相互矛盾时，ScanIt 会阻止过于乐观的结论，并应用',
-              ar: 'تتضمن المنصة ايضا ضوابط امان لتقليل النتائج الايجابية الكاذبة: اذا غابت بيانات مهمة او ظهرت تناقضات بين الاشارات، يقوم ScanIt بحظر الاحكام المتفائلة ويطبق',
-              hi: 'फॉल्स पॉज़िटिव कम करने के लिए इसमें सुरक्षा नियंत्रण भी हैं: यदि महत्वपूर्ण डेटा गायब हो या संकेत आपस में विरोधी हों, तो ScanIt आशावादी निर्णय रोककर'
+              es: "Tambien incorpora controles de seguridad para reducir falsos positivos: si faltan datos clave o hay contradicciones entre señales, ScanIt bloquea veredictos optimistas y aplica",
+              en: "It also includes safety controls to reduce false positives: if key data is missing or signals conflict, ScanIt blocks optimistic verdicts and applies",
+              fr: "La plateforme integre aussi des controles de securite pour reduire les faux positifs : si des donnees cles manquent ou si les signaux se contredisent, ScanIt bloque les verdicts optimistes et applique",
+              de: "Zusaetzlich umfasst die Plattform Sicherheitskontrollen zur Reduzierung von Fehlalarmen: Wenn Schluesseldaten fehlen oder Signale sich widersprechen, blockiert ScanIt optimistische Urteile und setzt",
+              pt: "Tambem incorpora controles de seguranca para reduzir falsos positivos: se faltarem dados-chave ou houver contradicoes entre sinais, o ScanIt bloqueia vereditos otimistas e aplica",
+              ru: "Также предусмотрены защитные механизмы для снижения ложноположительных срабатываний: если не хватает ключевых данных или сигналы противоречат друг другу, ScanIt блокирует оптимистичные вердикты и применяет",
+              zh: "平台还内置安全控制以减少误报：当关键数据缺失或信号相互矛盾时，ScanIt 会阻止过于乐观的结论，并应用",
+              ar: "تتضمن المنصة ايضا ضوابط امان لتقليل النتائج الايجابية الكاذبة: اذا غابت بيانات مهمة او ظهرت تناقضات بين الاشارات، يقوم ScanIt بحظر الاحكام المتفائلة ويطبق",
+              hi: "फॉल्स पॉज़िटिव कम करने के लिए इसमें सुरक्षा नियंत्रण भी हैं: यदि महत्वपूर्ण डेटा गायब हो या संकेत आपस में विरोधी हों, तो ScanIt आशावादी निर्णय रोककर",
             })}
-            <strong> {l({ es: 'No concluyente', en: 'Inconclusive', fr: 'Non concluant', de: 'Nicht schluessig', pt: 'Nao conclusivo', ru: 'Неконклюзивно', zh: '不确定', ar: 'غير حاسم', hi: 'निष्कर्षहीन' })}</strong>.
+            <strong>
+              {l({
+                es: "No concluyente",
+                en: "Inconclusive",
+                fr: "Non concluant",
+                de: "Nicht schluessig",
+                pt: "Nao conclusivo",
+                ru: "Неконклюзивно",
+                zh: "不确定",
+                ar: "غير حاسم",
+                hi: "निष्कर्षहीन",
+              })}</strong
+            >.
             {l({
-              es: ' Esta regla evita conclusiones fuertes con evidencia parcial y mantiene un enfoque prudente para entornos academicos y profesionales.',
-              en: ' This rule prevents strong conclusions with partial evidence and keeps a prudent approach for academic and professional environments.',
-              fr: ' Cette regle evite les conclusions fortes avec des preuves partielles et maintient une approche prudente pour les environnements academiques et professionnels.',
-              de: ' Diese Regel verhindert starke Schlussfolgerungen bei unvollstaendiger Evidenz und bewahrt einen vorsichtigen Ansatz fuer akademische und professionelle Umgebungen.',
-              pt: ' Esta regra evita conclusoes fortes com evidencia parcial e mantem uma abordagem prudente para ambientes academicos e profissionais.',
-              ru: ' Это правило предотвращает жесткие выводы при частичных доказательствах и сохраняет осторожный подход для академических и профессиональных сред.',
-              zh: ' 该规则可避免在证据不完整时给出强结论，并在学术与专业场景中保持审慎。',
-              ar: ' تمنع هذه القاعدة الاستنتاجات القاطعة عند وجود ادلة جزئية وتحافظ على نهج متحفظ في البيئات الاكاديمية والمهنية.',
-              hi: ' यह नियम आंशिक साक्ष्य पर कठोर निष्कर्षों को रोकता है और शैक्षणिक व पेशेवर संदर्भों में सतर्क दृष्टिकोण बनाए रखता है।'
+              es: " Esta regla evita conclusiones fuertes con evidencia parcial y mantiene un enfoque prudente para entornos academicos y profesionales.",
+              en: " This rule prevents strong conclusions with partial evidence and keeps a prudent approach for academic and professional environments.",
+              fr: " Cette regle evite les conclusions fortes avec des preuves partielles et maintient une approche prudente pour les environnements academiques et professionnels.",
+              de: " Diese Regel verhindert starke Schlussfolgerungen bei unvollstaendiger Evidenz und bewahrt einen vorsichtigen Ansatz fuer akademische und professionelle Umgebungen.",
+              pt: " Esta regra evita conclusoes fortes com evidencia parcial e mantem uma abordagem prudente para ambientes academicos e profissionais.",
+              ru: " Это правило предотвращает жесткие выводы при частичных доказательствах и сохраняет осторожный подход для академических и профессиональных сред.",
+              zh: " 该规则可避免在证据不完整时给出强结论，并在学术与专业场景中保持审慎。",
+              ar: " تمنع هذه القاعدة الاستنتاجات القاطعة عند وجود ادلة جزئية وتحافظ على نهج متحفظ في البيئات الاكاديمية والمهنية.",
+              hi: " यह नियम आंशिक साक्ष्य पर कठोर निष्कर्षों को रोकता है और शैक्षणिक व पेशेवर संदर्भों में सतर्क दृष्टिकोण बनाए रखता है।",
             })}
           </p>
           <p>
             {l({
-              es: 'Sobre tasas de exito: no existe un porcentaje universal valido para todos los tipos de archivo y todos los contextos. Por transparencia, ScanIt reporta calidad del analisis en cada caso (cobertura + confianza) en lugar de ocultarlo tras una cifra fija global.',
-              en: 'About success rates: there is no universal percentage valid for every file type and context. For transparency, ScanIt reports analysis quality in each case (coverage + confidence) instead of hiding it behind a fixed global figure.',
-              fr: 'Concernant les taux de reussite : il n existe pas de pourcentage universel valable pour tous les types de fichiers et tous les contextes. Par transparence, ScanIt affiche la qualite de l analyse dans chaque cas (couverture + confiance) plutot que de la masquer derriere un chiffre global fixe.',
-              de: 'Zu Erfolgsquoten: Es gibt keinen universellen Prozentsatz, der fuer alle Dateitypen und Kontexte gueltig ist. Aus Transparenzgruenden meldet ScanIt die Analysequalitaet pro Fall (Abdeckung + Vertrauen), statt sie hinter einer festen globalen Zahl zu verbergen.',
-              pt: 'Sobre taxas de sucesso: nao existe uma percentagem universal valida para todos os tipos de arquivo e contextos. Por transparencia, o ScanIt reporta a qualidade da analise em cada caso (cobertura + confianca) em vez de esconder isso atras de um numero global fixo.',
-              ru: 'О показателях успешности: не существует универсального процента, подходящего для всех типов файлов и контекстов. Для прозрачности ScanIt показывает качество анализа в каждом случае (покрытие + уверенность), а не скрывает его за одной фиксированной общей цифрой.',
-              zh: '关于成功率：不存在适用于所有文件类型和场景的统一百分比。为保持透明，ScanIt 会在每次分析中报告质量（覆盖度 + 置信度），而不是用一个固定总数值掩盖差异。',
-              ar: 'بالنسبة لمعدلات النجاح: لا توجد نسبة عالمية صالحة لكل انواع الملفات والسياقات. ومن باب الشفافية، يعرض ScanIt جودة التحليل في كل حالة (التغطية + الثقة) بدلا من اخفائها خلف رقم عالمي ثابت.',
-              hi: 'सक्सेस रेट के बारे में: ऐसा कोई एक सार्वभौमिक प्रतिशत नहीं है जो हर फ़ाइल प्रकार और हर संदर्भ पर लागू हो। पारदर्शिता के लिए, ScanIt हर केस में विश्लेषण गुणवत्ता (कवरेज + कॉन्फिडेंस) दिखाता है, न कि एक स्थिर वैश्विक संख्या के पीछे छिपाता है।'
+              es: "Sobre tasas de exito: no existe un porcentaje universal valido para todos los tipos de archivo y todos los contextos. Por transparencia, ScanIt reporta calidad del analisis en cada caso (cobertura + confianza) en lugar de ocultarlo tras una cifra fija global.",
+              en: "About success rates: there is no universal percentage valid for every file type and context. For transparency, ScanIt reports analysis quality in each case (coverage + confidence) instead of hiding it behind a fixed global figure.",
+              fr: "Concernant les taux de reussite : il n existe pas de pourcentage universel valable pour tous les types de fichiers et tous les contextes. Par transparence, ScanIt affiche la qualite de l analyse dans chaque cas (couverture + confiance) plutot que de la masquer derriere un chiffre global fixe.",
+              de: "Zu Erfolgsquoten: Es gibt keinen universellen Prozentsatz, der fuer alle Dateitypen und Kontexte gueltig ist. Aus Transparenzgruenden meldet ScanIt die Analysequalitaet pro Fall (Abdeckung + Vertrauen), statt sie hinter einer festen globalen Zahl zu verbergen.",
+              pt: "Sobre taxas de sucesso: nao existe uma percentagem universal valida para todos os tipos de arquivo e contextos. Por transparencia, o ScanIt reporta a qualidade da analise em cada caso (cobertura + confianca) em vez de esconder isso atras de um numero global fixo.",
+              ru: "О показателях успешности: не существует универсального процента, подходящего для всех типов файлов и контекстов. Для прозрачности ScanIt показывает качество анализа в каждом случае (покрытие + уверенность), а не скрывает его за одной фиксированной общей цифрой.",
+              zh: "关于成功率：不存在适用于所有文件类型和场景的统一百分比。为保持透明，ScanIt 会在每次分析中报告质量（覆盖度 + 置信度），而不是用一个固定总数值掩盖差异。",
+              ar: "بالنسبة لمعدلات النجاح: لا توجد نسبة عالمية صالحة لكل انواع الملفات والسياقات. ومن باب الشفافية، يعرض ScanIt جودة التحليل في كل حالة (التغطية + الثقة) بدلا من اخفائها خلف رقم عالمي ثابت.",
+              hi: "सक्सेस रेट के बारे में: ऐसा कोई एक सार्वभौमिक प्रतिशत नहीं है जो हर फ़ाइल प्रकार और हर संदर्भ पर लागू हो। पारदर्शिता के लिए, ScanIt हर केस में विश्लेषण गुणवत्ता (कवरेज + कॉन्फिडेंस) दिखाता है, न कि एक स्थिर वैश्विक संख्या के पीछे छिपाता है।",
             })}
           </p>
           <p class="science-disclaimer">
             {l({
-              es: 'ScanIt es una herramienta de verificacion tecnica y soporte a la decision. La conclusion final siempre debe tomarla una persona responsable del proceso.',
-              en: 'ScanIt is a technical verification and decision-support tool. The final conclusion must always be made by a responsible person.',
-              fr: 'ScanIt est un outil de verification technique et d aide a la decision. La conclusion finale doit toujours etre prise par une personne responsable.',
-              de: 'ScanIt ist ein Werkzeug fuer technische Verifikation und Entscheidungsunterstuetzung. Die endgueltige Schlussfolgerung muss immer von einer verantwortlichen Person getroffen werden.',
-              pt: 'O ScanIt e uma ferramenta de verificacao tecnica e apoio a decisao. A conclusao final deve ser sempre tomada por uma pessoa responsavel.',
-              ru: 'ScanIt - это инструмент технической проверки и поддержки принятия решений. Окончательный вывод всегда должен делать ответственный человек.',
-              zh: 'ScanIt 是技术核验与决策支持工具。最终结论应始终由负责人员作出。',
-              ar: 'ScanIt اداة للتحقق التقني ودعم القرار. يجب دائما ان يتخذ الاستنتاج النهائي شخص مسؤول عن العملية.',
-              hi: 'ScanIt तकनीकी सत्यापन और निर्णय-सहायता का उपकरण है। अंतिम निष्कर्ष हमेशा प्रक्रिया के जिम्मेदार व्यक्ति को ही लेना चाहिए।'
+              es: "ScanIt es una herramienta de verificacion tecnica y soporte a la decision. La conclusion final siempre debe tomarla una persona responsable del proceso.",
+              en: "ScanIt is a technical verification and decision-support tool. The final conclusion must always be made by a responsible person.",
+              fr: "ScanIt est un outil de verification technique et d aide a la decision. La conclusion finale doit toujours etre prise par une personne responsable.",
+              de: "ScanIt ist ein Werkzeug fuer technische Verifikation und Entscheidungsunterstuetzung. Die endgueltige Schlussfolgerung muss immer von einer verantwortlichen Person getroffen werden.",
+              pt: "O ScanIt e uma ferramenta de verificacao tecnica e apoio a decisao. A conclusao final deve ser sempre tomada por uma pessoa responsavel.",
+              ru: "ScanIt - это инструмент технической проверки и поддержки принятия решений. Окончательный вывод всегда должен делать ответственный человек.",
+              zh: "ScanIt 是技术核验与决策支持工具。最终结论应始终由负责人员作出。",
+              ar: "ScanIt اداة للتحقق التقني ودعم القرار. يجب دائما ان يتخذ الاستنتاج النهائي شخص مسؤول عن العملية.",
+              hi: "ScanIt तकनीकी सत्यापन और निर्णय-सहायता का उपकरण है। अंतिम निष्कर्ष हमेशा प्रक्रिया के जिम्मेदार व्यक्ति को ही लेना चाहिए।",
             })}
           </p>
         </div>
@@ -2378,81 +3443,218 @@
       class="science-modal-backdrop"
       role="button"
       tabindex="0"
-      aria-label={l({ es: 'Cerrar instalacion de app', en: 'Close install help', fr: 'Fermer l installation', de: 'App-Installation schliessen', pt: 'Fechar instalacao', ru: 'Закрыть подсказку установки', zh: '关闭安装提示', ar: 'اغلاق تلميح التثبيت', hi: 'इंस्टॉल सहायता बंद करें' })}
+      aria-label={l({
+        es: "Cerrar instalacion de app",
+        en: "Close install help",
+        fr: "Fermer l installation",
+        de: "App-Installation schliessen",
+        pt: "Fechar instalacao",
+        ru: "Закрыть подсказку установки",
+        zh: "关闭安装提示",
+        ar: "اغلاق تلميح التثبيت",
+        hi: "इंस्टॉल सहायता बंद करें",
+      })}
       onclick={() => dismissInstallHint()}
-      onkeydown={(e) => e.key === 'Enter' && dismissInstallHint()}
+      onkeydown={(e) => e.key === "Enter" && dismissInstallHint()}
     >
       <div
         class="science-modal glass"
         role="dialog"
         aria-modal="true"
-        aria-label={l({ es: 'Instalar ScanIt', en: 'Install ScanIt', fr: 'Installer ScanIt', de: 'ScanIt installieren', pt: 'Instalar ScanIt', ru: 'Установить ScanIt', zh: '安装 ScanIt', ar: 'تثبيت ScanIt', hi: 'ScanIt इंस्टॉल करें' })}
+        aria-label={l({
+          es: "Instalar ScanIt",
+          en: "Install ScanIt",
+          fr: "Installer ScanIt",
+          de: "ScanIt installieren",
+          pt: "Instalar ScanIt",
+          ru: "Установить ScanIt",
+          zh: "安装 ScanIt",
+          ar: "تثبيت ScanIt",
+          hi: "ScanIt इंस्टॉल करें",
+        })}
         tabindex="0"
         onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.key === 'Escape' && dismissInstallHint()}
+        onkeydown={(e) => e.key === "Escape" && dismissInstallHint()}
       >
         <div class="science-modal-head">
           <h3>
             {l({
-              es: 'Instalar ScanIt como app',
-              en: 'Install ScanIt as an app',
-              fr: 'Installer ScanIt en application',
-              de: 'ScanIt als App installieren',
-              pt: 'Instalar o ScanIt como app',
-              ru: 'Установить ScanIt как приложение',
-              zh: '将 ScanIt 安装为应用',
-              ar: 'قم بتثبيت ScanIt كتطبيق',
-              hi: 'ScanIt को ऐप की तरह इंस्टॉल करें'
+              es: "Instalar ScanIt como app",
+              en: "Install ScanIt as an app",
+              fr: "Installer ScanIt en application",
+              de: "ScanIt als App installieren",
+              pt: "Instalar o ScanIt como app",
+              ru: "Установить ScanIt как приложение",
+              zh: "将 ScanIt 安装为应用",
+              ar: "قم بتثبيت ScanIt كتطبيق",
+              hi: "ScanIt को ऐप की तरह इंस्टॉल करें",
             })}
           </h3>
-          <button class="ghost science-close" onclick={() => dismissInstallHint()}>
-            {l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}
+          <button
+            class="ghost science-close"
+            onclick={() => dismissInstallHint()}
+          >
+            {l({
+              es: "Cerrar",
+              en: "Close",
+              fr: "Fermer",
+              de: "Schliessen",
+              pt: "Fechar",
+              ru: "Закрыть",
+              zh: "关闭",
+              ar: "إغلاق",
+              hi: "बंद करें",
+            })}
           </button>
         </div>
 
         <div class="science-modal-body">
-          {#if installPlatform === 'ios'}
+          {#if installPlatform === "ios"}
             <p>
               {l({
-                es: 'En iPhone/iPad (Safari):',
-                en: 'On iPhone/iPad (Safari):',
-                fr: 'Sur iPhone/iPad (Safari):',
-                de: 'Auf iPhone/iPad (Safari):',
-                pt: 'No iPhone/iPad (Safari):',
-                ru: 'На iPhone/iPad (Safari):',
-                zh: '在 iPhone/iPad（Safari）上：',
-                ar: 'على iPhone/iPad (Safari):',
-                hi: 'iPhone/iPad (Safari) पर:'
+                es: "En iPhone/iPad (Safari):",
+                en: "On iPhone/iPad (Safari):",
+                fr: "Sur iPhone/iPad (Safari):",
+                de: "Auf iPhone/iPad (Safari):",
+                pt: "No iPhone/iPad (Safari):",
+                ru: "На iPhone/iPad (Safari):",
+                zh: "在 iPhone/iPad（Safari）上：",
+                ar: "على iPhone/iPad (Safari):",
+                hi: "iPhone/iPad (Safari) पर:",
               })}
             </p>
-            <p>{l({ es: '1) Pulsa “Compartir” (cuadrado con flecha hacia arriba).', en: '1) Tap “Share” (square with an up arrow).', fr: '1) Touchez “Partager” (carré avec flèche vers le haut).', de: '1) Tippe auf „Teilen“ (Quadrat mit nach oben zeigendem Pfeil).', pt: '1) Toque em “Compartilhar” (quadrado com seta para cima).', ru: '1) Нажмите “Поделиться” (квадрат со стрелкой вверх).', zh: '1) 点击“分享”（带向上箭头的方块）。', ar: '1) اضغط “مشاركة” (مربع مع سهم للأعلى).', hi: '1) “Share” टैप करें (ऊपर की ओर तीर वाला चौकोर आइकन)।' })}</p>
-            <p>{l({ es: '2) Elige “Añadir a pantalla de inicio”.', en: '2) Choose “Add to Home Screen”.', fr: '2) Choisissez “Ajouter a l ecran d accueil”.', de: '2) Wähle „Zum Home-Bildschirm hinzufügen“.', pt: '2) Selecione “Adicionar a pantalla inicial”.', ru: '2) Выберите “Добавить на экран Домой”.', zh: '2) 选择“添加到主屏幕”。', ar: '2) اختر “إضافة إلى الشاشة الرئيسية”.', hi: '2) “Add to Home Screen” चुनें।' })}</p>
-            <p>{l({ es: '3) Confirma con “Añadir”.', en: '3) Confirm with “Add”.', fr: '3) Confirmez avec “Ajouter”.', de: '3) Bestätige mit „Hinzufügen“.', pt: '3) Confirme com “Adicionar”.', ru: '3) Подтвердите “Добавить”.', zh: '3) 点击“添加”。', ar: '3) أكد عبر “إضافة”.', hi: '3) “Add” से पुष्टि करें।' })}</p>
-            <p class="science-disclaimer">
-              {l({ es: 'Consejo: abre ScanIt desde Safari y luego instala desde ahi.', en: 'Tip: open ScanIt from Safari, then install from there.', fr: 'Astuce : ouvrez ScanIt depuis Safari puis installez depuis la.', de: 'Tipp: ScanIt in Safari öffnen und dann von dort installieren.', pt: 'Dica: abra o ScanIt no Safari e instale a partir daí.', ru: 'Совет: откройте ScanIt в Safari, затем установите оттуда.', zh: '提示：从 Safari 打开 ScanIt，然后在那里安装。', ar: 'نصيحة: افتح ScanIt من Safari ثم ثبته من هناك.', hi: 'टिप: Safari में ScanIt खोलें और फिर वहीं से इंस्टॉल करें।' })}
-            </p>
-          {:else if installPlatform === 'android'}
             <p>
               {l({
-                es: 'En Android (Chrome/Samsung Internet):',
-                en: 'On Android (Chrome/Samsung Internet):',
-                fr: 'Sur Android (Chrome/Samsung Internet):',
-                de: 'Auf Android (Chrome/Samsung Internet):',
-                pt: 'No Android (Chrome/Samsung Internet):',
-                ru: 'На Android (Chrome/Samsung Internet):',
-                zh: '在 Android（Chrome/三星浏览器）：',
-                ar: 'على Android (Chrome/إنترنت سامسونج):',
-                hi: 'Android (Chrome/Samsung Internet) पर:'
+                es: "1) Pulsa “Compartir” (cuadrado con flecha hacia arriba).",
+                en: "1) Tap “Share” (square with an up arrow).",
+                fr: "1) Touchez “Partager” (carré avec flèche vers le haut).",
+                de: "1) Tippe auf „Teilen“ (Quadrat mit nach oben zeigendem Pfeil).",
+                pt: "1) Toque em “Compartilhar” (quadrado com seta para cima).",
+                ru: "1) Нажмите “Поделиться” (квадрат со стрелкой вверх).",
+                zh: "1) 点击“分享”（带向上箭头的方块）。",
+                ar: "1) اضغط “مشاركة” (مربع مع سهم للأعلى).",
+                hi: "1) “Share” टैप करें (ऊपर की ओर तीर वाला चौकोर आइकन)।",
               })}
             </p>
-            <p>{l({ es: '1) Pulsa el menu (⋮) del navegador.', en: '1) Tap the browser menu (⋮).', fr: '1) Touchez le menu (⋮) du navigateur.', de: '1) Tippe auf das Browser-Menü (⋮).', pt: '1) Toque no menu do navegador (⋮).', ru: '1) Нажмите меню браузера (⋮).', zh: '1) 点击浏览器菜单（⋮）。', ar: '1) اضغط قائمة المتصفح (⋮).', hi: '1) ब्राउज़र मेनू (⋮) टैप करें।' })}</p>
-            <p>{l({ es: '2) Elige “Instalar app” o “Añadir a pantalla de inicio”.', en: '2) Choose “Install app” or “Add to Home Screen”.', fr: '2) Choisissez “Installer l application” ou “Ajouter a l ecran d accueil”.', de: '2) Wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.', pt: '2) Selecione “Instalar app” ou “Adicionar a tela inicial”.', ru: '2) Выберите “Установить приложение” или “Добавить на главный экран”.', zh: '2) 选择“安装应用”或“添加到主屏幕”。', ar: '2) اختر “تثبيت التطبيق” أو “إضافة إلى الشاشة الرئيسية”.', hi: '2) “Install app” या “Add to Home Screen” चुनें।' })}</p>
-            <p>{l({ es: '3) Confirma y espera a que se añada el icono.', en: '3) Confirm and wait for the icon to appear.', fr: '3) Confirmez et attendez que l icône apparaisse.', de: '3) Bestätige und warte, bis das Symbol erscheint.', pt: '3) Confirme e espere o icone aparecer.', ru: '3) Подтвердите и дождитесь появления значка.', zh: '3) 确认并等待图标出现。', ar: '3) أكد وانتظر ظهور الأيقونة.', hi: '3) पुष्टि करें और आइकन आने तक प्रतीक्षा करें।' })}</p>
+            <p>
+              {l({
+                es: "2) Elige “Añadir a pantalla de inicio”.",
+                en: "2) Choose “Add to Home Screen”.",
+                fr: "2) Choisissez “Ajouter a l ecran d accueil”.",
+                de: "2) Wähle „Zum Home-Bildschirm hinzufügen“.",
+                pt: "2) Selecione “Adicionar a pantalla inicial”.",
+                ru: "2) Выберите “Добавить на экран Домой”.",
+                zh: "2) 选择“添加到主屏幕”。",
+                ar: "2) اختر “إضافة إلى الشاشة الرئيسية”.",
+                hi: "2) “Add to Home Screen” चुनें।",
+              })}
+            </p>
+            <p>
+              {l({
+                es: "3) Confirma con “Añadir”.",
+                en: "3) Confirm with “Add”.",
+                fr: "3) Confirmez avec “Ajouter”.",
+                de: "3) Bestätige mit „Hinzufügen“.",
+                pt: "3) Confirme com “Adicionar”.",
+                ru: "3) Подтвердите “Добавить”.",
+                zh: "3) 点击“添加”。",
+                ar: "3) أكد عبر “إضافة”.",
+                hi: "3) “Add” से पुष्टि करें।",
+              })}
+            </p>
             <p class="science-disclaimer">
-              {l({ es: 'Si no ves “Instalar”, busca “Añadir a pantalla de inicio”.', en: 'If you don’t see “Install”, look for “Add to Home Screen”.', fr: 'Si vous ne voyez pas “Installer”, cherchez “Ajouter a l ecran d accueil”.', de: 'Wenn du „Installieren“ nicht siehst, suche nach „Zum Startbildschirm hinzufügen“.', pt: 'Se não aparecer “Instalar”, procure “Adicionar a tela inicial”.', ru: 'Если не видите “Установить”, ищите “Добавить на главный экран”.', zh: '如果没有“安装”，请选择“添加到主屏幕”。', ar: 'إذا لم تر “تثبيت”، ابحث عن “إضافة إلى الشاشة الرئيسية”.', hi: 'अगर “Install” नहीं दिखता, तो “Add to Home Screen” देखें।' })}
+              {l({
+                es: "Consejo: abre ScanIt desde Safari y luego instala desde ahi.",
+                en: "Tip: open ScanIt from Safari, then install from there.",
+                fr: "Astuce : ouvrez ScanIt depuis Safari puis installez depuis la.",
+                de: "Tipp: ScanIt in Safari öffnen und dann von dort installieren.",
+                pt: "Dica: abra o ScanIt no Safari e instale a partir daí.",
+                ru: "Совет: откройте ScanIt в Safari, затем установите оттуда.",
+                zh: "提示：从 Safari 打开 ScanIt，然后在那里安装。",
+                ar: "نصيحة: افتح ScanIt من Safari ثم ثبته من هناك.",
+                hi: "टिप: Safari में ScanIt खोलें और फिर वहीं से इंस्टॉल करें।",
+              })}
+            </p>
+          {:else if installPlatform === "android"}
+            <p>
+              {l({
+                es: "En Android (Chrome/Samsung Internet):",
+                en: "On Android (Chrome/Samsung Internet):",
+                fr: "Sur Android (Chrome/Samsung Internet):",
+                de: "Auf Android (Chrome/Samsung Internet):",
+                pt: "No Android (Chrome/Samsung Internet):",
+                ru: "На Android (Chrome/Samsung Internet):",
+                zh: "在 Android（Chrome/三星浏览器）：",
+                ar: "على Android (Chrome/إنترنت سامسونج):",
+                hi: "Android (Chrome/Samsung Internet) पर:",
+              })}
+            </p>
+            <p>
+              {l({
+                es: "1) Pulsa el menu (⋮) del navegador.",
+                en: "1) Tap the browser menu (⋮).",
+                fr: "1) Touchez le menu (⋮) du navigateur.",
+                de: "1) Tippe auf das Browser-Menü (⋮).",
+                pt: "1) Toque no menu do navegador (⋮).",
+                ru: "1) Нажмите меню браузера (⋮).",
+                zh: "1) 点击浏览器菜单（⋮）。",
+                ar: "1) اضغط قائمة المتصفح (⋮).",
+                hi: "1) ब्राउज़र मेनू (⋮) टैप करें।",
+              })}
+            </p>
+            <p>
+              {l({
+                es: "2) Elige “Instalar app” o “Añadir a pantalla de inicio”.",
+                en: "2) Choose “Install app” or “Add to Home Screen”.",
+                fr: "2) Choisissez “Installer l application” ou “Ajouter a l ecran d accueil”.",
+                de: "2) Wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.",
+                pt: "2) Selecione “Instalar app” ou “Adicionar a tela inicial”.",
+                ru: "2) Выберите “Установить приложение” или “Добавить на главный экран”.",
+                zh: "2) 选择“安装应用”或“添加到主屏幕”。",
+                ar: "2) اختر “تثبيت التطبيق” أو “إضافة إلى الشاشة الرئيسية”.",
+                hi: "2) “Install app” या “Add to Home Screen” चुनें।",
+              })}
+            </p>
+            <p>
+              {l({
+                es: "3) Confirma y espera a que se añada el icono.",
+                en: "3) Confirm and wait for the icon to appear.",
+                fr: "3) Confirmez et attendez que l icône apparaisse.",
+                de: "3) Bestätige und warte, bis das Symbol erscheint.",
+                pt: "3) Confirme e espere o icone aparecer.",
+                ru: "3) Подтвердите и дождитесь появления значка.",
+                zh: "3) 确认并等待图标出现。",
+                ar: "3) أكد وانتظر ظهور الأيقونة.",
+                hi: "3) पुष्टि करें और आइकन आने तक प्रतीक्षा करें।",
+              })}
+            </p>
+            <p class="science-disclaimer">
+              {l({
+                es: "Si no ves “Instalar”, busca “Añadir a pantalla de inicio”.",
+                en: "If you don’t see “Install”, look for “Add to Home Screen”.",
+                fr: "Si vous ne voyez pas “Installer”, cherchez “Ajouter a l ecran d accueil”.",
+                de: "Wenn du „Installieren“ nicht siehst, suche nach „Zum Startbildschirm hinzufügen“.",
+                pt: "Se não aparecer “Instalar”, procure “Adicionar a tela inicial”.",
+                ru: "Если не видите “Установить”, ищите “Добавить на главный экран”.",
+                zh: "如果没有“安装”，请选择“添加到主屏幕”。",
+                ar: "إذا لم تر “تثبيت”، ابحث عن “إضافة إلى الشاشة الرئيسية”.",
+                hi: "अगर “Install” नहीं दिखता, तो “Add to Home Screen” देखें।",
+              })}
             </p>
           {:else}
-            <p>{l({ es: 'Abre el navegador en modo normal y usa el menu para instalar como app.', en: 'Open the browser normally and use the menu to install as an app.', fr: 'Ouvrez le navigateur normalement et utilisez le menu pour installer comme appli.', de: 'Öffne den Browser normal und nutze das Menü zum Installieren als App.', pt: 'Abra o navegador normalmente e use o menu para instalar como app.', ru: 'Откройте браузер нормально и используйте меню, чтобы установить как приложение.', zh: '在浏览器正常模式下打开，然后用菜单安装为应用。', ar: 'افتح المتصفح بشكل طبيعي واستخدم القائمة للتثبيت كتطبيق.', hi: 'ब्राउज़र को सामान्य मोड में खोलें और मेनू से इंस्टॉल करें।' })}</p>
+            <p>
+              {l({
+                es: "Abre el navegador en modo normal y usa el menu para instalar como app.",
+                en: "Open the browser normally and use the menu to install as an app.",
+                fr: "Ouvrez le navigateur normalement et utilisez le menu pour installer comme appli.",
+                de: "Öffne den Browser normal und nutze das Menü zum Installieren als App.",
+                pt: "Abra o navegador normalmente e use o menu para instalar como app.",
+                ru: "Откройте браузер нормально и используйте меню, чтобы установить как приложение.",
+                zh: "在浏览器正常模式下打开，然后用菜单安装为应用。",
+                ar: "افتح المتصفح بشكل طبيعي واستخدم القائمة للتثبيت كتطبيق.",
+                hi: "ब्राउज़र को सामान्य मोड में खोलें और मेनू से इंस्टॉल करें।",
+              })}
+            </p>
           {/if}
         </div>
       </div>
@@ -2466,7 +3668,7 @@
       tabindex="0"
       aria-label="Cerrar resultado"
       onclick={() => (showResultModal = false)}
-      onkeydown={(e) => e.key === 'Enter' && (showResultModal = false)}
+      onkeydown={(e) => e.key === "Enter" && (showResultModal = false)}
     >
       <div
         class="science-modal glass result-modal"
@@ -2475,40 +3677,95 @@
         aria-label="Resultado pericial"
         tabindex="0"
         onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.key === 'Escape' && (showResultModal = false)}
+        onkeydown={(e) => e.key === "Escape" && (showResultModal = false)}
       >
         <div class="science-modal-head">
           <h3>Resultado pericial</h3>
-          <button class="ghost science-close" onclick={() => (showResultModal = false)}>{l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}</button>
+          <button
+            class="ghost science-close"
+            onclick={() => (showResultModal = false)}
+            >{l({
+              es: "Cerrar",
+              en: "Close",
+              fr: "Fermer",
+              de: "Schliessen",
+              pt: "Fechar",
+              ru: "Закрыть",
+              zh: "关闭",
+              ar: "إغلاق",
+              hi: "बंद करें",
+            })}</button
+          >
         </div>
         <div class="science-modal-body">
-          {#if mode === 'document' && documentResult}
-            <p><strong>Veredicto:</strong> {verdictLabel[documentResult.verdict]}</p>
-            <p><strong>SHA-256:</strong> <span class:glitching={glitchActive}>{glitchSha || documentHash}</span></p>
-            <p><strong>Timeline:</strong> {documentResult.timeline.created ?? 'N/D'} -> {documentResult.timeline.modified ?? 'N/D'}</p>
-            <p><strong>Indice de anomalias:</strong> {documentResult.anomalyIndex}</p>
-            <p><strong>Confianza del informe:</strong> {documentResult.confidence ? `${documentResult.confidence.score}/100` : 'N/D'}</p>
+          {#if mode === "document" && documentResult}
+            <p>
+              <strong>Veredicto:</strong>
+              {verdictLabel[documentResult.verdict]}
+            </p>
+            <p>
+              <strong>SHA-256:</strong>
+              <span class:glitching={glitchActive}
+                >{glitchSha || documentHash}</span
+              >
+            </p>
+            <p>
+              <strong>Timeline:</strong>
+              {documentResult.timeline.created ?? "N/D"} -> {documentResult
+                .timeline.modified ?? "N/D"}
+            </p>
+            <p>
+              <strong>Indice de anomalias:</strong>
+              {documentResult.anomalyIndex}
+            </p>
+            <p>
+              <strong>Confianza del informe:</strong>
+              {documentResult.confidence
+                ? `${documentResult.confidence.score}/100`
+                : "N/D"}
+            </p>
             <p>
               <strong>Semaforo de cobertura:</strong>
-              <span class={`coverage-chip ${coverageTone(documentResult.confidence?.score)}`}>
-                {documentResult.confidence ? `${documentResult.confidence.score}/100` : 'N/D'}
+              <span
+                class={`coverage-chip ${coverageTone(documentResult.confidence?.score)}`}
+              >
+                {documentResult.confidence
+                  ? `${documentResult.confidence.score}/100`
+                  : "N/D"}
               </span>
             </p>
-            <p><strong>Palabras / Min:</strong> {documentResult.metrics.ratioWordsPerMinute ? documentResult.metrics.ratioWordsPerMinute.toFixed(2) : 'N/D'}</p>
+            <p>
+              <strong>Palabras / Min:</strong>
+              {documentResult.metrics.ratioWordsPerMinute
+                ? documentResult.metrics.ratioWordsPerMinute.toFixed(2)
+                : "N/D"}
+            </p>
             <p>
               <strong>Sospecha linguistica IA:</strong>
-              <span class:glitching={glitchActive}>{glitchPercent || (documentResult.linguisticAi ? `${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%` : 'N/D')}</span>
+              <span class:glitching={glitchActive}
+                >{glitchPercent ||
+                  (documentResult.linguisticAi
+                    ? `${documentResult.linguisticAi.suspicionPercent.toFixed(0)}%`
+                    : "N/D")}</span
+              >
             </p>
-            <p><strong>Politica:</strong> Zero Guessing Policy (metrica cuantificable, no suposiciones).</p>
+            <p>
+              <strong>Politica:</strong> Zero Guessing Policy (metrica cuantificable,
+              no suposiciones).
+            </p>
             {#if documentResult.policy?.forcedNoConclusive && documentResult.policy.reason}
-              <p><strong>Salvaguarda anti-falso positivo:</strong> {documentResult.policy.reason}</p>
+              <p>
+                <strong>Salvaguarda anti-falso positivo:</strong>
+                {documentResult.policy.reason}
+              </p>
             {/if}
             {#if documentResult.ocrStatus}
               <p><strong>OCR:</strong> {documentResult.ocrStatus.reason}</p>
             {/if}
             <p>
-              Resumen rapido: se detectaron {documentResult.anomalies.length} hallazgos tecnicos.
-              Para ver detalle pericial completo, usa "Descargar Informe Completo".
+              Resumen rapido: se detectaron {documentResult.anomalies.length} hallazgos
+              tecnicos. Para ver detalle pericial completo, usa "Descargar Informe
+              Completo".
             </p>
             <ul class="modal-list">
               {#if !documentResult.anomalies.length}
@@ -2518,31 +3775,67 @@
                 <li>[{anomaly.severity}] {anomaly.message}</li>
               {/each}
             </ul>
-          {:else if mode === 'image' && imageResult}
-            <p><strong>Veredicto:</strong> {verdictLabel[imageResult.verdict]}</p>
-            <p><strong>SHA-256:</strong> <span class:glitching={glitchActive}>{glitchSha || imageHash}</span></p>
+          {:else if mode === "image" && imageResult}
+            <p>
+              <strong>Veredicto:</strong>
+              {verdictLabel[imageResult.verdict]}
+            </p>
+            <p>
+              <strong>SHA-256:</strong>
+              <span class:glitching={glitchActive}
+                >{glitchSha || imageHash}</span
+              >
+            </p>
             <p><strong>Timeline:</strong> N/D (evidencia visual)</p>
-            <p><strong>Indice de anomalias:</strong> {imageResult.anomalyIndex}</p>
+            <p>
+              <strong>Indice de anomalias:</strong>
+              {imageResult.anomalyIndex}
+            </p>
             <p>
               <strong>Semaforo de cobertura:</strong>
-              <span class={`coverage-chip ${coverageTone(imageResult.confidence?.score)}`}>
-                {imageResult.confidence ? `${imageResult.confidence.score}/100` : 'N/D'}
+              <span
+                class={`coverage-chip ${coverageTone(imageResult.confidence?.score)}`}
+              >
+                {imageResult.confidence
+                  ? `${imageResult.confidence.score}/100`
+                  : "N/D"}
               </span>
             </p>
-            <p><strong>Origen estimado:</strong> {imageResult.visualAi?.origin ?? 'N/D'}</p>
+            <p>
+              <strong>Origen estimado:</strong>
+              {imageResult.visualAi?.origin ?? "N/D"}
+            </p>
             <p>
               <strong>Sospecha visual IA:</strong>
-              <span class:glitching={glitchActive}>{glitchPercent || (imageResult.visualAi ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%` : 'N/D')}</span>
+              <span class:glitching={glitchActive}
+                >{glitchPercent ||
+                  (imageResult.visualAi
+                    ? `${imageResult.visualAi.suspicionPercent.toFixed(0)}%`
+                    : "N/D")}</span
+              >
             </p>
-            <p><strong>OCR estimado:</strong> {imageResult.visualAi?.ocrEstimatedChars ?? 0} caracteres</p>
-            <p><strong>Consistencia de estilo visual:</strong> {imageResult.visualAi?.styleConsistency ?? 'N/D'}</p>
-            {#if imageResult.policy?.forcedNoConclusive && imageResult.policy.reason}
-              <p><strong>Salvaguarda anti-falso positivo:</strong> {imageResult.policy.reason}</p>
-            {/if}
-            <p><strong>Politica:</strong> Zero Guessing Policy (metrica cuantificable, no suposiciones).</p>
             <p>
-              Resumen rapido: se detectaron {imageResult.anomalies.length} hallazgos tecnicos.
-              Para ver el analisis visual completo, descarga el informe extendido.
+              <strong>OCR estimado:</strong>
+              {imageResult.visualAi?.ocrEstimatedChars ?? 0} caracteres
+            </p>
+            <p>
+              <strong>Consistencia de estilo visual:</strong>
+              {imageResult.visualAi?.styleConsistency ?? "N/D"}
+            </p>
+            {#if imageResult.policy?.forcedNoConclusive && imageResult.policy.reason}
+              <p>
+                <strong>Salvaguarda anti-falso positivo:</strong>
+                {imageResult.policy.reason}
+              </p>
+            {/if}
+            <p>
+              <strong>Politica:</strong> Zero Guessing Policy (metrica cuantificable,
+              no suposiciones).
+            </p>
+            <p>
+              Resumen rapido: se detectaron {imageResult.anomalies.length} hallazgos
+              tecnicos. Para ver el analisis visual completo, descarga el informe
+              extendido.
             </p>
             <ul class="modal-list">
               {#if !imageResult.anomalies.length}
@@ -2554,8 +3847,21 @@
             </ul>
           {/if}
         </div>
-        <button class={`download ${downloadToneClass()}`} onclick={downloadCertificate}>
-          {l({ es: 'Descargar Informe Completo', en: 'Download Full Report', fr: 'Telecharger le rapport complet', de: 'Vollbericht herunterladen', pt: 'Baixar relatorio completo', ru: 'Скачать полный отчет', zh: '下载完整报告', ar: 'تنزيل التقرير الكامل', hi: 'पूर्ण रिपोर्ट डाउनलोड करें' })}
+        <button
+          class={`download ${downloadToneClass()}`}
+          onclick={downloadCertificate}
+        >
+          {l({
+            es: "Descargar Informe Completo",
+            en: "Download Full Report",
+            fr: "Telecharger le rapport complet",
+            de: "Vollbericht herunterladen",
+            pt: "Baixar relatorio completo",
+            ru: "Скачать полный отчет",
+            zh: "下载完整报告",
+            ar: "تنزيل التقرير الكامل",
+            hi: "पूर्ण रिपोर्ट डाउनलोड करें",
+          })}
         </button>
       </div>
     </div>
@@ -2565,41 +3871,124 @@
       class="science-modal-backdrop"
       role="button"
       tabindex="0"
-      aria-label={l({ es: 'Cerrar ayuda para PDF', en: 'Close PDF help', fr: 'Fermer aide PDF', de: 'PDF-Hilfe schliessen', pt: 'Fechar ajuda de PDF', ru: 'Закрыть помощь по PDF', zh: '关闭 PDF 帮助', ar: 'إغلاق مساعدة PDF', hi: 'PDF सहायता बंद करें' })}
+      aria-label={l({
+        es: "Cerrar ayuda para PDF",
+        en: "Close PDF help",
+        fr: "Fermer aide PDF",
+        de: "PDF-Hilfe schliessen",
+        pt: "Fechar ajuda de PDF",
+        ru: "Закрыть помощь по PDF",
+        zh: "关闭 PDF 帮助",
+        ar: "إغلاق مساعدة PDF",
+        hi: "PDF सहायता बंद करें",
+      })}
       onclick={() => (showPdfResizeHelpModal = false)}
-      onkeydown={(e) => e.key === 'Enter' && (showPdfResizeHelpModal = false)}
+      onkeydown={(e) => e.key === "Enter" && (showPdfResizeHelpModal = false)}
     >
       <div
         class="science-modal glass"
         role="dialog"
         aria-modal="true"
-        aria-label={l({ es: 'Guia para reducir PDF', en: 'PDF size guide', fr: 'Guide de reduction PDF', de: 'Anleitung PDF verkleinern', pt: 'Guia para reduzir PDF', ru: 'Инструкция по уменьшению PDF', zh: 'PDF 压缩指南', ar: 'دليل تقليل حجم PDF', hi: 'PDF आकार गाइड' })}
+        aria-label={l({
+          es: "Guia para reducir PDF",
+          en: "PDF size guide",
+          fr: "Guide de reduction PDF",
+          de: "Anleitung PDF verkleinern",
+          pt: "Guia para reduzir PDF",
+          ru: "Инструкция по уменьшению PDF",
+          zh: "PDF 压缩指南",
+          ar: "دليل تقليل حجم PDF",
+          hi: "PDF आकार गाइड",
+        })}
         tabindex="0"
         onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.key === 'Escape' && (showPdfResizeHelpModal = false)}
+        onkeydown={(e) =>
+          e.key === "Escape" && (showPdfResizeHelpModal = false)}
       >
         <div class="science-modal-head">
-          <h3>{l({ es: 'Como reducir PDF compatible con ScanIt', en: 'How to reduce PDF for ScanIt', fr: 'Comment reduire un PDF pour ScanIt', de: 'PDF fuer ScanIt verkleinern', pt: 'Como reduzir PDF para o ScanIt', ru: 'Как уменьшить PDF для ScanIt', zh: 'ScanIt 兼容 PDF 压缩方法', ar: 'كيفية تقليل PDF المتوافق مع ScanIt', hi: 'ScanIt के लिए PDF कम कैसे करें' })}</h3>
-          <button class="ghost science-close" onclick={() => (showPdfResizeHelpModal = false)}>{l({ es: 'Cerrar', en: 'Close', fr: 'Fermer', de: 'Schliessen', pt: 'Fechar', ru: 'Закрыть', zh: '关闭', ar: 'إغلاق', hi: 'बंद करें' })}</button>
+          <h3>
+            {l({
+              es: "Como reducir PDF compatible con ScanIt",
+              en: "How to reduce PDF for ScanIt",
+              fr: "Comment reduire un PDF pour ScanIt",
+              de: "PDF fuer ScanIt verkleinern",
+              pt: "Como reduzir PDF para o ScanIt",
+              ru: "Как уменьшить PDF для ScanIt",
+              zh: "ScanIt 兼容 PDF 压缩方法",
+              ar: "كيفية تقليل PDF المتوافق مع ScanIt",
+              hi: "ScanIt के लिए PDF कम कैसे करें",
+            })}
+          </h3>
+          <button
+            class="ghost science-close"
+            onclick={() => (showPdfResizeHelpModal = false)}
+            >{l({
+              es: "Cerrar",
+              en: "Close",
+              fr: "Fermer",
+              de: "Schliessen",
+              pt: "Fechar",
+              ru: "Закрыть",
+              zh: "关闭",
+              ar: "إغلاق",
+              hi: "बंद करें",
+            })}</button
+          >
         </div>
         <div class="science-modal-body">
           <p>
             {l({
-              es: 'Si aparece un error de tamaño, reduce el archivo por debajo de 4 MB y vuelve a subirlo.',
-              en: 'If you see a size error, reduce the file below 4 MB and upload again.',
-              fr: 'Si vous voyez une erreur de taille, reduisez le fichier sous 4 Mo puis reimportez.',
-              de: 'Bei Groessenfehler Datei unter 4 MB reduzieren und erneut hochladen.',
-              pt: 'Se aparecer erro de tamanho, reduza o arquivo para menos de 4 MB e envie novamente.',
-              ru: 'Если появилась ошибка размера, уменьшите файл до 4 МБ и загрузите снова.',
-              zh: '若出现大小错误，请将文件压缩到 4 MB 以下后重新上传。',
-              ar: 'إذا ظهر خطأ الحجم، قلل الملف إلى أقل من 4 ميغابايت ثم ارفعه مجددا.',
-              hi: 'यदि आकार त्रुटि आए, फ़ाइल को 4 MB से कम करें और फिर अपलोड करें।'
+              es: "Si aparece un error de tamaño, reduce el archivo por debajo de 4 MB y vuelve a subirlo.",
+              en: "If you see a size error, reduce the file below 4 MB and upload again.",
+              fr: "Si vous voyez une erreur de taille, reduisez le fichier sous 4 Mo puis reimportez.",
+              de: "Bei Groessenfehler Datei unter 4 MB reduzieren und erneut hochladen.",
+              pt: "Se aparecer erro de tamanho, reduza o arquivo para menos de 4 MB e envie novamente.",
+              ru: "Если появилась ошибка размера, уменьшите файл до 4 МБ и загрузите снова.",
+              zh: "若出现大小错误，请将文件压缩到 4 MB 以下后重新上传。",
+              ar: "إذا ظهر خطأ الحجم، قلل الملف إلى أقل من 4 ميغابايت ثم ارفعه مجددا.",
+              hi: "यदि आकार त्रुटि आए, फ़ाइल को 4 MB से कम करें और फिर अपलोड करें।",
             })}
           </p>
           <ul class="modal-list">
-            <li>{l({ es: 'Windows: Imprimir -> Microsoft Print to PDF -> Calidad estandar.', en: 'Windows: Print -> Microsoft Print to PDF -> Standard quality.', fr: 'Windows : Imprimer -> Microsoft Print to PDF -> Qualite standard.', de: 'Windows: Drucken -> Microsoft Print to PDF -> Standardqualitaet.', pt: 'Windows: Imprimir -> Microsoft Print to PDF -> Qualidade padrao.', ru: 'Windows: Печать -> Microsoft Print to PDF -> Стандартное качество.', zh: 'Windows：打印 -> Microsoft Print to PDF -> 标准质量。', ar: 'Windows: طباعة -> Microsoft Print to PDF -> جودة قياسية.', hi: 'Windows: Print -> Microsoft Print to PDF -> Standard quality.' })}</li>
-            <li>{l({ es: 'Google Drive: abrir PDF -> Imprimir -> Guardar como PDF (suele optimizar peso).', en: 'Google Drive: open PDF -> Print -> Save as PDF (often reduces size).', fr: 'Google Drive : ouvrir PDF -> Imprimer -> Enregistrer en PDF (souvent plus leger).', de: 'Google Drive: PDF oeffnen -> Drucken -> Als PDF speichern (oft kleiner).', pt: 'Google Drive: abrir PDF -> Imprimir -> Salvar como PDF (geralmente reduz).', ru: 'Google Drive: открыть PDF -> Печать -> Сохранить как PDF (часто уменьшает размер).', zh: 'Google Drive：打开 PDF -> 打印 -> 另存为 PDF（通常更小）。', ar: 'Google Drive: افتح PDF -> طباعة -> حفظ كـ PDF (غالبا يقل الحجم).', hi: 'Google Drive: PDF खोलें -> Print -> Save as PDF (अक्सर आकार घटता है)।' })}</li>
-            <li>{l({ es: 'Si tiene muchas imagenes: exporta en 150-200 DPI para mantener legibilidad con menos peso.', en: 'If it has many images: export at 150-200 DPI to keep readability with lower size.', fr: 'S il contient beaucoup d images : exportez en 150-200 DPI pour garder la lisibilite avec moins de poids.', de: 'Bei vielen Bildern: mit 150-200 DPI exportieren fuer Lesbarkeit bei kleinerer Datei.', pt: 'Se tiver muitas imagens: exporte em 150-200 DPI para manter legibilidade com menor tamanho.', ru: 'Если много изображений: экспортируйте в 150-200 DPI для читаемости и меньшего размера.', zh: '若包含大量图片：以 150-200 DPI 导出，可兼顾清晰度和体积。', ar: 'إذا كان يحتوي على صور كثيرة: صدّره بدقة 150-200 DPI للحفاظ على الوضوح مع حجم أقل.', hi: 'यदि इसमें कई छवियां हैं: 150-200 DPI पर export करें ताकि पठनीयता रहे और आकार कम हो।' })}</li>
+            <li>
+              {l({
+                es: "Windows: Imprimir -> Microsoft Print to PDF -> Calidad estandar.",
+                en: "Windows: Print -> Microsoft Print to PDF -> Standard quality.",
+                fr: "Windows : Imprimer -> Microsoft Print to PDF -> Qualite standard.",
+                de: "Windows: Drucken -> Microsoft Print to PDF -> Standardqualitaet.",
+                pt: "Windows: Imprimir -> Microsoft Print to PDF -> Qualidade padrao.",
+                ru: "Windows: Печать -> Microsoft Print to PDF -> Стандартное качество.",
+                zh: "Windows：打印 -> Microsoft Print to PDF -> 标准质量。",
+                ar: "Windows: طباعة -> Microsoft Print to PDF -> جودة قياسية.",
+                hi: "Windows: Print -> Microsoft Print to PDF -> Standard quality.",
+              })}
+            </li>
+            <li>
+              {l({
+                es: "Google Drive: abrir PDF -> Imprimir -> Guardar como PDF (suele optimizar peso).",
+                en: "Google Drive: open PDF -> Print -> Save as PDF (often reduces size).",
+                fr: "Google Drive : ouvrir PDF -> Imprimer -> Enregistrer en PDF (souvent plus leger).",
+                de: "Google Drive: PDF oeffnen -> Drucken -> Als PDF speichern (oft kleiner).",
+                pt: "Google Drive: abrir PDF -> Imprimir -> Salvar como PDF (geralmente reduz).",
+                ru: "Google Drive: открыть PDF -> Печать -> Сохранить как PDF (часто уменьшает размер).",
+                zh: "Google Drive：打开 PDF -> 打印 -> 另存为 PDF（通常更小）。",
+                ar: "Google Drive: افتح PDF -> طباعة -> حفظ كـ PDF (غالبا يقل الحجم).",
+                hi: "Google Drive: PDF खोलें -> Print -> Save as PDF (अक्सर आकार घटता है)।",
+              })}
+            </li>
+            <li>
+              {l({
+                es: "Si tiene muchas imagenes: exporta en 150-200 DPI para mantener legibilidad con menos peso.",
+                en: "If it has many images: export at 150-200 DPI to keep readability with lower size.",
+                fr: "S il contient beaucoup d images : exportez en 150-200 DPI pour garder la lisibilite avec moins de poids.",
+                de: "Bei vielen Bildern: mit 150-200 DPI exportieren fuer Lesbarkeit bei kleinerer Datei.",
+                pt: "Se tiver muitas imagens: exporte em 150-200 DPI para manter legibilidade com menor tamanho.",
+                ru: "Если много изображений: экспортируйте в 150-200 DPI для читаемости и меньшего размера.",
+                zh: "若包含大量图片：以 150-200 DPI 导出，可兼顾清晰度和体积。",
+                ar: "إذا كان يحتوي على صور كثيرة: صدّره بدقة 150-200 DPI للحفاظ على الوضوح مع حجم أقل.",
+                hi: "यदि इसमें कई छवियां हैं: 150-200 DPI पर export करें ताकि पठनीयता रहे और आकार कम हो।",
+              })}
+            </li>
           </ul>
         </div>
       </div>
@@ -2607,7 +3996,7 @@
   {/if}
   {#if customCursorEnabled && cursorVisible}
     <div
-      class={`custom-cursor ${cursorHover ? 'hover' : ''}`}
+      class={`custom-cursor ${cursorHover ? "hover" : ""}`}
       style={`left:${cursorX}px; top:${cursorY}px;`}
       aria-hidden="true"
     ></div>
@@ -2628,8 +4017,16 @@
   }
   :global(body) {
     background:
-      radial-gradient(900px 420px at 22% -10%, rgba(0, 229, 255, 0.16), rgba(0, 229, 255, 0) 60%),
-      radial-gradient(780px 420px at 88% 10%, rgba(88, 115, 255, 0.16), rgba(88, 115, 255, 0) 62%),
+      radial-gradient(
+        900px 420px at 22% -10%,
+        rgba(0, 229, 255, 0.16),
+        rgba(0, 229, 255, 0) 60%
+      ),
+      radial-gradient(
+        780px 420px at 88% 10%,
+        rgba(88, 115, 255, 0.16),
+        rgba(88, 115, 255, 0) 62%
+      ),
       linear-gradient(180deg, #06070b 0%, #071122 38%, #050713 100%);
   }
   .glass {
@@ -2649,10 +4046,18 @@
     animation: panicPulse 1.8s ease-in-out infinite;
   }
   .dashboard.panic-mode::before {
-    background: radial-gradient(circle, rgba(255, 60, 60, 0.4), rgba(255, 60, 60, 0));
+    background: radial-gradient(
+      circle,
+      rgba(255, 60, 60, 0.4),
+      rgba(255, 60, 60, 0)
+    );
   }
   .dashboard.panic-mode::after {
-    background: radial-gradient(circle, rgba(255, 90, 90, 0.35), rgba(255, 90, 90, 0));
+    background: radial-gradient(
+      circle,
+      rgba(255, 90, 90, 0.35),
+      rgba(255, 90, 90, 0)
+    );
   }
   @keyframes panicPulse {
     0%,
@@ -2673,7 +4078,7 @@
   }
   .dashboard::before,
   .dashboard::after {
-    content: '';
+    content: "";
     position: fixed;
     pointer-events: none;
     z-index: -1;
@@ -2685,14 +4090,22 @@
     left: -60px;
     width: 360px;
     height: 360px;
-    background: radial-gradient(circle, rgba(0, 229, 255, 0.55), rgba(0, 229, 255, 0));
+    background: radial-gradient(
+      circle,
+      rgba(0, 229, 255, 0.55),
+      rgba(0, 229, 255, 0)
+    );
   }
   .dashboard::after {
     bottom: -120px;
     right: -90px;
     width: 420px;
     height: 420px;
-    background: radial-gradient(circle, rgba(88, 115, 255, 0.5), rgba(88, 115, 255, 0));
+    background: radial-gradient(
+      circle,
+      rgba(88, 115, 255, 0.5),
+      rgba(88, 115, 255, 0)
+    );
   }
   .hero {
     display: flex;
@@ -2730,7 +4143,7 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-size: 0.64rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     margin: 0;
   }
   .hero-left h1 {
@@ -2799,7 +4212,11 @@
     align-items: start;
     gap: 0.62rem;
     border: 1px solid var(--line);
-    background: linear-gradient(165deg, rgba(22, 27, 38, 0.82), rgba(15, 20, 31, 0.72));
+    background: linear-gradient(
+      165deg,
+      rgba(22, 27, 38, 0.82),
+      rgba(15, 20, 31, 0.72)
+    );
     backdrop-filter: blur(12px);
     color: var(--text);
     border-radius: 12px;
@@ -2817,11 +4234,16 @@
   .mode-rail button::after,
   .cta::after,
   .download::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     transform: translateX(-130%);
-    background: linear-gradient(112deg, rgba(0, 229, 255, 0) 36%, rgba(0, 229, 255, 0.34) 50%, rgba(0, 229, 255, 0) 64%);
+    background: linear-gradient(
+      112deg,
+      rgba(0, 229, 255, 0) 36%,
+      rgba(0, 229, 255, 0.34) 50%,
+      rgba(0, 229, 255, 0) 64%
+    );
     opacity: 0.95;
     pointer-events: none;
   }
@@ -2837,10 +4259,15 @@
     line-height: 1.3;
   }
   .mode-rail button::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(110deg, rgba(0, 229, 255, 0.08), rgba(0, 229, 255, 0.32), rgba(88, 115, 255, 0.22));
+    background: linear-gradient(
+      110deg,
+      rgba(0, 229, 255, 0.08),
+      rgba(0, 229, 255, 0.32),
+      rgba(88, 115, 255, 0.22)
+    );
     opacity: 0.08;
     transition: opacity 190ms ease;
   }
@@ -2850,7 +4277,11 @@
       inset 0 0 0 1px rgba(41, 211, 255, 0.35),
       0 0 0 1px rgba(41, 211, 255, 0.2),
       0 0 26px rgba(41, 211, 255, 0.18);
-    background: linear-gradient(120deg, rgba(0, 229, 255, 0.26), rgba(89, 116, 255, 0.2));
+    background: linear-gradient(
+      120deg,
+      rgba(0, 229, 255, 0.26),
+      rgba(89, 116, 255, 0.2)
+    );
   }
   .mode-rail button.active::before {
     opacity: 0.9;
@@ -2913,13 +4344,18 @@
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease;
     min-height: 0;
     height: 100%;
   }
   .viewer.drag {
     border-color: rgba(0, 229, 255, 0.75);
-    box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.18), 0 0 38px rgba(0, 229, 255, 0.18);
+    box-shadow:
+      0 0 0 1px rgba(0, 229, 255, 0.18),
+      0 0 38px rgba(0, 229, 255, 0.18);
     transform: translateY(-1px);
   }
   .viewer-head {
@@ -2934,7 +4370,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     font-size: 0.72rem;
@@ -2976,7 +4412,11 @@
     height: min(520px, 50vh);
     border-radius: 18px;
     border: 1px solid rgba(0, 229, 255, 0.42);
-    background: linear-gradient(155deg, rgba(6, 10, 18, 0.72), rgba(3, 6, 12, 0.62));
+    background: linear-gradient(
+      155deg,
+      rgba(6, 10, 18, 0.72),
+      rgba(3, 6, 12, 0.62)
+    );
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.06),
       0 0 40px rgba(0, 229, 255, 0.14);
@@ -3055,7 +4495,7 @@
     display: grid;
     place-items: center;
     color: rgba(255, 255, 255, 0.92);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.82rem;
     background: rgba(2, 6, 12, 0.62);
   }
@@ -3091,7 +4531,7 @@
     background: rgba(6, 10, 18, 0.62);
     backdrop-filter: blur(10px);
     padding: 0.55rem 0.7rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.78rem;
     color: rgba(255, 255, 255, 0.9);
     text-shadow: 0 0 14px rgba(0, 229, 255, 0.18);
@@ -3108,7 +4548,11 @@
   .doc-glow {
     position: absolute;
     inset: -40%;
-    background: radial-gradient(circle at 40% 35%, rgba(0, 229, 255, 0.18), rgba(0, 229, 255, 0));
+    background: radial-gradient(
+      circle at 40% 35%,
+      rgba(0, 229, 255, 0.18),
+      rgba(0, 229, 255, 0)
+    );
     filter: blur(18px);
     opacity: 0.9;
   }
@@ -3143,7 +4587,12 @@
     right: 0;
     height: 2px;
     top: 0;
-    background: linear-gradient(90deg, rgba(0, 229, 255, 0), rgba(0, 229, 255, 1), rgba(88, 115, 255, 0));
+    background: linear-gradient(
+      90deg,
+      rgba(0, 229, 255, 0),
+      rgba(0, 229, 255, 1),
+      rgba(88, 115, 255, 0)
+    );
     box-shadow: 0 0 18px rgba(0, 229, 255, 0.9);
     animation: scanY 1.35s ease-in-out infinite alternate;
     opacity: 0.95;
@@ -3160,9 +4609,21 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at 20% 30%, rgba(0, 229, 255, 0.12), rgba(0, 229, 255, 0) 42%),
-      radial-gradient(circle at 70% 60%, rgba(88, 115, 255, 0.1), rgba(88, 115, 255, 0) 48%),
-      repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.06) 0 1px, rgba(0, 229, 255, 0) 1px 10px);
+      radial-gradient(
+        circle at 20% 30%,
+        rgba(0, 229, 255, 0.12),
+        rgba(0, 229, 255, 0) 42%
+      ),
+      radial-gradient(
+        circle at 70% 60%,
+        rgba(88, 115, 255, 0.1),
+        rgba(88, 115, 255, 0) 48%
+      ),
+      repeating-linear-gradient(
+        0deg,
+        rgba(0, 229, 255, 0.06) 0 1px,
+        rgba(0, 229, 255, 0) 1px 10px
+      );
     opacity: 0.55;
     mix-blend-mode: screen;
     animation: glitchFloat 1.9s ease-in-out infinite alternate;
@@ -3201,27 +4662,27 @@
     border-bottom: 1px solid rgba(130, 152, 199, 0.18);
   }
   .telemetry-title {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     letter-spacing: 0.09em;
     text-transform: uppercase;
     font-size: 0.72rem;
     color: rgba(232, 241, 255, 0.82);
   }
   .telemetry-state {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.72rem;
     color: rgba(0, 229, 255, 0.9);
   }
   .telemetry-phase {
     margin: -0.28rem 0 0.15rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.7rem;
     color: rgba(188, 241, 255, 0.82);
     letter-spacing: 0.01em;
   }
   .telemetry-phase-note {
     margin: 0 0 0.3rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.67rem;
     color: rgba(255, 216, 122, 0.92);
   }
@@ -3231,7 +4692,9 @@
     min-height: 100px;
     overflow: auto;
     scrollbar-width: thin;
-    font-family: 'JetBrains Mono', 'Noto Sans Mono', Consolas, 'Courier New', 'Noto Sans Arabic', 'Noto Sans SC', 'Noto Sans', monospace;
+    font-family:
+      "JetBrains Mono", "Noto Sans Mono", Consolas, "Courier New",
+      "Noto Sans Arabic", "Noto Sans SC", "Noto Sans", monospace;
   }
   .telemetry-action {
     margin-top: 0.1rem;
@@ -3243,7 +4706,9 @@
     font-size: 0.9rem;
   }
   .telemetry-line {
-    font-family: 'JetBrains Mono', 'Noto Sans Mono', Consolas, 'Courier New', 'Noto Sans Arabic', 'Noto Sans SC', 'Noto Sans', monospace;
+    font-family:
+      "JetBrains Mono", "Noto Sans Mono", Consolas, "Courier New",
+      "Noto Sans Arabic", "Noto Sans SC", "Noto Sans", monospace;
     font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.92);
     line-height: 1.4;
@@ -3309,11 +4774,13 @@
     margin: 0.1rem 0 0;
     font-size: 0.76rem;
     color: rgba(186, 206, 238, 0.72);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
   }
   .telemetry-cursor {
     margin: 0.3rem 0 0;
-    font-family: 'JetBrains Mono', 'Noto Sans Mono', Consolas, 'Courier New', 'Noto Sans Arabic', 'Noto Sans SC', 'Noto Sans', monospace;
+    font-family:
+      "JetBrains Mono", "Noto Sans Mono", Consolas, "Courier New",
+      "Noto Sans Arabic", "Noto Sans SC", "Noto Sans", monospace;
     color: rgba(0, 229, 255, 0.9);
     animation: termCursorBlink 0.9s step-end infinite;
   }
@@ -3323,7 +4790,7 @@
     margin-left: 0.45rem;
     border-radius: 999px;
     padding: 0.08rem 0.52rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.74rem;
     border: 1px solid transparent;
   }
@@ -3361,7 +4828,7 @@
     overflow: auto;
     max-height: 42%;
   }
-  input[type='file'] {
+  input[type="file"] {
     width: 100%;
     border: 1px dashed var(--line);
     border-radius: 10px;
@@ -3370,18 +4837,25 @@
     color: rgba(255, 255, 255, 0.92);
     margin-bottom: 0.75rem;
   }
-  input[type='file']::file-selector-button {
+  input[type="file"]::file-selector-button {
     border: 1px solid rgba(0, 229, 255, 0.45);
     border-radius: 10px;
     padding: 0.55rem 0.75rem;
     margin-right: 0.75rem;
-    background: linear-gradient(110deg, rgba(0, 229, 255, 0.22), rgba(88, 115, 255, 0.22));
+    background: linear-gradient(
+      110deg,
+      rgba(0, 229, 255, 0.22),
+      rgba(88, 115, 255, 0.22)
+    );
     color: rgba(255, 255, 255, 0.95);
     cursor: pointer;
     box-shadow: 0 0 20px rgba(0, 229, 255, 0.14);
-    transition: transform 170ms ease, box-shadow 170ms ease, border-color 170ms ease;
+    transition:
+      transform 170ms ease,
+      box-shadow 170ms ease,
+      border-color 170ms ease;
   }
-  input[type='file']::file-selector-button:hover {
+  input[type="file"]::file-selector-button:hover {
     transform: translateY(-1px);
     border-color: rgba(0, 229, 255, 0.7);
     box-shadow: 0 0 28px rgba(0, 229, 255, 0.22);
@@ -3394,7 +4868,11 @@
     border: 1px solid var(--line);
     border-radius: 12px;
     padding: 0.65rem 0.9rem;
-    background: linear-gradient(165deg, rgba(23, 29, 43, 0.9), rgba(14, 19, 30, 0.9));
+    background: linear-gradient(
+      165deg,
+      rgba(23, 29, 43, 0.9),
+      rgba(14, 19, 30, 0.9)
+    );
     color: var(--text);
     cursor: pointer;
     transition:
@@ -3404,7 +4882,11 @@
   }
   .cta {
     border-color: rgba(0, 229, 255, 0.8);
-    background: linear-gradient(110deg, rgba(0, 229, 255, 0.55), rgba(84, 111, 255, 0.55));
+    background: linear-gradient(
+      110deg,
+      rgba(0, 229, 255, 0.55),
+      rgba(84, 111, 255, 0.55)
+    );
     font-weight: 700;
     letter-spacing: 0.02em;
     box-shadow:
@@ -3430,21 +4912,33 @@
   }
   .download.is-clean {
     border-color: rgba(30, 203, 131, 0.75);
-    background: linear-gradient(110deg, rgba(30, 203, 131, 0.38), rgba(10, 132, 99, 0.38));
+    background: linear-gradient(
+      110deg,
+      rgba(30, 203, 131, 0.38),
+      rgba(10, 132, 99, 0.38)
+    );
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.08),
       0 0 24px rgba(30, 203, 131, 0.22);
   }
   .download.is-inconclusive {
     border-color: rgba(255, 170, 68, 0.8);
-    background: linear-gradient(110deg, rgba(255, 170, 68, 0.42), rgba(204, 122, 16, 0.42));
+    background: linear-gradient(
+      110deg,
+      rgba(255, 170, 68, 0.42),
+      rgba(204, 122, 16, 0.42)
+    );
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.08),
       0 0 24px rgba(255, 170, 68, 0.24);
   }
   .download.is-suspicious {
     border-color: rgba(255, 78, 94, 0.85);
-    background: linear-gradient(110deg, rgba(255, 78, 94, 0.44), rgba(168, 26, 50, 0.44));
+    background: linear-gradient(
+      110deg,
+      rgba(255, 78, 94, 0.44),
+      rgba(168, 26, 50, 0.44)
+    );
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.08),
       0 0 24px rgba(255, 78, 94, 0.28);
@@ -3467,7 +4961,11 @@
     border: 1px solid var(--line);
     border-radius: 12px;
     padding: 0.85rem;
-    background: linear-gradient(150deg, rgba(10, 14, 22, 0.65), rgba(7, 11, 18, 0.75));
+    background: linear-gradient(
+      150deg,
+      rgba(10, 14, 22, 0.65),
+      rgba(7, 11, 18, 0.75)
+    );
     backdrop-filter: blur(12px);
     box-shadow: inset 0 0 0 1px rgba(131, 151, 188, 0.08);
   }
@@ -3484,20 +4982,20 @@
       transform: translateY(0);
     }
   }
-  .result p,
-  .result li {
-    font-family: 'JetBrains Mono', monospace;
+  .result :global(p),
+  .result :global(li) {
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.86rem;
     margin-top: 0.35rem;
     color: #d9e5ff;
     word-break: break-word;
   }
-  .result h3 {
+  .result :global(h3) {
     color: #e9f2ff;
     letter-spacing: 0.02em;
     text-shadow: 0 0 16px rgba(41, 211, 255, 0.16);
   }
-  .result ul {
+  .result :global(ul) {
     margin-top: 0.4rem;
     padding-left: 1.1rem;
   }
@@ -3522,7 +5020,7 @@
     }
   }
   .glitching {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     text-shadow: 0 0 10px rgba(0, 229, 255, 0.18);
   }
   @keyframes buttonScan {
@@ -3548,7 +5046,7 @@
   }
   .custom-cursor::before,
   .custom-cursor::after {
-    content: '';
+    content: "";
     position: absolute;
     background: rgba(0, 229, 255, 0.85);
   }
@@ -3589,7 +5087,7 @@
     :global(input),
     :global(textarea),
     :global(select),
-    :global([role='button']),
+    :global([role="button"]),
     :global([onclick]),
     :global(.viewer),
     :global(.mode-rail button),
@@ -3608,13 +5106,17 @@
     margin-top: 0.85rem;
     border-radius: 12px;
     border: 1px solid rgba(0, 229, 255, 0.38);
-    background: linear-gradient(120deg, rgba(0, 229, 255, 0.12), rgba(88, 115, 255, 0.09));
+    background: linear-gradient(
+      120deg,
+      rgba(0, 229, 255, 0.12),
+      rgba(88, 115, 255, 0.09)
+    );
     box-shadow: 0 0 26px rgba(0, 229, 255, 0.14);
     padding: 0.8rem 0.85rem;
   }
-  .ai-box h4 {
+  .ai-box :global(h4) {
     margin: 0;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-size: 0.72rem;
@@ -3622,7 +5124,7 @@
   }
   .ai-score {
     margin-top: 0.45rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     color: rgba(255, 255, 255, 0.92);
   }
   .ai-reasons {
@@ -3906,15 +5408,15 @@
     justify-content: space-between;
     gap: 0.75rem;
   }
-  .dashboard[dir='rtl'] .hero-left,
-  .dashboard[dir='rtl'] .panel,
-  .dashboard[dir='rtl'] .telemetry,
-  .dashboard[dir='rtl'] .viewer-head {
+  .dashboard[dir="rtl"] .hero-left,
+  .dashboard[dir="rtl"] .panel,
+  .dashboard[dir="rtl"] .telemetry,
+  .dashboard[dir="rtl"] .viewer-head {
     text-align: right;
   }
-  .dashboard[dir='rtl'] .hero-actions,
-  .dashboard[dir='rtl'] .telemetry-head,
-  .dashboard[dir='rtl'] .viewer-head {
+  .dashboard[dir="rtl"] .hero-actions,
+  .dashboard[dir="rtl"] .telemetry-head,
+  .dashboard[dir="rtl"] .viewer-head {
     flex-direction: row-reverse;
   }
   .science-modal-backdrop {
@@ -3987,7 +5489,7 @@
     display: flex;
     align-items: center;
     gap: 0.42rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.62rem;
     color: rgba(221, 236, 255, 0.76);
   }

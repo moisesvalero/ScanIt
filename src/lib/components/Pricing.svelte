@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { reveal } from '$lib/reveal';
-  import { t } from '$lib/i18n/index.js';
+  import { reveal } from "$lib/reveal";
+  import { t } from "$lib/i18n/index.js";
 
   const { isYearly, toggleBilling } = $props<{
     isYearly: boolean;
@@ -9,11 +9,11 @@
 </script>
 
 <section id="pricing" class="pricing">
-  <div class="pricing-header" use:reveal={{ stage: 'title' }}>
-    <h2>{$t('pricing.title')}</h2>
-    <p>{$t('pricing.subtitle')}</p>
+  <div class="pricing-header" use:reveal={{ stage: "title" }}>
+    <h2>{$t("pricing.title")}</h2>
+    <p>{$t("pricing.subtitle")}</p>
     <div class="toggle-container">
-      <span class:active={!isYearly}>{$t('pricing.monthly')}</span>
+      <span class:active={!isYearly}>{$t("pricing.monthly")}</span>
       <button
         type="button"
         class="toggle-btn"
@@ -23,64 +23,73 @@
         <div class="toggle-circle" class:yearly={isYearly}></div>
       </button>
       <span class:active={isYearly}>
-        {$t('pricing.yearly')} <mark>-20%</mark>
+        {$t("pricing.yearly")} <mark>-20%</mark>
       </span>
     </div>
   </div>
 
   <div class="pricing-grid">
-    <div class="price-card" use:reveal={{ stage: 'content', delay: 150 }}>
+    <div class="price-card" use:reveal={{ stage: "content", delay: 150 }}>
       <div class="plan-info">
-        <h3>{$t('pricing.starterTitle')}</h3>
-        <p>{$t('pricing.starterDesc')}</p>
+        <h3>{$t("pricing.starterTitle")}</h3>
+        <p>{$t("pricing.starterDesc")}</p>
       </div>
       <div class="price-display">
         <span class="currency">$</span>
-        <span class="amount">{isYearly ? '19' : '24'}</span>
-        <span class="period">/{isYearly ? 'yr' : 'mo'}</span>
+        <span class="amount">{isYearly ? "19" : "24"}</span>
+        <span class="period">/{isYearly ? "yr" : "mo"}</span>
       </div>
       <ul class="features-list">
-        <li>{$t('pricing.starterFeat1')}</li>
-        <li>{$t('pricing.starterFeat2')}</li>
-        <li>{$t('pricing.starterFeat3')}</li>
+        <li>{$t("pricing.starterFeat1")}</li>
+        <li>{$t("pricing.starterFeat2")}</li>
+        <li>{$t("pricing.starterFeat3")}</li>
       </ul>
-      <button type="button" class="btn-primary full-width">{$t('pricing.starterBtn')}</button>
+      <button type="button" class="btn-primary full-width"
+        >{$t("pricing.starterBtn")}</button
+      >
     </div>
 
-    <div class="price-card featured" use:reveal={{ stage: 'content', delay: 230 }}>
+    <div
+      class="price-card featured"
+      use:reveal={{ stage: "content", delay: 230 }}
+    >
       <div class="plan-info">
-        <h3>{$t('pricing.proTitle')}</h3>
-        <p>{$t('pricing.proDesc')}</p>
+        <h3>{$t("pricing.proTitle")}</h3>
+        <p>{$t("pricing.proDesc")}</p>
       </div>
       <div class="price-display">
         <span class="currency">$</span>
-        <span class="amount">{isYearly ? '39' : '49'}</span>
-        <span class="period">/{isYearly ? 'yr' : 'mo'}</span>
+        <span class="amount">{isYearly ? "39" : "49"}</span>
+        <span class="period">/{isYearly ? "yr" : "mo"}</span>
       </div>
       <ul class="features-list">
-        <li>{$t('pricing.proFeat1')}</li>
-        <li>{$t('pricing.proFeat2')}</li>
-        <li>{$t('pricing.proFeat3')}</li>
+        <li>{$t("pricing.proFeat1")}</li>
+        <li>{$t("pricing.proFeat2")}</li>
+        <li>{$t("pricing.proFeat3")}</li>
       </ul>
-      <button type="button" class="btn-primary full-width">{$t('pricing.proBtn')}</button>
+      <button type="button" class="btn-primary full-width"
+        >{$t("pricing.proBtn")}</button
+      >
     </div>
 
-    <div class="price-card" use:reveal={{ stage: 'content', delay: 190 }}>
+    <div class="price-card" use:reveal={{ stage: "content", delay: 190 }}>
       <div class="plan-info">
-        <h3>{$t('pricing.teamsTitle')}</h3>
-        <p>{$t('pricing.teamsDesc')}</p>
+        <h3>{$t("pricing.teamsTitle")}</h3>
+        <p>{$t("pricing.teamsDesc")}</p>
       </div>
       <div class="price-display">
         <span class="currency">$</span>
-        <span class="amount">{isYearly ? '79' : '99'}</span>
-        <span class="period">/{isYearly ? 'yr' : 'mo'}</span>
+        <span class="amount">{isYearly ? "79" : "99"}</span>
+        <span class="period">/{isYearly ? "yr" : "mo"}</span>
       </div>
       <ul class="features-list">
-        <li>{$t('pricing.teamsFeat1')}</li>
-        <li>{$t('pricing.teamsFeat2')}</li>
-        <li>{$t('pricing.teamsFeat3')}</li>
+        <li>{$t("pricing.teamsFeat1")}</li>
+        <li>{$t("pricing.teamsFeat2")}</li>
+        <li>{$t("pricing.teamsFeat3")}</li>
       </ul>
-      <button type="button" class="btn-primary full-width">{$t('pricing.teamsBtn')}</button>
+      <button type="button" class="btn-primary full-width"
+        >{$t("pricing.teamsBtn")}</button
+      >
     </div>
   </div>
 </section>
@@ -177,7 +186,7 @@
   }
 
   /* Pro un poco más alto para destacar */
-  .price-card.featured.is-visible {
+  .price-card.featured:global(.is-visible) {
     transform: translateY(-4px);
   }
 
@@ -199,8 +208,12 @@
     position: absolute;
     inset: -1px;
     border-radius: inherit;
-    background: radial-gradient(circle at top, rgba(99, 102, 241, 0.45), transparent 55%);
-    opacity: 0.0;
+    background: radial-gradient(
+      circle at top,
+      rgba(99, 102, 241, 0.45),
+      transparent 55%
+    );
+    opacity: 0;
     pointer-events: none;
     mix-blend-mode: soft-light;
     animation: pro-glow 5s cubic-bezier(0.34, 1.56, 0.64, 1) infinite alternate;
@@ -241,20 +254,6 @@
       filter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  .pricing.toggling .amount,
-  .pricing.toggling .period {
-    opacity: 0;
-    transform: translateY(-8px);
-    filter: blur(3px);
-  }
-
-  .pricing.toggling-done .amount,
-  .pricing.toggling-done .period {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-
   .price-display .period {
     font-size: 1.25rem;
     font-weight: 400;
@@ -280,7 +279,12 @@
 
   /* Botones con desplazamiento de gradiente interno al hover */
   .price-card .btn-primary {
-    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent) 100%);
+    background: linear-gradient(
+      90deg,
+      var(--accent) 0%,
+      var(--accent-hover) 50%,
+      var(--accent) 100%
+    );
     background-size: 200% 100%;
     color: #fff;
     border-radius: 14px;
@@ -300,7 +304,7 @@
 
   @keyframes pro-glow {
     0% {
-      opacity: 0.0;
+      opacity: 0;
     }
     50% {
       opacity: 0.45;

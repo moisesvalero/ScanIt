@@ -1,7 +1,10 @@
 <script lang="ts">
-  type Variant = 'default' | 'soft' | 'outline';
+  import type { Snippet } from "svelte";
+
+  type Variant = "default" | "soft" | "outline";
 
   type Props = {
+    children?: Snippet;
     as?: keyof HTMLElementTagNameMap;
     variant?: Variant;
     clickable?: boolean;
@@ -9,21 +12,19 @@
   };
 
   let {
-    as = 'div',
-    variant = 'default',
+    children,
+    as = "div",
+    variant = "default",
     clickable = false,
-    className = ''
+    className = "",
   }: Props = $props();
 </script>
 
 <svelte:element
   this={as}
-  class={`nk-card nk-card--${variant} ${clickable ? 'nk-card--clickable' : ''} ${className}`.trim()}
+  class={`nk-card nk-card--${variant} ${clickable ? "nk-card--clickable" : ""} ${className}`.trim()}
 >
-  <slot name="eyebrow" />
-  <slot name="title" />
-  <slot />
-  <slot name="footer" />
+  {@render children?.()}
 </svelte:element>
 
 <style>
@@ -41,7 +42,11 @@
   }
 
   .nk-card--soft {
-    background: radial-gradient(circle at top left, rgba(99, 102, 241, 0.04), #ffffff);
+    background: radial-gradient(
+      circle at top left,
+      rgba(99, 102, 241, 0.04),
+      #ffffff
+    );
   }
 
   .nk-card--outline {
@@ -59,4 +64,3 @@
     border-color: rgba(99, 102, 241, 0.5);
   }
 </style>
-

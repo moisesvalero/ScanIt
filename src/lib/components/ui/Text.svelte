@@ -1,8 +1,11 @@
 <script lang="ts">
-  type Variant = 'body' | 'muted' | 'small' | 'label';
-  type Align = 'left' | 'center' | 'right';
+  import type { Snippet } from "svelte";
+
+  type Variant = "body" | "muted" | "small" | "label";
+  type Align = "left" | "center" | "right";
 
   type Props = {
+    children?: Snippet;
     as?: keyof HTMLElementTagNameMap;
     variant?: Variant;
     align?: Align;
@@ -10,10 +13,11 @@
   };
 
   let {
-    as = 'p',
-    variant = 'body',
-    align = 'left',
-    className = ''
+    children,
+    as = "p",
+    variant = "body",
+    align = "left",
+    className = "",
   }: Props = $props();
 </script>
 
@@ -21,7 +25,7 @@
   this={as}
   class={`nk-text nk-text--${variant} nk-text--${align} ${className}`.trim()}
 >
-  <slot />
+  {@render children?.()}
 </svelte:element>
 
 <style>
@@ -54,4 +58,3 @@
     text-align: right;
   }
 </style>
-

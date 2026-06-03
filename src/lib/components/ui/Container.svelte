@@ -1,20 +1,17 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
+
   type Props = {
+    children?: Snippet;
     as?: keyof HTMLElementTagNameMap;
     className?: string;
   };
 
-  let {
-    as = 'div',
-    className = ''
-  }: Props = $props();
+  let { children, as = "div", className = "" }: Props = $props();
 </script>
 
-<svelte:element
-  this={as}
-  class={`nk-container ${className}`.trim()}
->
-  <slot />
+<svelte:element this={as} class={`nk-container ${className}`.trim()}>
+  {@render children?.()}
 </svelte:element>
 
 <style>
@@ -37,4 +34,3 @@
     }
   }
 </style>
-

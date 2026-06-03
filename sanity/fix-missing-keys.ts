@@ -1,17 +1,29 @@
-import { getCliClient } from 'sanity/cli';
+import { getCliClient } from "sanity/cli";
 
-type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 function randomKey(base: string): string {
   return `${base}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function addMissingArrayKeys(value: JsonValue, path = 'root', inArray = false): JsonValue {
+function addMissingArrayKeys(
+  value: JsonValue,
+  path = "root",
+  inArray = false,
+): JsonValue {
   if (Array.isArray(value)) {
-    return value.map((item, index) => addMissingArrayKeys(item, `${path}-${index + 1}`, true));
+    return value.map((item, index) =>
+      addMissingArrayKeys(item, `${path}-${index + 1}`, true),
+    );
   }
 
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== "object") {
     return value;
   }
 
@@ -22,7 +34,7 @@ function addMissingArrayKeys(value: JsonValue, path = 'root', inArray = false): 
     out[key] = addMissingArrayKeys(child, `${path}-${key}`, false);
   }
 
-  if (inArray && typeof out._key !== 'string') {
+  if (inArray && typeof out._key !== "string") {
     out._key = randomKey(path);
   }
 
@@ -30,9 +42,9 @@ function addMissingArrayKeys(value: JsonValue, path = 'root', inArray = false): 
 }
 
 async function main() {
-  const client = getCliClient({ apiVersion: '2025-01-01' });
+  const client = getCliClient({ apiVersion: "2025-01-01" });
   const docs = await client.fetch<Array<Record<string, JsonValue>>>(
-    `*[_type in ["sitePortfolio", "caseStudy"]]`
+    `*[_type in ["sitePortfolio", "caseStudy"]]`,
   );
 
   let updated = 0;
@@ -46,6 +58,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Error corrigiendo keys en arrays:', error);
+  console.error("Error corrigiendo keys en arrays:", error);
   process.exit(1);
 });

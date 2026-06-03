@@ -1,60 +1,78 @@
 <script lang="ts">
-  import PhoneMockup from '$lib/components/PhoneMockup.svelte';
-  import { reveal } from '$lib/reveal';
-  import { t } from '$lib/i18n/index.js';
+  import PhoneMockup from "$lib/components/PhoneMockup.svelte";
+  import { reveal } from "$lib/reveal";
+  import { t } from "$lib/i18n/index.js";
 </script>
 
 <section class="superpowers" id="superpowers">
-  <div class="header" use:reveal={{ stage: 'title' }}>
-    <p class="eyebrow">{$t('superpowers.eyebrow')}</p>
-    <h2>{$t('superpowers.title')}</h2>
+  <div class="header" use:reveal={{ stage: "title" }}>
+    <p class="eyebrow">{$t("superpowers.eyebrow")}</p>
+    <h2>{$t("superpowers.title")}</h2>
   </div>
 
   <div class="layout">
-    <div class="device" use:reveal={{ stage: 'content', delay: 140 }}>
+    <div class="device" use:reveal={{ stage: "content", delay: 140 }}>
       <PhoneMockup />
     </div>
 
     <div class="grid">
-      <article class="card motion-card" use:reveal={{ stage: 'content', delay: 180 }}>
-        <h3>{$t('superpowers.card1Title')}</h3>
+      <article
+        class="card motion-card"
+        use:reveal={{ stage: "content", delay: 180 }}
+      >
+        <h3>{$t("superpowers.card1Title")}</h3>
         <p>
-          {$t('superpowers.card1Desc')}
+          {$t("superpowers.card1Desc")}
         </p>
       </article>
 
-      <article class="card motion-card" use:reveal={{ stage: 'content', delay: 220 }}>
-        <h3>{$t('superpowers.card2Title')}</h3>
+      <article
+        class="card motion-card"
+        use:reveal={{ stage: "content", delay: 220 }}
+      >
+        <h3>{$t("superpowers.card2Title")}</h3>
         <p>
-          {$t('superpowers.card2Desc')}
+          {$t("superpowers.card2Desc")}
         </p>
       </article>
 
-      <article class="card motion-card" use:reveal={{ stage: 'content', delay: 260 }}>
-        <h3>{$t('superpowers.card3Title')}</h3>
+      <article
+        class="card motion-card"
+        use:reveal={{ stage: "content", delay: 260 }}
+      >
+        <h3>{$t("superpowers.card3Title")}</h3>
         <p>
-          {$t('superpowers.card3Desc')}
+          {$t("superpowers.card3Desc")}
         </p>
       </article>
 
-      <article class="card motion-card" use:reveal={{ stage: 'content', delay: 300 }}>
-        <h3>{$t('superpowers.card4Title')}</h3>
+      <article
+        class="card motion-card"
+        use:reveal={{ stage: "content", delay: 300 }}
+      >
+        <h3>{$t("superpowers.card4Title")}</h3>
         <p>
-          {$t('superpowers.card4Desc')}
+          {$t("superpowers.card4Desc")}
         </p>
       </article>
 
-      <article class="card motion-card" use:reveal={{ stage: 'content', delay: 340 }}>
-        <h3>{$t('superpowers.card5Title')}</h3>
+      <article
+        class="card motion-card"
+        use:reveal={{ stage: "content", delay: 340 }}
+      >
+        <h3>{$t("superpowers.card5Title")}</h3>
         <p>
-          {$t('superpowers.card5Desc')}
+          {$t("superpowers.card5Desc")}
         </p>
       </article>
 
-      <article class="card motion-card" use:reveal={{ stage: 'content', delay: 380 }}>
-        <h3>{$t('superpowers.card6Title')}</h3>
+      <article
+        class="card motion-card"
+        use:reveal={{ stage: "content", delay: 380 }}
+      >
+        <h3>{$t("superpowers.card6Title")}</h3>
         <p>
-          {$t('superpowers.card6Desc')}
+          {$t("superpowers.card6Desc")}
         </p>
       </article>
     </div>
@@ -64,7 +82,11 @@
 <style>
   .superpowers {
     padding: 120px 1.5rem 120px;
-    background: radial-gradient(circle at top, rgba(99, 102, 241, 0.04), transparent 60%);
+    background: radial-gradient(
+      circle at top,
+      rgba(99, 102, 241, 0.04),
+      transparent 60%
+    );
   }
 
   .header {
@@ -103,58 +125,6 @@
     perspective: 1200px;
   }
 
-  .device-frame {
-    width: 260px;
-    height: 420px;
-    border-radius: 34px;
-    padding: 0.85rem;
-    background: radial-gradient(circle at top, #111827, #020617);
-    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.65);
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .device-header {
-    width: 40%;
-    height: 5px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.4);
-    margin: 0 auto 0.9rem;
-  }
-
-  .device-screen {
-    background: rgba(15, 23, 42, 0.95);
-    border-radius: 26px;
-    position: relative;
-    overflow: hidden;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .device-screen-viewport {
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
-    cursor: default;
-    touch-action: pan-y;
-    overscroll-behavior: contain;
-    border-radius: inherit;
-  }
-
-  .device-preview {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 390px;
-    height: 844px;
-    border: none;
-    transform-origin: top left;
-    display: block;
-  }
-
   .grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -174,28 +144,34 @@
       border-color 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  .card.is-visible:nth-child(1) {
-    animation: card-float 8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.8s infinite alternate;
+  .card:global(.is-visible):nth-child(1) {
+    animation: card-float 8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.8s infinite
+      alternate;
   }
 
-  .card.is-visible:nth-child(2) {
-    animation: card-float 9s cubic-bezier(0.34, 1.56, 0.64, 1) 1s infinite alternate;
+  .card:global(.is-visible):nth-child(2) {
+    animation: card-float 9s cubic-bezier(0.34, 1.56, 0.64, 1) 1s infinite
+      alternate;
   }
 
-  .card.is-visible:nth-child(3) {
-    animation: card-float 7.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.9s infinite alternate;
+  .card:global(.is-visible):nth-child(3) {
+    animation: card-float 7.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.9s infinite
+      alternate;
   }
 
-  .card.is-visible:nth-child(4) {
-    animation: card-float 8.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.1s infinite alternate;
+  .card:global(.is-visible):nth-child(4) {
+    animation: card-float 8.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.1s infinite
+      alternate;
   }
 
-  .card.is-visible:nth-child(5) {
-    animation: card-float 9.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s infinite alternate;
+  .card:global(.is-visible):nth-child(5) {
+    animation: card-float 9.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s infinite
+      alternate;
   }
 
-  .card.is-visible:nth-child(6) {
-    animation: card-float 7.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1.3s infinite alternate;
+  .card:global(.is-visible):nth-child(6) {
+    animation: card-float 7.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1.3s infinite
+      alternate;
   }
 
   .card h3 {
@@ -210,27 +186,10 @@
     line-height: 1.7;
   }
 
-  .card.is-visible:hover {
+  .card:global(.is-visible):hover {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 26px 60px rgba(15, 23, 42, 0.12);
     border-color: rgba(99, 102, 241, 0.5);
-  }
-
-  /* Entrada inercial del mockup cuando la columna izquierda entra en viewport */
-  .device.is-visible .device-frame {
-    animation: device-inertia 1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  }
-
-  @keyframes device-inertia {
-    0% {
-      transform: translateX(-80px) scale(0.9);
-    }
-    70% {
-      transform: translateX(8px) scale(1.02);
-    }
-    100% {
-      transform: translateX(0) scale(1);
-    }
   }
 
   @media (max-width: 900px) {
@@ -271,14 +230,8 @@
       gap: 3rem;
     }
 
-    .device-frame {
-      width: 290px;
-      height: 460px;
-    }
-
     .grid {
       gap: 1.4rem;
     }
   }
 </style>
-

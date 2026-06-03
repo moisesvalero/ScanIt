@@ -1,4 +1,8 @@
-import type { CaseStudy, CaseStudyMetric, CaseStudySection } from '$lib/types/case-study';
+import type {
+  CaseStudy,
+  CaseStudyMetric,
+  CaseStudySection,
+} from "$lib/types/case-study";
 
 export type SanityCaseStudyRow = {
   slug: string;
@@ -20,27 +24,34 @@ export type SanityCaseStudyRow = {
   liveUrl?: string | null;
 };
 
-const placeholder = 'https://placehold.co/1200x800/e8e8ed/1d1d1f?text=Imagen';
+const placeholder = "https://placehold.co/1200x800/e8e8ed/1d1d1f?text=Imagen";
 
-function normalizeMetrics(raw: SanityCaseStudyRow['metrics']): CaseStudy['metrics'] {
+function normalizeMetrics(
+  raw: SanityCaseStudyRow["metrics"],
+): CaseStudy["metrics"] {
   const list: CaseStudyMetric[] = (raw ?? []).map((m) => ({
-    value: m?.value?.trim() || '-',
-    label: m?.label?.trim() || '-'
+    value: m?.value?.trim() || "-",
+    label: m?.label?.trim() || "-",
   }));
   while (list.length < 4) {
-    list.push({ value: '-', label: '-' });
+    list.push({ value: "-", label: "-" });
   }
-  return [list[0], list[1], list[2], list[3]] as CaseStudy['metrics'];
+  return [list[0], list[1], list[2], list[3]] as CaseStudy["metrics"];
 }
 
 function section(
   key: string,
   data: Partial<CaseStudySection> | null | undefined,
-  fallbackTitle: string
+  fallbackTitle: string,
 ): CaseStudySection {
-  const title = typeof data?.title === 'string' && data.title.trim() ? data.title.trim() : fallbackTitle;
+  const title =
+    typeof data?.title === "string" && data.title.trim()
+      ? data.title.trim()
+      : fallbackTitle;
   const bodyHtml =
-    typeof data?.bodyHtml === 'string' && data.bodyHtml.trim() ? data.bodyHtml.trim() : `<p>(${key})</p>`;
+    typeof data?.bodyHtml === "string" && data.bodyHtml.trim()
+      ? data.bodyHtml.trim()
+      : `<p>(${key})</p>`;
   return { title, bodyHtml };
 }
 
@@ -55,14 +66,16 @@ export function mapSanityRowToCaseStudy(row: SanityCaseStudyRow): CaseStudy {
     tags: Array.isArray(row.tags) ? row.tags : [],
     images: {
       principal: img.principal?.trim() || placeholder,
-      secondary1: img.secondary1?.trim() || img.principal?.trim() || placeholder,
-      secondary2: img.secondary2?.trim() || img.principal?.trim() || placeholder
+      secondary1:
+        img.secondary1?.trim() || img.principal?.trim() || placeholder,
+      secondary2:
+        img.secondary2?.trim() || img.principal?.trim() || placeholder,
     },
     metrics: normalizeMetrics(row.metrics),
-    reto: section('reto', row.reto, 'El reto'),
-    hice: section('hice', row.hice, 'Lo que hice'),
-    resultado: section('resultado', row.resultado, 'Resultado'),
+    reto: section("reto", row.reto, "El reto"),
+    hice: section("hice", row.hice, "Lo que hice"),
+    resultado: section("resultado", row.resultado, "Resultado"),
     stack: Array.isArray(row.stack) ? row.stack : [],
-    liveUrl: row.liveUrl?.trim() || '/'
+    liveUrl: row.liveUrl?.trim() || "/",
   };
 }

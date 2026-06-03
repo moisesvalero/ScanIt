@@ -1,55 +1,97 @@
 <script lang="ts">
-  import { reveal } from '$lib/reveal';
-  import { t } from '$lib/i18n/index.js';
+  import { reveal } from "$lib/reveal";
+  import { t } from "$lib/i18n/index.js";
 </script>
 
 <section class="social-proof">
   <div class="inner">
-    <p class="eyebrow" use:reveal={{ stage: 'title' }}>{$t('socialProof.eyebrow')}</p>
+    <p class="eyebrow" use:reveal={{ stage: "title" }}>
+      {$t("socialProof.eyebrow")}
+    </p>
     <div class="logos">
-      <div class="logo-item" aria-label="Svelte" use:reveal={{ stage: 'content', delay: 80 }}>
+      <div
+        class="logo-item"
+        aria-label="Svelte"
+        use:reveal={{ stage: "content", delay: 80 }}
+      >
         <img src="/logos/svelte.svg" alt="Svelte" />
       </div>
-      <div class="logo-item" aria-label="Framer" use:reveal={{ stage: 'content', delay: 120 }}>
+      <div
+        class="logo-item"
+        aria-label="Framer"
+        use:reveal={{ stage: "content", delay: 120 }}
+      >
         <img src="/logos/framer.svg" alt="Framer" />
       </div>
-      <div class="logo-item" aria-label="Stripe" use:reveal={{ stage: 'content', delay: 160 }}>
+      <div
+        class="logo-item"
+        aria-label="Stripe"
+        use:reveal={{ stage: "content", delay: 160 }}
+      >
         <img src="/logos/stripe.svg" alt="Stripe" />
       </div>
-      <div class="logo-item" aria-label="Supabase" use:reveal={{ stage: 'content', delay: 200 }}>
+      <div
+        class="logo-item"
+        aria-label="Supabase"
+        use:reveal={{ stage: "content", delay: 200 }}
+      >
         <img src="/logos/supabase.svg" alt="Supabase" />
       </div>
-      <div class="logo-item" aria-label="Arc Browser" use:reveal={{ stage: 'content', delay: 240 }}>
+      <div
+        class="logo-item"
+        aria-label="Arc Browser"
+        use:reveal={{ stage: "content", delay: 240 }}
+      >
         <img src="/logos/arc_browser.svg" alt="Arc Browser" />
       </div>
-      <div class="logo-item" aria-label="Vercel" use:reveal={{ stage: 'content', delay: 280 }}>
+      <div
+        class="logo-item"
+        aria-label="Vercel"
+        use:reveal={{ stage: "content", delay: 280 }}
+      >
         <img src="/logos/vercel.svg" alt="Vercel" />
       </div>
-      <div class="logo-item" aria-label="Linear" use:reveal={{ stage: 'content', delay: 320 }}>
+      <div
+        class="logo-item"
+        aria-label="Linear"
+        use:reveal={{ stage: "content", delay: 320 }}
+      >
         <img src="/logos/linear.svg" alt="Linear" />
       </div>
-      <div class="logo-item" aria-label="Raycast" use:reveal={{ stage: 'content', delay: 360 }}>
+      <div
+        class="logo-item"
+        aria-label="Raycast"
+        use:reveal={{ stage: "content", delay: 360 }}
+      >
         <img src="/logos/raycast.svg" alt="Raycast" />
       </div>
-      <div class="logo-item" aria-label="Railway" use:reveal={{ stage: 'content', delay: 400 }}>
+      <div
+        class="logo-item"
+        aria-label="Railway"
+        use:reveal={{ stage: "content", delay: 400 }}
+      >
         <img src="/logos/railway.svg" alt="Railway" />
       </div>
-      <div class="logo-item" aria-label="Resend" use:reveal={{ stage: 'content', delay: 440 }}>
+      <div
+        class="logo-item"
+        aria-label="Resend"
+        use:reveal={{ stage: "content", delay: 440 }}
+      >
         <img src="/logos/resend-wordmark-black.svg" alt="Resend" />
       </div>
     </div>
     <div class="stats">
-      <div class="stat" use:reveal={{ stage: 'content', delay: 320 }}>
+      <div class="stat" use:reveal={{ stage: "content", delay: 320 }}>
         <span class="value">50+</span>
-        <span class="label">{$t('socialProof.stats.components')}</span>
+        <span class="label">{$t("socialProof.stats.components")}</span>
       </div>
-      <div class="stat" use:reveal={{ stage: 'content', delay: 380 }}>
+      <div class="stat" use:reveal={{ stage: "content", delay: 380 }}>
         <span class="value">3x</span>
-        <span class="label">{$t('socialProof.stats.delivery')}</span>
+        <span class="label">{$t("socialProof.stats.delivery")}</span>
       </div>
-      <div class="stat" use:reveal={{ stage: 'content', delay: 440 }}>
+      <div class="stat" use:reveal={{ stage: "content", delay: 440 }}>
         <span class="value">24/7</span>
-        <span class="label">{$t('socialProof.stats.support')}</span>
+        <span class="label">{$t("socialProof.stats.support")}</span>
       </div>
     </div>
   </div>
@@ -111,7 +153,9 @@
     height: auto;
     filter: grayscale(1);
     opacity: 0.4;
-    transition: filter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      filter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .logo-item:hover img {
@@ -173,4 +217,3 @@
     }
   }
 </style>
-

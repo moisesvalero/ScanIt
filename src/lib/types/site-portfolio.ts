@@ -18,7 +18,7 @@ export type SiteSeo = {
   ogTitle: string;
   ogDescription: string;
   ogImage: string;
-  twitterCard: 'summary' | 'summary_large_image';
+  twitterCard: "summary" | "summary_large_image";
 };
 
 export type SiteHero = {

@@ -1,8 +1,11 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
+
   type Level = 1 | 2 | 3 | 4;
-  type Align = 'left' | 'center' | 'right';
+  type Align = "left" | "center" | "right";
 
   type Props = {
+    children?: Snippet;
     level?: Level;
     align?: Align;
     eyebrow?: string;
@@ -11,27 +14,30 @@
   };
 
   let {
+    children,
     level = 2,
-    align = 'left',
+    align = "left",
     eyebrow = undefined,
     kicker = undefined,
-    className = ''
+    className = "",
   }: Props = $props();
 </script>
 
-<div class={`nk-heading nk-heading--l${level} nk-heading--${align} ${className}`.trim()}>
+<div
+  class={`nk-heading nk-heading--l${level} nk-heading--${align} ${className}`.trim()}
+>
   {#if eyebrow}
     <p class="nk-heading-eyebrow">{eyebrow}</p>
   {/if}
 
   {#if level === 1}
-    <h1 class="nk-heading-title"><slot /></h1>
+    <h1 class="nk-heading-title">{@render children?.()}</h1>
   {:else if level === 2}
-    <h2 class="nk-heading-title"><slot /></h2>
+    <h2 class="nk-heading-title">{@render children?.()}</h2>
   {:else if level === 3}
-    <h3 class="nk-heading-title"><slot /></h3>
+    <h3 class="nk-heading-title">{@render children?.()}</h3>
   {:else}
-    <h4 class="nk-heading-title"><slot /></h4>
+    <h4 class="nk-heading-title">{@render children?.()}</h4>
   {/if}
 
   {#if kicker}
@@ -105,4 +111,3 @@
     margin-inline: auto;
   }
 </style>
-

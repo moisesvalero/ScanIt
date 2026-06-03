@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { fade, scale } from 'svelte/transition';
+  import { fade, scale } from "svelte/transition";
 
-  type Verdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' | null;
+  type Verdict = "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" | null;
 
   interface Props {
     active?: boolean;
@@ -12,13 +12,13 @@
   let { active = false, progress = 0, verdict = null }: Props = $props();
 
   let tone = $derived(
-    verdict === 'VERIFICADO'
-      ? 'var(--kronos-ok)'
-      : verdict === 'SOSPECHOSO'
-        ? 'var(--kronos-warn)'
-        : verdict === 'ALERTA ROJA'
-          ? 'var(--kronos-alert)'
-          : 'var(--kronos-gold)'
+    verdict === "VERIFICADO"
+      ? "var(--kronos-ok)"
+      : verdict === "SOSPECHOSO"
+        ? "var(--kronos-warn)"
+        : verdict === "ALERTA ROJA"
+          ? "var(--kronos-alert)"
+          : "var(--kronos-gold)",
   );
 </script>
 
@@ -47,15 +47,18 @@
     max-width: 100%;
     aspect-ratio: 1;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--tone, var(--kronos-gold)) 34%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 34%, transparent);
     background: radial-gradient(
       circle at center,
       color-mix(in srgb, var(--tone, var(--kronos-gold)) 16%, transparent),
       rgba(2, 2, 2, 0.86) 62%
     );
     box-shadow:
-      0 0 22px color-mix(in srgb, var(--tone, var(--kronos-gold)) 10%, transparent),
-      inset 0 0 26px color-mix(in srgb, var(--tone, var(--kronos-gold)) 5%, transparent);
+      0 0 22px
+        color-mix(in srgb, var(--tone, var(--kronos-gold)) 10%, transparent),
+      inset 0 0 26px
+        color-mix(in srgb, var(--tone, var(--kronos-gold)) 5%, transparent);
     overflow: hidden;
   }
 
@@ -72,7 +75,8 @@
   }
 
   .ring {
-    border: 1px solid color-mix(in srgb, var(--tone, var(--kronos-gold)) 18%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 18%, transparent);
     inset: 12%;
   }
 
@@ -117,7 +121,8 @@
     top: 50%;
     transform: translate(-50%, -50%);
     background: var(--tone, var(--kronos-gold));
-    box-shadow: 0 0 12px color-mix(in srgb, var(--tone, var(--kronos-gold)) 55%, transparent);
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 55%, transparent);
     animation: pulse 1.4s ease-in-out infinite;
   }
 
@@ -125,7 +130,13 @@
     position: absolute;
     inset: -2px;
     border-radius: 999px;
-    background: conic-gradient(from 0deg, transparent 0deg, transparent 288deg, color-mix(in srgb, var(--tone) 55%, #ffffff 2%) 344deg, transparent 360deg);
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 288deg,
+      color-mix(in srgb, var(--tone) 55%, #ffffff 2%) 344deg,
+      transparent 360deg
+    );
     mix-blend-mode: screen;
     opacity: 0.12;
     transform: rotate(0deg);
@@ -148,7 +159,8 @@
     letter-spacing: 0.12em;
     color: rgba(255, 255, 255, 0.76);
     background: rgba(10, 10, 10, 0.74);
-    border: 1px solid color-mix(in srgb, var(--tone, var(--kronos-gold)) 34%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 34%, transparent);
     border-radius: 999px;
     padding: 0.28rem 0.62rem;
     backdrop-filter: blur(8px);

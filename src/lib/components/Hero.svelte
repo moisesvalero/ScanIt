@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { t, locale } from '$lib/i18n/index.js';
+  import { onMount } from "svelte";
+  import { t, locale } from "$lib/i18n/index.js";
 
   let heroLoaded = $state(false);
   let splineLoaded = $state(false);
@@ -41,26 +41,29 @@
   <div class="hero-inner">
     <div class="copy">
       <div class="pill hero-assemble hero-pill">
-        {$t('hero.pill')}
+        {$t("hero.pill")}
       </div>
       <h1 class="hero-assemble hero-title">
-        {#if $locale === 'es'}
+        {#if $locale === "es"}
           <span class="hero-line-main">Kit creativo de UI</span><br />
           <span class="gradient-text hero-line-gradient">para apps web</span>
         {:else}
-          <span class="hero-line-main">{$t('hero.titleLine1')}</span><br />
-          <span class="gradient-text hero-line-gradient">{$t('hero.titleLine2')}</span>
+          <span class="hero-line-main">{$t("hero.titleLine1")}</span><br />
+          <span class="gradient-text hero-line-gradient"
+            >{$t("hero.titleLine2")}</span
+          >
         {/if}
       </h1>
       <p class="subtitle hero-assemble hero-subtitle">
-        {$t('hero.subtitle')}
+        {$t("hero.subtitle")}
       </p>
       <div class="actions hero-assemble hero-actions">
-        <a class="btn-primary" href="#pricing">{$t('hero.ctaPrimary')}</a>
-        <a class="btn-secondary" href="#components">{$t('hero.ctaSecondary')}</a>
+        <a class="btn-primary" href="#pricing">{$t("hero.ctaPrimary")}</a>
+        <a class="btn-secondary" href="#components">{$t("hero.ctaSecondary")}</a
+        >
       </div>
       <p class="footnote hero-assemble hero-footnote">
-        {$t('hero.footnote')}
+        {$t("hero.footnote")}
       </p>
     </div>
     <div class="hero-spacer" aria-hidden="true"></div>
@@ -122,8 +125,18 @@
     pointer-events: none;
     z-index: 1;
     background:
-      radial-gradient(circle at 74% 28%, rgba(99, 102, 241, 0.34), transparent 42%),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.9) 32%, rgba(255, 255, 255, 0.1) 66%, rgba(255, 255, 255, 0) 100%);
+      radial-gradient(
+        circle at 74% 28%,
+        rgba(99, 102, 241, 0.34),
+        transparent 42%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.97) 0%,
+        rgba(255, 255, 255, 0.9) 32%,
+        rgba(255, 255, 255, 0.1) 66%,
+        rgba(255, 255, 255, 0) 100%
+      );
   }
 
   .hero-bg::after {
@@ -142,8 +155,20 @@
     filter: blur(8px);
     opacity: 1;
     background:
-      linear-gradient(to top, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.96) 62%, rgba(255, 255, 255, 0.78) 82%, transparent),
-      linear-gradient(to left, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.72) 74%, transparent);
+      linear-gradient(
+        to top,
+        rgba(255, 255, 255, 1),
+        rgba(255, 255, 255, 0.96) 62%,
+        rgba(255, 255, 255, 0.78) 82%,
+        transparent
+      ),
+      linear-gradient(
+        to left,
+        rgba(255, 255, 255, 1),
+        rgba(255, 255, 255, 0.95) 50%,
+        rgba(255, 255, 255, 0.72) 74%,
+        transparent
+      );
   }
 
   .hero-inner {
@@ -252,11 +277,13 @@
 
   .hero-loaded .hero-title {
     text-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
-    animation: hero-title-bounce 940ms cubic-bezier(0.34, 1.56, 0.64, 1) 180ms both;
+    animation: hero-title-bounce 940ms cubic-bezier(0.34, 1.56, 0.64, 1) 180ms
+      both;
   }
 
   .hero-loaded .hero-subtitle {
-    animation: hero-sub-bounce 860ms cubic-bezier(0.34, 1.56, 0.64, 1) 280ms both;
+    animation: hero-sub-bounce 860ms cubic-bezier(0.34, 1.56, 0.64, 1) 280ms
+      both;
   }
 
   h1 {
@@ -399,8 +426,17 @@
 
     .hero-bg::before {
       background:
-        radial-gradient(circle at 70% 30%, rgba(99, 102, 241, 0.34), transparent 48%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.8) 74%, rgba(255, 255, 255, 0.94) 100%);
+        radial-gradient(
+          circle at 70% 30%,
+          rgba(99, 102, 241, 0.34),
+          transparent 48%
+        ),
+        linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.38) 0%,
+          rgba(255, 255, 255, 0.8) 74%,
+          rgba(255, 255, 255, 0.94) 100%
+        );
     }
 
     .copy {
@@ -423,7 +459,6 @@
     .footnote {
       max-width: 100%;
     }
-
   }
 
   @media (max-width: 768px) {
@@ -473,4 +508,3 @@
     }
   }
 </style>
-

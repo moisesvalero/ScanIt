@@ -18,7 +18,12 @@ export type PrnuResidualResult = {
   notes: string[];
 };
 
-function boxBlur5InPlace(src: Float32Array, width: number, height: number, out: Float32Array) {
+function boxBlur5InPlace(
+  src: Float32Array,
+  width: number,
+  height: number,
+  out: Float32Array,
+) {
   const tmp = new Float32Array(src.length);
   const k = [0.0625, 0.25, 0.375, 0.25, 0.0625];
   for (let y = 0; y < height; y++) {
@@ -43,14 +48,23 @@ function boxBlur5InPlace(src: Float32Array, width: number, height: number, out: 
   }
 }
 
-export function analyzePrnuResidualProxy(gray: Float32Array, width: number, height: number): PrnuResidualResult {
+export function analyzePrnuResidualProxy(
+  gray: Float32Array,
+  width: number,
+  height: number,
+): PrnuResidualResult {
   const notes: string[] = [];
   const n = width * height;
   if (n < 4096 || width < 64 || height < 64) {
     return {
       risk0to100: 0,
-      metrics: { excessKurtosis: 0, lag1CorrAbs: 0, blockVarianceCv: 0, residualStd: 0 },
-      notes: ['Muestra demasiado pequeña para PRNU proxy.']
+      metrics: {
+        excessKurtosis: 0,
+        lag1CorrAbs: 0,
+        blockVarianceCv: 0,
+        residualStd: 0,
+      },
+      notes: ["Muestra demasiado pequeña para PRNU proxy."],
     };
   }
 
@@ -114,12 +128,16 @@ export function analyzePrnuResidualProxy(gray: Float32Array, width: number, heig
       blockVars.push(bv);
     }
   }
-  const bvMean = blockVars.length ? blockVars.reduce((a, b) => a + b, 0) / blockVars.length : 0;
+  const bvMean = blockVars.length
+    ? blockVars.reduce((a, b) => a + b, 0) / blockVars.length
+    : 0;
   const bvVar =
     blockVars.length > 1
-      ? blockVars.reduce((acc, v) => acc + (v - bvMean) * (v - bvMean), 0) / (blockVars.length - 1)
+      ? blockVars.reduce((acc, v) => acc + (v - bvMean) * (v - bvMean), 0) /
+        (blockVars.length - 1)
       : 0;
-  const blockVarianceCv = bvMean > 1e-10 ? Math.sqrt(Math.max(0, bvVar)) / bvMean : 0;
+  const blockVarianceCv =
+    bvMean > 1e-10 ? Math.sqrt(Math.max(0, bvVar)) / bvMean : 0;
 
   // Riesgo: curtosis cercana a gaussiana + correlación espacial casi nula + bloques de varianza muy homogénea
   let risk = 0;
@@ -129,20 +147,28 @@ export function analyzePrnuResidualProxy(gray: Float32Array, width: number, heig
 
   if (gaussLike && flatSpatial && uniformBlocks) {
     risk += 38;
-    notes.push('Ruido residual muy compatible con distribución gaussiana/espacialmente blanca (proxy IA/filtro).');
+    notes.push(
+      "Ruido residual muy compatible con distribución gaussiana/espacialmente blanca (proxy IA/filtro).",
+    );
   } else if (gaussLike && flatSpatial) {
     risk += 24;
-    notes.push('Residual casi gaussiano y poca correlación local (revisar pipeline sintético).');
+    notes.push(
+      "Residual casi gaussiano y poca correlación local (revisar pipeline sintético).",
+    );
   }
 
   if (std < 0.004 && gray.length > 5000) {
     risk += 18;
-    notes.push('Varianza residual muy baja (superficie excesivamente “limpia”).');
+    notes.push(
+      "Varianza residual muy baja (superficie excesivamente “limpia”).",
+    );
   }
 
   if (excessKurtosis > 2.2 && lag1CorrAbs > 0.06) {
     risk = Math.max(0, risk - 22);
-    notes.push('Colas pesadas y correlación local: más compatible con compresión/sensor que con ruido i.i.d.');
+    notes.push(
+      "Colas pesadas y correlación local: más compatible con compresión/sensor que con ruido i.i.d.",
+    );
   }
 
   return {
@@ -151,8 +177,8 @@ export function analyzePrnuResidualProxy(gray: Float32Array, width: number, heig
       excessKurtosis,
       lag1CorrAbs,
       blockVarianceCv,
-      residualStd: std
+      residualStd: std,
     },
-    notes
+    notes,
   };
 }

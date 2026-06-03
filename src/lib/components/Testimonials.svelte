@@ -1,26 +1,26 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { reveal } from '$lib/reveal';
-  import { t } from '$lib/i18n/index.js';
+  import { onMount } from "svelte";
+  import { reveal } from "$lib/reveal";
+  import { t } from "$lib/i18n/index.js";
 
   const avatarPalette = [
-    '#6366f1',
-    '#8b5cf6',
-    '#ec4899',
-    '#f97316',
-    '#14b8a6',
-    '#0ea5e9',
-    '#84cc16',
-    '#f59e0b',
-    '#ef4444',
-    '#10b981'
+    "#6366f1",
+    "#8b5cf6",
+    "#ec4899",
+    "#f97316",
+    "#14b8a6",
+    "#0ea5e9",
+    "#84cc16",
+    "#f59e0b",
+    "#ef4444",
+    "#10b981",
   ];
 
   function getInitials(fullName: string) {
     const words = fullName.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return 'NA';
-    const first = words[0]?.[0] ?? '';
-    const second = words[1]?.[0] ?? words[words.length - 1]?.[0] ?? '';
+    if (words.length === 0) return "NA";
+    const first = words[0]?.[0] ?? "";
+    const second = words[1]?.[0] ?? words[words.length - 1]?.[0] ?? "";
     return (first + second).toUpperCase();
   }
 
@@ -34,36 +34,39 @@
   }
 
   onMount(() => {
-    const metas = document.querySelectorAll<HTMLElement>('.quote .meta');
+    const metas = document.querySelectorAll<HTMLElement>(".quote .meta");
 
     metas.forEach((meta) => {
-      const nameEl = meta.querySelector<HTMLElement>('.name');
-      const roleEl = meta.querySelector<HTMLElement>('.role');
+      const nameEl = meta.querySelector<HTMLElement>(".name");
+      const roleEl = meta.querySelector<HTMLElement>(".role");
       if (!nameEl || !roleEl) return;
 
-      const name = nameEl.textContent?.trim() ?? '';
-      const roleRaw = roleEl.textContent?.trim() ?? '';
+      const name = nameEl.textContent?.trim() ?? "";
+      const roleRaw = roleEl.textContent?.trim() ?? "";
       const [roleTitle, ...companyParts] = roleRaw.split(/\s(?:at|en)\s/i);
-      const company = companyParts.join(' ').trim() || 'Independent';
+      const company = companyParts.join(" ").trim() || "Independent";
 
-      const avatar = document.createElement('span');
-      avatar.className = 'avatar';
+      const avatar = document.createElement("span");
+      avatar.className = "avatar";
       avatar.textContent = getInitials(name);
-      avatar.style.setProperty('--avatar-bg', avatarPalette[getColorIndex(name)]);
+      avatar.style.setProperty(
+        "--avatar-bg",
+        avatarPalette[getColorIndex(name)],
+      );
 
-      const identity = document.createElement('div');
-      identity.className = 'identity';
+      const identity = document.createElement("div");
+      identity.className = "identity";
 
-      const nextName = document.createElement('span');
-      nextName.className = 'name';
+      const nextName = document.createElement("span");
+      nextName.className = "name";
       nextName.textContent = name;
 
-      const nextRole = document.createElement('span');
-      nextRole.className = 'role-title';
+      const nextRole = document.createElement("span");
+      nextRole.className = "role-title";
       nextRole.textContent = roleTitle.trim();
 
-      const nextCompany = document.createElement('span');
-      nextCompany.className = 'company';
+      const nextCompany = document.createElement("span");
+      nextCompany.className = "company";
       nextCompany.textContent = company;
 
       identity.append(nextName, nextRole, nextCompany);
@@ -73,104 +76,119 @@
 </script>
 
 <section class="testimonials" id="testimonials">
-  <div class="header" use:reveal={{ stage: 'title', threshold: 0.12, rootMargin: '0px 0px -2% 0px' }}>
-    <p class="eyebrow">{$t('testimonials.eyebrow')}</p>
-    <h2>{$t('testimonials.title')}</h2>
-    <button class="cta">{$t('testimonials.cta')}</button>
+  <div
+    class="header"
+    use:reveal={{
+      stage: "title",
+      threshold: 0.12,
+      rootMargin: "0px 0px -2% 0px",
+    }}
+  >
+    <p class="eyebrow">{$t("testimonials.eyebrow")}</p>
+    <h2>{$t("testimonials.title")}</h2>
+    <button class="cta">{$t("testimonials.cta")}</button>
   </div>
 
-  <div class="columns" use:reveal={{ stage: 'content', delay: 70, threshold: 0.08, rootMargin: '0px 0px 6% 0px' }}>
+  <div
+    class="columns"
+    use:reveal={{
+      stage: "content",
+      delay: 70,
+      threshold: 0.08,
+      rootMargin: "0px 0px 6% 0px",
+    }}
+  >
     <!-- Columna 1 -->
     <div class="col">
       <div class="stack stack-slow">
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q1')}
+            {$t("testimonials.quotes.q1")}
           </p>
           <div class="meta">
             <span class="name">Laura Sánchez</span>
-            <span class="role">{$t('testimonials.roles.r1')}</span>
+            <span class="role">{$t("testimonials.roles.r1")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q2')}
+            {$t("testimonials.quotes.q2")}
           </p>
           <div class="meta">
             <span class="name">Diego Romero</span>
-            <span class="role">{$t('testimonials.roles.r2')}</span>
+            <span class="role">{$t("testimonials.roles.r2")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q3')}
+            {$t("testimonials.quotes.q3")}
           </p>
           <div class="meta">
             <span class="name">Marta Klein</span>
-            <span class="role">{$t('testimonials.roles.r3')}</span>
+            <span class="role">{$t("testimonials.roles.r3")}</span>
           </div>
         </article>
 
         <!-- duplicados para bucle -->
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q4')}
+            {$t("testimonials.quotes.q4")}
           </p>
           <div class="meta">
             <span class="name">Sergio Duarte</span>
-            <span class="role">{$t('testimonials.roles.r4')}</span>
+            <span class="role">{$t("testimonials.roles.r4")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q5')}
+            {$t("testimonials.quotes.q5")}
           </p>
           <div class="meta">
             <span class="name">Julia Pérez</span>
-            <span class="role">{$t('testimonials.roles.r5')}</span>
+            <span class="role">{$t("testimonials.roles.r5")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q6')}
+            {$t("testimonials.quotes.q6")}
           </p>
           <div class="meta">
             <span class="name">Héctor Molina</span>
-            <span class="role">{$t('testimonials.roles.r6')}</span>
+            <span class="role">{$t("testimonials.roles.r6")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q7')}
+            {$t("testimonials.quotes.q7")}
           </p>
           <div class="meta">
             <span class="name">Emilia Novak</span>
-            <span class="role">{$t('testimonials.roles.r7')}</span>
+            <span class="role">{$t("testimonials.roles.r7")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q8')}
+            {$t("testimonials.quotes.q8")}
           </p>
           <div class="meta">
             <span class="name">Gonzalo Prieto</span>
-            <span class="role">{$t('testimonials.roles.r8')}</span>
+            <span class="role">{$t("testimonials.roles.r8")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q9')}
+            {$t("testimonials.quotes.q9")}
           </p>
           <div class="meta">
             <span class="name">Elena Puig</span>
-            <span class="role">{$t('testimonials.roles.r9')}</span>
+            <span class="role">{$t("testimonials.roles.r9")}</span>
           </div>
         </article>
       </div>
@@ -181,82 +199,82 @@
       <div class="stack stack-medium">
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q10')}
+            {$t("testimonials.quotes.q10")}
           </p>
           <div class="meta">
             <span class="name">Ana López</span>
-            <span class="role">{$t('testimonials.roles.r10')}</span>
+            <span class="role">{$t("testimonials.roles.r10")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q11')}
+            {$t("testimonials.quotes.q11")}
           </p>
           <div class="meta">
             <span class="name">Carlos Medina</span>
-            <span class="role">{$t('testimonials.roles.r11')}</span>
+            <span class="role">{$t("testimonials.roles.r11")}</span>
           </div>
         </article>
 
         <!-- duplicados -->
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q12')}
+            {$t("testimonials.quotes.q12")}
           </p>
           <div class="meta">
             <span class="name">Nuria Campos</span>
-            <span class="role">{$t('testimonials.roles.r12')}</span>
+            <span class="role">{$t("testimonials.roles.r12")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q13')}
+            {$t("testimonials.quotes.q13")}
           </p>
           <div class="meta">
             <span class="name">Tomás Vidal</span>
-            <span class="role">{$t('testimonials.roles.r13')}</span>
+            <span class="role">{$t("testimonials.roles.r13")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q14')}
+            {$t("testimonials.quotes.q14")}
           </p>
           <div class="meta">
             <span class="name">Raquel Domínguez</span>
-            <span class="role">{$t('testimonials.roles.r14')}</span>
+            <span class="role">{$t("testimonials.roles.r14")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q15')}
+            {$t("testimonials.quotes.q15")}
           </p>
           <div class="meta">
             <span class="name">Jonas Weber</span>
-            <span class="role">{$t('testimonials.roles.r15')}</span>
+            <span class="role">{$t("testimonials.roles.r15")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q16')}
+            {$t("testimonials.quotes.q16")}
           </p>
           <div class="meta">
             <span class="name">Patricia Gil</span>
-            <span class="role">{$t('testimonials.roles.r16')}</span>
+            <span class="role">{$t("testimonials.roles.r16")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q17')}
+            {$t("testimonials.quotes.q17")}
           </p>
           <div class="meta">
             <span class="name">Marco Esposito</span>
-            <span class="role">{$t('testimonials.roles.r17')}</span>
+            <span class="role">{$t("testimonials.roles.r17")}</span>
           </div>
         </article>
       </div>
@@ -267,92 +285,92 @@
       <div class="stack stack-fast">
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q18')}
+            {$t("testimonials.quotes.q18")}
           </p>
           <div class="meta">
             <span class="name">Marcos Vidal</span>
-            <span class="role">{$t('testimonials.roles.r18')}</span>
+            <span class="role">{$t("testimonials.roles.r18")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q19')}
+            {$t("testimonials.quotes.q19")}
           </p>
           <div class="meta">
             <span class="name">Irene Souza</span>
-            <span class="role">{$t('testimonials.roles.r19')}</span>
+            <span class="role">{$t("testimonials.roles.r19")}</span>
           </div>
         </article>
 
         <!-- duplicados -->
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q20')}
+            {$t("testimonials.quotes.q20")}
           </p>
           <div class="meta">
             <span class="name">Marcos Vidal</span>
-            <span class="role">{$t('testimonials.roles.r20')}</span>
+            <span class="role">{$t("testimonials.roles.r20")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q21')}
+            {$t("testimonials.quotes.q21")}
           </p>
           <div class="meta">
             <span class="name">Lucía Roldán</span>
-            <span class="role">{$t('testimonials.roles.r21')}</span>
+            <span class="role">{$t("testimonials.roles.r21")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q22')}
+            {$t("testimonials.quotes.q22")}
           </p>
           <div class="meta">
             <span class="name">Pablo Ortega</span>
-            <span class="role">{$t('testimonials.roles.r22')}</span>
+            <span class="role">{$t("testimonials.roles.r22")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q23')}
+            {$t("testimonials.quotes.q23")}
           </p>
           <div class="meta">
             <span class="name">Mireia Costa</span>
-            <span class="role">{$t('testimonials.roles.r23')}</span>
+            <span class="role">{$t("testimonials.roles.r23")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q24')}
+            {$t("testimonials.quotes.q24")}
           </p>
           <div class="meta">
             <span class="name">Andrés Lima</span>
-            <span class="role">{$t('testimonials.roles.r24')}</span>
+            <span class="role">{$t("testimonials.roles.r24")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q25')}
+            {$t("testimonials.quotes.q25")}
           </p>
           <div class="meta">
             <span class="name">Silvia Ramos</span>
-            <span class="role">{$t('testimonials.roles.r25')}</span>
+            <span class="role">{$t("testimonials.roles.r25")}</span>
           </div>
         </article>
 
         <article class="quote motion-card">
           <p class="body">
-            {$t('testimonials.quotes.q26')}
+            {$t("testimonials.quotes.q26")}
           </p>
           <div class="meta">
             <span class="name">Rui Carvalho</span>
-            <span class="role">{$t('testimonials.roles.r26')}</span>
+            <span class="role">{$t("testimonials.roles.r26")}</span>
           </div>
         </article>
       </div>
@@ -363,7 +381,11 @@
 <style>
   .testimonials {
     padding: 120px 1.5rem 120px;
-    background: radial-gradient(circle at top, rgba(99, 102, 241, 0.06), transparent 55%);
+    background: radial-gradient(
+      circle at top,
+      rgba(99, 102, 241, 0.06),
+      transparent 55%
+    );
     position: relative;
   }
 
@@ -431,8 +453,20 @@
   .col {
     position: relative;
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
-    mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
   }
 
   .stack {
@@ -603,4 +637,3 @@
     }
   }
 </style>
-

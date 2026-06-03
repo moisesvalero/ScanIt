@@ -44,9 +44,18 @@
         { "pre": ">> Analisando artefatos de compressão MP4", "tail": "[OK]" },
         { "pre": ">> Verificando padrão de vida no vídeo", "tail": "[OK]" },
         { "pre": ">> Padrão de IA detectado no áudio", "tail": "[BLOQUEADO]" },
-        { "pre": ">> Validação de identidade acústica iniciada", "tail": "[EM PROGRESSO]" },
-        { "pre": ">> Auditoria de metadados e impressões do encoder", "tail": "[EM CURSO]" },
-        { "pre": ">> Avaliando consistência temporal de landmarks", "tail": "[OK]" }
+        {
+          "pre": ">> Validação de identidade acústica iniciada",
+          "tail": "[EM PROGRESSO]"
+        },
+        {
+          "pre": ">> Auditoria de metadados e impressões do encoder",
+          "tail": "[EM CURSO]"
+        },
+        {
+          "pre": ">> Avaliando consistência temporal de landmarks",
+          "tail": "[OK]"
+        }
       ]
     },
     "footer": {

@@ -1,4 +1,4 @@
-type RevealStage = 'title' | 'content';
+type RevealStage = "title" | "content";
 
 type RevealOptions = {
   delay?: number;
@@ -10,25 +10,28 @@ type RevealOptions = {
 
 const STAGE_DELAY: Record<RevealStage, number> = {
   title: 0,
-  content: 120
+  content: 120,
 };
 
 function normalizeOptions(value: RevealOptions | undefined) {
   return {
     delay: value?.delay,
     distance: value?.distance ?? 40,
-    stage: value?.stage ?? 'content',
+    stage: value?.stage ?? "content",
     threshold: value?.threshold ?? 0.24,
-    rootMargin: value?.rootMargin ?? '0px 0px -8% 0px'
+    rootMargin: value?.rootMargin ?? "0px 0px -8% 0px",
   };
 }
 
-function applyAssemblyVars(node: HTMLElement, options: ReturnType<typeof normalizeOptions>) {
+function applyAssemblyVars(
+  node: HTMLElement,
+  options: ReturnType<typeof normalizeOptions>,
+) {
   const totalDelay = options.delay ?? STAGE_DELAY[options.stage];
-  node.classList.remove('assembly-title', 'assembly-content');
-  node.classList.add('assembly-item', `assembly-${options.stage}`);
-  node.style.setProperty('--assembly-delay', `${totalDelay}ms`);
-  node.style.setProperty('--assembly-distance', `${options.distance}px`);
+  node.classList.remove("assembly-title", "assembly-content");
+  node.classList.add("assembly-item", `assembly-${options.stage}`);
+  node.style.setProperty("--assembly-delay", `${totalDelay}ms`);
+  node.style.setProperty("--assembly-distance", `${options.distance}px`);
 }
 
 /**
@@ -44,7 +47,7 @@ export function reveal(node: HTMLElement, options?: RevealOptions) {
   const revealWithFrameGap = () => {
     rafA = requestAnimationFrame(() => {
       rafB = requestAnimationFrame(() => {
-        node.classList.add('is-visible');
+        node.classList.add("is-visible");
       });
     });
   };
@@ -57,8 +60,8 @@ export function reveal(node: HTMLElement, options?: RevealOptions) {
     },
     {
       threshold: config.threshold,
-      rootMargin: config.rootMargin
-    }
+      rootMargin: config.rootMargin,
+    },
   );
 
   observer.observe(node);
@@ -72,6 +75,6 @@ export function reveal(node: HTMLElement, options?: RevealOptions) {
       cancelAnimationFrame(rafA);
       cancelAnimationFrame(rafB);
       observer.disconnect();
-    }
+    },
   };
 }

@@ -1,7 +1,7 @@
-import { createClient, type SanityClient } from '@sanity/client';
-import { env } from '$env/dynamic/private';
+import { createClient, type SanityClient } from "@sanity/client";
+import { env } from "$env/dynamic/private";
 
-const DEFAULT_API_VERSION = '2024-01-01';
+const DEFAULT_API_VERSION = "2024-01-01";
 
 export function getSanityServerClient(): SanityClient | null {
   const projectId = env.SANITY_PROJECT_ID?.trim();
@@ -16,11 +16,14 @@ export function getSanityServerClient(): SanityClient | null {
     apiVersion: env.SANITY_API_VERSION?.trim() || DEFAULT_API_VERSION,
     useCdn: true,
     token: env.SANITY_READ_TOKEN?.trim() || undefined,
-    perspective: 'published'
+    perspective: "published",
   });
 }
 
-export function getSanityProjectConfig(): { projectId: string; dataset: string } | null {
+export function getSanityProjectConfig(): {
+  projectId: string;
+  dataset: string;
+} | null {
   const projectId = env.SANITY_PROJECT_ID?.trim();
   const dataset = env.SANITY_DATASET?.trim();
   if (!projectId || !dataset) {

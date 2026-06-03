@@ -1,22 +1,23 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount } from "svelte";
   /** @type {HTMLDivElement | null} */
   let screenEl = null;
 
   onMount(() => {
     if (!screenEl) return;
     const scale = screenEl.offsetWidth / 390;
-    const safariUiEl = screenEl.querySelector('.safari-ui');
-    const safariUiHeight = safariUiEl instanceof HTMLElement ? safariUiEl.offsetHeight : 52;
+    const safariUiEl = screenEl.querySelector(".safari-ui");
+    const safariUiHeight =
+      safariUiEl instanceof HTMLElement ? safariUiEl.offsetHeight : 52;
     /** @type {HTMLIFrameElement | null} */
-    const iframe = screenEl.querySelector('iframe');
+    const iframe = screenEl.querySelector("iframe");
     if (!iframe) return;
     iframe.style.transform = `scale(${scale})`;
-    iframe.style.transformOrigin = 'top left';
+    iframe.style.transformOrigin = "top left";
     iframe.style.top = `${safariUiHeight}px`;
-    iframe.style.width = '390px';
+    iframe.style.width = "390px";
     iframe.style.height = `${(screenEl.offsetHeight - safariUiHeight) / scale}px`;
-    iframe.style.border = 'none';
+    iframe.style.border = "none";
   });
 </script>
 
@@ -78,20 +79,30 @@
     width: 230px;
     height: 480px;
     border-radius: 40px;
-    background: linear-gradient(145deg, #3a3a3c 0%, #1c1c1e 40%, #2c2c2e 70%, #1a1a1c 100%);
+    background: linear-gradient(
+      145deg,
+      #3a3a3c 0%,
+      #1c1c1e 40%,
+      #2c2c2e 70%,
+      #1a1a1c 100%
+    );
     box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,0.12),
-      inset 0 1px 0 rgba(255,255,255,0.18),
-      0 40px 80px rgba(0,0,0,0.6),
-      0 0 0 0.5px rgba(0,0,0,0.8);
+      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 40px 80px rgba(0, 0, 0, 0.6),
+      0 0 0 0.5px rgba(0, 0, 0, 0.8);
   }
 
   .phone::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 2px;
     border-radius: 38px;
-    background: linear-gradient(160deg, rgba(255,255,255,0.05) 0%, transparent 50%);
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      transparent 50%
+    );
     pointer-events: none;
     z-index: 10;
   }
@@ -120,7 +131,11 @@
     right: 0;
     z-index: 8;
     padding: 8px 10px 7px;
-    background: linear-gradient(180deg, rgba(249, 250, 255, 0.98), rgba(244, 246, 255, 0.95));
+    background: linear-gradient(
+      180deg,
+      rgba(249, 250, 255, 0.98),
+      rgba(244, 246, 255, 0.95)
+    );
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
     backdrop-filter: blur(10px);
   }
@@ -155,9 +170,17 @@
     background: rgba(15, 23, 42, 0.85);
   }
 
-  .safari-signal { width: 7px; }
-  .safari-wifi { width: 10px; opacity: 0.8; }
-  .safari-battery { width: 12px; opacity: 0.9; }
+  .safari-signal {
+    width: 7px;
+  }
+  .safari-wifi {
+    width: 10px;
+    opacity: 0.8;
+  }
+  .safari-battery {
+    width: 12px;
+    opacity: 0.9;
+  }
 
   .safari-address-row {
     display: flex;
@@ -206,7 +229,7 @@
   }
 
   .safari-lock::before {
-    content: '';
+    content: "";
     position: absolute;
     top: -4px;
     left: 1px;
@@ -243,7 +266,11 @@
     position: absolute;
     inset: 0;
     border-radius: 34px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 40%);
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      transparent 40%
+    );
     pointer-events: none;
     z-index: 5;
   }
@@ -258,7 +285,7 @@
     background: #000;
     border-radius: 20px;
     z-index: 20;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
   }
 
   .camera-dot {
@@ -270,7 +297,7 @@
     background: radial-gradient(circle at 35% 35%, #2a2a2c, #111);
     border-radius: 50%;
     z-index: 21;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
 
   .btn-action {
@@ -320,7 +347,7 @@
     transform: translateX(-50%);
     width: 74px;
     height: 4px;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 4px;
     z-index: 20;
   }
@@ -328,7 +355,11 @@
   .glow {
     width: 160px;
     height: 60px;
-    background: radial-gradient(ellipse, rgba(120,100,255,0.2) 0%, transparent 70%);
+    background: radial-gradient(
+      ellipse,
+      rgba(120, 100, 255, 0.2) 0%,
+      transparent 70%
+    );
     filter: blur(16px);
     margin-top: -10px;
   }

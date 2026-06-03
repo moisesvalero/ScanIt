@@ -1,12 +1,15 @@
 <script lang="ts">
-  import '../app.css';
-  import { seo } from '$lib/seo';
-  import { onMount } from 'svelte';
+  import "../app.css";
+  import { seo } from "$lib/seo";
+  import { onMount } from "svelte";
+  import type { Snippet } from "svelte";
+
+  let { children }: { children: Snippet } = $props();
 
   onMount(() => {
-    if (!('serviceWorker' in navigator)) return;
+    if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker
-      .register('/sw.js')
+      .register("/sw.js")
       .then((reg) => reg?.update?.().catch(() => {}))
       .catch(() => {
         // Registro opcional: no rompe la app si falla.
@@ -31,4 +34,4 @@
   <meta name="twitter:image" content={$seo.ogImage} />
 </svelte:head>
 
-<slot />
+{@render children()}

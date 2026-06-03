@@ -41,12 +41,24 @@
     "ticker": {
       "aria": "Flux technique de détections",
       "items": [
-        { "pre": ">> Analyse des artefacts de compression MP4", "tail": "[OK]" },
+        {
+          "pre": ">> Analyse des artefacts de compression MP4",
+          "tail": "[OK]"
+        },
         { "pre": ">> Vérification du pattern de vie en vidéo", "tail": "[OK]" },
         { "pre": ">> Motif IA détecté dans l’audio", "tail": "[BLOQUÉ]" },
-        { "pre": ">> Validation d’identité acoustique initiée", "tail": "[EN COURS]" },
-        { "pre": ">> Audit des métadonnées et empreintes encodeur", "tail": "[EN COURS]" },
-        { "pre": ">> Évaluation de la cohérence temporelle des landmarks", "tail": "[OK]" }
+        {
+          "pre": ">> Validation d’identité acoustique initiée",
+          "tail": "[EN COURS]"
+        },
+        {
+          "pre": ">> Audit des métadonnées et empreintes encodeur",
+          "tail": "[EN COURS]"
+        },
+        {
+          "pre": ">> Évaluation de la cohérence temporelle des landmarks",
+          "tail": "[OK]"
+        }
       ]
     },
     "footer": {

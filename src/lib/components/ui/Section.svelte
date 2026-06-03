@@ -1,7 +1,10 @@
 <script lang="ts">
-  type Variant = 'default' | 'muted' | 'soft' | 'surface';
+  import type { Snippet } from "svelte";
+
+  type Variant = "default" | "muted" | "soft" | "surface";
 
   type Props = {
+    children?: Snippet;
     as?: keyof HTMLElementTagNameMap;
     variant?: Variant;
     id?: string;
@@ -9,19 +12,20 @@
   };
 
   let {
-    as = 'section',
-    variant = 'default',
+    children,
+    as = "section",
+    variant = "default",
     id = undefined,
-    className = ''
+    className = "",
   }: Props = $props();
 </script>
 
 <svelte:element
   this={as}
-  id={id}
+  {id}
   class={`nk-section nk-section--${variant} ${className}`.trim()}
 >
-  <slot />
+  {@render children?.()}
 </svelte:element>
 
 <style>
@@ -53,4 +57,3 @@
     }
   }
 </style>
-

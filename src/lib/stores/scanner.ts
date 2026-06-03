@@ -1,7 +1,7 @@
-import { get, writable } from 'svelte/store';
+import { get, writable } from "svelte/store";
 
-export type ScanPhase = 'IDLE' | 'UPLOADING' | 'ANALYZING' | 'COMPLETED';
-export type ScanVerdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA';
+export type ScanPhase = "IDLE" | "UPLOADING" | "ANALYZING" | "COMPLETED";
+export type ScanVerdict = "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA";
 
 export type EnsembleVoteExport = {
   key?: string;
@@ -32,63 +32,69 @@ export interface ScannerState {
 const MAX_SCAN_SIZE_BYTES = 150 * 1024 * 1024;
 const ANALYSIS_DURATION_MS = 20000;
 
-export type EvidenceKind = 'video' | 'image' | 'audio' | 'text' | 'link' | 'unknown';
+export type EvidenceKind =
+  | "video"
+  | "image"
+  | "audio"
+  | "text"
+  | "link"
+  | "unknown";
 
 function baseLogs(kind: EvidenceKind) {
-  if (kind === 'image') {
+  if (kind === "image") {
     return [
-      'BOOTSTRAP_ENGINE...',
-      'CALIBRATING_NEURAL_LATTICE...',
-      'SAMPLING_SENSOR_NOISE...',
-      'ELA_MATRIX_SOLVED',
-      'TEXTURE_FINGERPRINT_READY',
-      'FREQUENCY_DOMAIN_SCAN_COMPLETE',
-      'PIXEL_CONSISTENCY: 99%',
-      'VISUAL_FINGERPRINT_LOCKED'
+      "BOOTSTRAP_ENGINE...",
+      "CALIBRATING_NEURAL_LATTICE...",
+      "SAMPLING_SENSOR_NOISE...",
+      "ELA_MATRIX_SOLVED",
+      "TEXTURE_FINGERPRINT_READY",
+      "FREQUENCY_DOMAIN_SCAN_COMPLETE",
+      "PIXEL_CONSISTENCY: 99%",
+      "VISUAL_FINGERPRINT_LOCKED",
     ];
   }
 
-  if (kind === 'audio') {
+  if (kind === "audio") {
     return [
-      'BOOTSTRAP_ENGINE...',
-      'CALIBRATING_NEURAL_LATTICE...',
-      'DECODING_WAVEFORM...',
-      'SPECTRAL_FINGERPRINT_INIT...',
-      'BANDLIMIT_ESTIMATION_COMPLETE',
-      'CONTINUITY_CHECK_RUNNING...',
-      'VOICEFORM_SIGNATURE_LOCKED',
-      'ACOUSTIC_FINGERPRINT_READY'
+      "BOOTSTRAP_ENGINE...",
+      "CALIBRATING_NEURAL_LATTICE...",
+      "DECODING_WAVEFORM...",
+      "SPECTRAL_FINGERPRINT_INIT...",
+      "BANDLIMIT_ESTIMATION_COMPLETE",
+      "CONTINUITY_CHECK_RUNNING...",
+      "VOICEFORM_SIGNATURE_LOCKED",
+      "ACOUSTIC_FINGERPRINT_READY",
     ];
   }
 
-  if (kind === 'text') {
+  if (kind === "text") {
     return [
-      'BOOTSTRAP_ENGINE...',
-      'CALIBRATING_NEURAL_LATTICE...',
-      'NORMALIZING_TEXT_STREAM...',
-      'CONNECTOR_PATTERN_SCAN...',
-      'STYLE_VARIANCE_ESTIMATION...',
-      'SEMANTIC_COHERENCE_CHECK...',
-      'INTEGRITY_GRID_LOCKED',
-      'TEXT_FINGERPRINT_READY'
+      "BOOTSTRAP_ENGINE...",
+      "CALIBRATING_NEURAL_LATTICE...",
+      "NORMALIZING_TEXT_STREAM...",
+      "CONNECTOR_PATTERN_SCAN...",
+      "STYLE_VARIANCE_ESTIMATION...",
+      "SEMANTIC_COHERENCE_CHECK...",
+      "INTEGRITY_GRID_LOCKED",
+      "TEXT_FINGERPRINT_READY",
     ];
   }
 
   // vídeo (default)
   return [
-    'BOOTSTRAP_ENGINE...',
-    'CALIBRATING_NEURAL_LATTICE...',
-    'SYNCING_AUDIO...',
-    'EXTRACTING_MICRO_EXPRESSIONS...',
-    'THERMAL_MAPPING_COMPLETE',
-    'PIXEL_CONSISTENCY: 99%',
-    'VOICEFORM_SIGNATURE_LOCKED',
-    'TEMPORAL_FINGERPRINT_READY'
+    "BOOTSTRAP_ENGINE...",
+    "CALIBRATING_NEURAL_LATTICE...",
+    "SYNCING_AUDIO...",
+    "EXTRACTING_MICRO_EXPRESSIONS...",
+    "THERMAL_MAPPING_COMPLETE",
+    "PIXEL_CONSISTENCY: 99%",
+    "VOICEFORM_SIGNATURE_LOCKED",
+    "TEMPORAL_FINGERPRINT_READY",
   ];
 }
 
 const initialState: ScannerState = {
-  phase: 'IDLE',
+  phase: "IDLE",
   progress: 0,
   millis: 0,
   fileName: null,
@@ -96,11 +102,11 @@ const initialState: ScannerState = {
   verdict: null,
   confidence: 0,
   riskScore: 0,
-  reason: '',
+  reason: "",
   warnings: [],
   logs: [],
   ensembleVotes: [],
-  completedAt: null
+  completedAt: null,
 };
 
 export const scannerState = writable<ScannerState>({ ...initialState });
@@ -109,21 +115,21 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function getFinalReason(file: File, isAlert: boolean) {
   if (!isAlert) {
-    return 'Coherencia biometrica estable. No se detectaron indicios de sintesis maliciosa.';
+    return "Coherencia biometrica estable. No se detectaron indicios de sintesis maliciosa.";
   }
 
   if (file.size > MAX_SCAN_SIZE_BYTES) {
-    return 'El archivo supera el limite seguro de 150MB y requiere validacion manual.';
+    return "El archivo supera el limite seguro de 150MB y requiere validacion manual.";
   }
 
   return "Patron nominal sospechoso detectado en el nombre del archivo ('fake').";
 }
 
 export async function analyzeVideo(file: File) {
-  const BASE_LOGS = baseLogs('video');
+  const BASE_LOGS = baseLogs("video");
   scannerState.update((state) => ({
     ...state,
-    phase: 'UPLOADING',
+    phase: "UPLOADING",
     progress: 8,
     millis: 0,
     fileName: file.name,
@@ -131,10 +137,10 @@ export async function analyzeVideo(file: File) {
     verdict: null,
     confidence: 0,
     riskScore: 0,
-    reason: '',
+    reason: "",
     warnings: [],
     logs: [...BASE_LOGS.slice(0, 2)],
-    completedAt: null
+    completedAt: null,
   }));
 
   await wait(700);
@@ -145,9 +151,9 @@ export async function analyzeVideo(file: File) {
 
   scannerState.update((state) => ({
     ...state,
-    phase: 'ANALYZING',
+    phase: "ANALYZING",
     progress: 15,
-    logs: [...BASE_LOGS]
+    logs: [...BASE_LOGS],
   }));
 
   while (Date.now() - start < ANALYSIS_DURATION_MS) {
@@ -157,19 +163,19 @@ export async function analyzeVideo(file: File) {
     scannerState.update((state) => ({
       ...state,
       progress,
-      millis: elapsed
+      millis: elapsed,
     }));
 
     await wait(interval);
   }
 
-  const verdict: ScanVerdict = isAlert ? 'ALERTA ROJA' : 'VERIFICADO';
+  const verdict: ScanVerdict = isAlert ? "ALERTA ROJA" : "VERIFICADO";
   const confidence = isAlert ? 33.7 : 99.1;
   const riskScore = isAlert ? 92 : 8;
 
   scannerState.update((state) => ({
     ...state,
-    phase: 'COMPLETED',
+    phase: "COMPLETED",
     progress: 100,
     millis: ANALYSIS_DURATION_MS,
     verdict,
@@ -179,10 +185,10 @@ export async function analyzeVideo(file: File) {
     warnings: [],
     logs: [
       ...BASE_LOGS,
-      isAlert ? 'DEEPFAKE_PROBABILITY: HIGH' : 'AUTHENTICITY_LOCK: CONFIRMED',
-      'FORENSIC_SEQUENCE_COMPLETE'
+      isAlert ? "DEEPFAKE_PROBABILITY: HIGH" : "AUTHENTICITY_LOCK: CONFIRMED",
+      "FORENSIC_SEQUENCE_COMPLETE",
     ],
-    completedAt: new Date().toISOString()
+    completedAt: new Date().toISOString(),
   }));
 
   return get(scannerState);
@@ -195,38 +201,38 @@ export function resetScanner() {
 export { ANALYSIS_DURATION_MS, MAX_SCAN_SIZE_BYTES };
 
 export function beginScan(file: File) {
-  const BASE_LOGS = baseLogs('video');
+  const BASE_LOGS = baseLogs("video");
   scannerState.set({
     ...initialState,
-    phase: 'UPLOADING',
+    phase: "UPLOADING",
     progress: 8,
     millis: 0,
     fileName: file.name,
     fileSize: file.size,
-    logs: [...BASE_LOGS]
+    logs: [...BASE_LOGS],
   });
 }
 
 export function beginScanKind(file: File, kind: EvidenceKind) {
-  const BASE_LOGS = baseLogs(kind ?? 'unknown');
+  const BASE_LOGS = baseLogs(kind ?? "unknown");
   scannerState.set({
     ...initialState,
-    phase: 'UPLOADING',
+    phase: "UPLOADING",
     progress: 8,
     millis: 0,
     fileName: file.name,
     fileSize: file.size,
-    logs: [...BASE_LOGS]
+    logs: [...BASE_LOGS],
   });
 }
 
 export function setAnalyzing() {
-  const fallbackLogs = baseLogs('video');
+  const fallbackLogs = baseLogs("video");
   scannerState.update((state) => ({
     ...state,
-    phase: 'ANALYZING',
+    phase: "ANALYZING",
     progress: Math.max(state.progress, 15),
-    logs: state.logs.length ? state.logs : [...fallbackLogs]
+    logs: state.logs.length ? state.logs : [...fallbackLogs],
   }));
 }
 
@@ -234,22 +240,26 @@ export function tickScan(millis: number, progress: number) {
   scannerState.update((state) => ({
     ...state,
     millis,
-    progress
+    progress,
   }));
 }
 
 export function setScores(input: { riskScore?: number; confidence?: number }) {
   scannerState.update((state) => ({
     ...state,
-    riskScore: Number.isFinite(input.riskScore as number) ? (input.riskScore as number) : state.riskScore,
-    confidence: Number.isFinite(input.confidence as number) ? (input.confidence as number) : state.confidence
+    riskScore: Number.isFinite(input.riskScore as number)
+      ? (input.riskScore as number)
+      : state.riskScore,
+    confidence: Number.isFinite(input.confidence as number)
+      ? (input.confidence as number)
+      : state.confidence,
   }));
 }
 
 export function appendLog(line: string) {
   scannerState.update((state) => ({
     ...state,
-    logs: [...(state.logs ?? []), line]
+    logs: [...(state.logs ?? []), line],
   }));
 }
 
@@ -264,15 +274,21 @@ export function completeScan(input: {
 }) {
   scannerState.update((state) => ({
     ...state,
-    phase: 'COMPLETED',
+    phase: "COMPLETED",
     progress: 100,
     verdict: input.verdict,
     confidence: input.confidence,
     riskScore: input.riskScore,
     reason: input.reason,
     warnings: input.warnings ?? [],
-    ensembleVotes: Array.isArray(input.ensembleVotes) ? input.ensembleVotes : state.ensembleVotes ?? [],
-    logs: [...state.logs, ...(input.logsExtra ?? []), 'FORENSIC_SEQUENCE_COMPLETE'],
-    completedAt: new Date().toISOString()
+    ensembleVotes: Array.isArray(input.ensembleVotes)
+      ? input.ensembleVotes
+      : (state.ensembleVotes ?? []),
+    logs: [
+      ...state.logs,
+      ...(input.logsExtra ?? []),
+      "FORENSIC_SEQUENCE_COMPLETE",
+    ],
+    completedAt: new Date().toISOString(),
   }));
 }

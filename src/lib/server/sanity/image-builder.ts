@@ -1,4 +1,4 @@
-import imageUrlBuilder from '@sanity/image-url';
+import imageUrlBuilder from "@sanity/image-url";
 
 export function createImageUrlBuilder(projectId: string, dataset: string) {
   return imageUrlBuilder({ projectId, dataset });
@@ -8,9 +8,9 @@ export function imageUrl(
   projectId: string,
   dataset: string,
   source: unknown,
-  width?: number
+  width?: number,
 ): string | undefined {
-  if (!source || typeof source !== 'object') {
+  if (!source || typeof source !== "object") {
     return undefined;
   }
   try {
@@ -18,7 +18,7 @@ export function imageUrl(
     if (width) {
       b = b.width(width);
     }
-    return b.auto('format').url();
+    return b.auto("format").url();
   } catch {
     return undefined;
   }

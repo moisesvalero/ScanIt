@@ -1,18 +1,25 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-  import { fade, fly } from 'svelte/transition';
-  import * as faceapi from 'face-api.js';
-  import exifr from 'exifr';
-  import mediaInfoFactory from 'mediainfo.js';
-  import mediaInfoWasmUrl from 'mediainfo.js/MediaInfoModule.wasm?url';
-  import { jsPDF } from 'jspdf';
-  import Radar from '$lib/components/Scanner/Radar.svelte';
-  import ReportModal from '$lib/components/ui/ReportModal.svelte';
-  import { t } from '$lib/i18n/index.js';
-  import { EnsembleManager, formatEnsembleVotes } from '$lib/ensemble/EnsembleManager';
-  import { scanMp4Container, analyzeRppgGreenSeries, meanGreenCheekRoi } from '$lib/forensics/AdvancedForensicSuite';
-  import { analyzePrnuResidualProxy } from '$lib/forensics/prnuResidualProxy';
-  import { analyzeDctDoubleQuantization } from '$lib/forensics/dctDoubleQuantProxy';
+  import { onDestroy } from "svelte";
+  import { fade, fly } from "svelte/transition";
+  import * as faceapi from "face-api.js";
+  import exifr from "exifr";
+  import mediaInfoFactory from "mediainfo.js";
+  import mediaInfoWasmUrl from "mediainfo.js/MediaInfoModule.wasm?url";
+  import { jsPDF } from "jspdf";
+  import Radar from "$lib/components/Scanner/Radar.svelte";
+  import ReportModal from "$lib/components/ui/ReportModal.svelte";
+  import { t } from "$lib/i18n/index.js";
+  import {
+    EnsembleManager,
+    formatEnsembleVotes,
+  } from "$lib/ensemble/EnsembleManager";
+  import {
+    scanMp4Container,
+    analyzeRppgGreenSeries,
+    meanGreenCheekRoi,
+  } from "$lib/forensics/AdvancedForensicSuite";
+  import { analyzePrnuResidualProxy } from "$lib/forensics/prnuResidualProxy";
+  import { analyzeDctDoubleQuantization } from "$lib/forensics/dctDoubleQuantProxy";
 
   /** Nombre de archivo que el usuario puede usar para marcar contenido dudoso (también dispara ALERTA dura). */
   const NOMINAL_MANIPULATION_FILE_RE =
@@ -34,18 +41,20 @@
     scannerState,
     setScores,
     setAnalyzing,
-    tickScan
-  } from '$lib/stores/scanner';
+    tickScan,
+  } from "$lib/stores/scanner";
 
   let isDragActive = $state(false);
   let selectedFile: File | null = $state(null);
-  let activeTab = $state<'video' | 'image' | 'audio' | 'text' | 'link'>('video');
-  let mediaKind = $state<'video' | 'image' | 'audio' | 'text' | null>(null);
-  let videoUrl = $state('');
+  let activeTab = $state<"video" | "image" | "audio" | "text" | "link">(
+    "video",
+  );
+  let mediaKind = $state<"video" | "image" | "audio" | "text" | null>(null);
+  let videoUrl = $state("");
   let videoRef: HTMLVideoElement | null = $state(null);
-  let imageUrl = $state('');
+  let imageUrl = $state("");
   let imageRef: HTMLImageElement | null = $state(null);
-  let audioSummary = $state('');
+  let audioSummary = $state("");
   /** Último análisis de vídeo serializable (replay / benchmark / captura). */
   let videoExportFeatures = $state<{
     forensic: Record<string, unknown>;
@@ -55,12 +64,16 @@
 
   /** PRNU/DCT en imagen (export JSON / Playwright). */
   let imageLowLevelForensic = $state<Record<string, unknown> | null>(null);
-  let textInput = $state('');
-  let textPreview = $state('');
-  let linkInput = $state('');
+  let textInput = $state("");
+  let textPreview = $state("");
+  let linkInput = $state("");
   let linkNormalized = $derived(normalizeUrl(linkInput));
   let linkKind = $derived(classifyLink(linkNormalized));
-  let linkError = $derived(linkInput.trim().length > 0 && !linkNormalized ? $t('scanner.link.invalid') : null);
+  let linkError = $derived(
+    linkInput.trim().length > 0 && !linkNormalized
+      ? $t("scanner.link.invalid")
+      : null,
+  );
   let canvasRef: HTMLCanvasElement | null = $state(null);
   let showReport = $state(false);
   let isBusy = $state(false);
@@ -70,7 +83,10 @@
   const auditPending = new Map<
     string,
     {
-      resolve: (v: { hashHex: string; mi: { thirdParty: boolean; encoderHints: string[] } }) => void;
+      resolve: (v: {
+        hashHex: string;
+        mi: { thirdParty: boolean; encoderHints: string[] };
+      }) => void;
       reject: (e: unknown) => void;
     }
   >();
@@ -80,61 +96,69 @@
   let hasImage = $derived(Boolean(imageUrl));
   let hasPreview = $derived(Boolean(videoUrl || imageUrl));
   let displayMillis = $derived(Math.min(scan.millis, ANALYSIS_DURATION_MS));
-  let laserProgress = $derived(Math.min(100, (displayMillis / ANALYSIS_DURATION_MS) * 100));
-  let riskScoreTarget = $derived(Number.isFinite(scan.riskScore) ? scan.riskScore : 0);
-  let confidenceTarget = $derived(Number.isFinite(scan.confidence) ? scan.confidence : 0);
+  let laserProgress = $derived(
+    Math.min(100, (displayMillis / ANALYSIS_DURATION_MS) * 100),
+  );
+  let riskScoreTarget = $derived(
+    Number.isFinite(scan.riskScore) ? scan.riskScore : 0,
+  );
+  let confidenceTarget = $derived(
+    Number.isFinite(scan.confidence) ? scan.confidence : 0,
+  );
 
   // Suavizado de números (para evitar “saltos” visuales)
   let riskScoreSmooth = $state(0);
   let confidenceSmooth = $state(0);
   let scoreTweenRaf = 0;
   let confTweenRaf = 0;
-  function tweenTo(target: number, kind: 'score' | 'conf') {
-    const startRaf = kind === 'score' ? scoreTweenRaf : confTweenRaf;
+  function tweenTo(target: number, kind: "score" | "conf") {
+    const startRaf = kind === "score" ? scoreTweenRaf : confTweenRaf;
     if (startRaf) cancelAnimationFrame(startRaf);
 
     const step = () => {
-      const cur = kind === 'score' ? riskScoreSmooth : confidenceSmooth;
+      const cur = kind === "score" ? riskScoreSmooth : confidenceSmooth;
       const next = cur + (target - cur) * 0.18;
-      if (kind === 'score') riskScoreSmooth = next;
+      if (kind === "score") riskScoreSmooth = next;
       else confidenceSmooth = next;
 
       if (Math.abs(target - next) < 0.08) {
-        if (kind === 'score') riskScoreSmooth = target;
+        if (kind === "score") riskScoreSmooth = target;
         else confidenceSmooth = target;
-        if (kind === 'score') scoreTweenRaf = 0;
+        if (kind === "score") scoreTweenRaf = 0;
         else confTweenRaf = 0;
         return;
       }
       const id = requestAnimationFrame(step);
-      if (kind === 'score') scoreTweenRaf = id;
+      if (kind === "score") scoreTweenRaf = id;
       else confTweenRaf = id;
     };
 
     const id = requestAnimationFrame(step);
-    if (kind === 'score') scoreTweenRaf = id;
+    if (kind === "score") scoreTweenRaf = id;
     else confTweenRaf = id;
   }
 
   $effect(() => {
     const t = riskScoreTarget;
-    if (!t && scan.phase === 'IDLE') {
+    if (!t && scan.phase === "IDLE") {
       riskScoreSmooth = 0;
       return;
     }
-    tweenTo(Math.max(0, Math.min(100, t)), 'score');
+    tweenTo(Math.max(0, Math.min(100, t)), "score");
   });
 
   $effect(() => {
     const t = confidenceTarget;
-    if (!t && scan.phase === 'IDLE') {
+    if (!t && scan.phase === "IDLE") {
       confidenceSmooth = 0;
       return;
     }
-    tweenTo(Math.max(0, Math.min(100, t)), 'conf');
+    tweenTo(Math.max(0, Math.min(100, t)), "conf");
   });
 
-  let confidenceBarTone = $derived(riskScoreTarget > 70 ? 'danger' : riskScoreTarget <= 40 ? 'safe' : 'warn');
+  let confidenceBarTone = $derived(
+    riskScoreTarget > 70 ? "danger" : riskScoreTarget <= 40 ? "safe" : "warn",
+  );
 
   const ensemble = new EnsembleManager();
 
@@ -157,8 +181,12 @@
       maskJitterMaxScore?: number;
     },
     exportExtras?: {
-      rppgPrecomputed?: import('$lib/forensics/rppgSignal').RppgAnalysisResult | null;
-      containerPrecomputed?: import('$lib/forensics/mp4BoxForensics').Mp4ForensicResult | null;
+      rppgPrecomputed?:
+        | import("$lib/forensics/rppgSignal").RppgAnalysisResult
+        | null;
+      containerPrecomputed?:
+        | import("$lib/forensics/mp4BoxForensics").Mp4ForensicResult
+        | null;
       lowLevelForensic?: {
         prnuResidualRisk0to100: number;
         prnuResidualMetrics: unknown;
@@ -167,7 +195,7 @@
         dctDoubleQuantMetrics: unknown;
         dctDoubleQuantNotes: string[];
       } | null;
-    }
+    },
   ) {
     const rf = Number(frameResult.reliableFaceFrames ?? 0);
     const bc = Number(frameResult.blinkCount ?? 0);
@@ -206,7 +234,7 @@
       roiEdgeFace: Number(frameResult.roiEdgeFace ?? 0),
       roiEdgeBg: Number(frameResult.roiEdgeBg ?? 0),
       videoPortraitSyntheticHint: portraitHintStrict,
-      videoPolishedRoiSyntheticHint: portraitHintPolishedRoi
+      videoPolishedRoiSyntheticHint: portraitHintPolishedRoi,
     };
     const L = exportExtras?.lowLevelForensic;
     if (L) {
@@ -228,8 +256,8 @@
         minFaceConfidence: minC,
         maxLandmarkJitter: maxJ,
         blinkCount: bc,
-        maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0)
-      }
+        maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0),
+      },
     };
     if (!exportExtras) return base;
     const adv: Record<string, unknown> = {};
@@ -244,25 +272,28 @@
   function toEnsembleVotesExport(votes: unknown) {
     const arr = Array.isArray(votes) ? (votes as any[]) : [];
     return arr.map((v) => {
-      const fake = Math.max(0, Math.min(100, Number(v?.fakeScore0to100 ?? v?.fake ?? 0)));
+      const fake = Math.max(
+        0,
+        Math.min(100, Number(v?.fakeScore0to100 ?? v?.fake ?? 0)),
+      );
       const real = Math.max(0, Math.min(100, 100 - fake));
       return {
-        key: String(v?.key ?? ''),
-        label: String(v?.label ?? v?.key ?? 'unknown'),
+        key: String(v?.key ?? ""),
+        label: String(v?.label ?? v?.key ?? "unknown"),
         fake,
         real,
         weight: Number(v?.weight ?? 0),
         applicable: Boolean(v?.applicable ?? true),
-        notes: Array.isArray(v?.notes) ? v.notes.map(String) : []
+        notes: Array.isArray(v?.notes) ? v.notes.map(String) : [],
       };
     });
   }
 
   function downloadJsonFile(filename: string, payload: unknown) {
     const json = JSON.stringify(payload, null, 2);
-    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -273,16 +304,16 @@
 
   function exportAnalysisJson() {
     if (!selectedFile) return;
-    if (scan.phase !== 'COMPLETED') return;
+    if (scan.phase !== "COMPLETED") return;
 
     const payload = {
-      schema: 'kronos.analysis.v1',
+      schema: "kronos.analysis.v1",
       generatedAt: new Date().toISOString(),
       file: {
         name: selectedFile.name,
         sizeBytes: selectedFile.size,
-        kind: mediaKind ?? 'unknown',
-        mime: selectedFile.type || null
+        kind: mediaKind ?? "unknown",
+        mime: selectedFile.type || null,
       },
       verdict: scan.verdict,
       confidence: scan.confidence,
@@ -290,9 +321,11 @@
       reason: scan.reason,
       warnings: scan.warnings ?? [],
       completedAt: scan.completedAt ?? null,
-      ensembleVotes: Array.isArray((scan as any).ensembleVotes) ? (scan as any).ensembleVotes : [],
+      ensembleVotes: Array.isArray((scan as any).ensembleVotes)
+        ? (scan as any).ensembleVotes
+        : [],
       features:
-        mediaKind === 'image'
+        mediaKind === "image"
           ? {
               forensic: {
                 elaMean: Number(imageElaMean ?? 0),
@@ -303,7 +336,9 @@
                 edgeSharpnessMean: Number(imageEdgeSharpness ?? 0),
                 noiseMean: Number(imageNoiseMean ?? 0),
                 noiseUniformity: Number(imageNoiseUniformity ?? 0),
-                lightingInconsistencyScore: Number(imageLightingInconsistency ?? 0),
+                lightingInconsistencyScore: Number(
+                  imageLightingInconsistency ?? 0,
+                ),
                 edgePerfectionScore: Number(imageEdgePerfection ?? 0),
                 renderSignatureScore: Number(imageRenderSignature ?? 0),
                 roiFaceScore: Number(imageRoiFaceScore ?? 0),
@@ -317,12 +352,12 @@
                 frequencySynthetic: Boolean(imageFrequencySynthetic),
                 textureSynthetic: Boolean(imageTextureSynthetic),
                 edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic),
-                ...(imageLowLevelForensic ?? {})
-              }
+                ...(imageLowLevelForensic ?? {}),
+              },
             }
-          : mediaKind === 'video' && videoExportFeatures
+          : mediaKind === "video" && videoExportFeatures
             ? videoExportFeatures
-            : null
+            : null,
     };
 
     downloadJsonFile(`${selectedFile.name}.kronos.json`, payload);
@@ -330,16 +365,16 @@
 
   function __kronosGetExportPayload() {
     if (!selectedFile) return null;
-    if (scan.phase !== 'COMPLETED') return null;
+    if (scan.phase !== "COMPLETED") return null;
     // Reuse the exact same payload shape as the export button.
     const payload = {
-      schema: 'kronos.analysis.v1',
+      schema: "kronos.analysis.v1",
       generatedAt: new Date().toISOString(),
       file: {
         name: selectedFile.name,
         sizeBytes: selectedFile.size,
-        kind: mediaKind ?? 'unknown',
-        mime: selectedFile.type || null
+        kind: mediaKind ?? "unknown",
+        mime: selectedFile.type || null,
       },
       verdict: scan.verdict,
       confidence: scan.confidence,
@@ -347,9 +382,11 @@
       reason: scan.reason,
       warnings: scan.warnings ?? [],
       completedAt: scan.completedAt ?? null,
-      ensembleVotes: Array.isArray((scan as any).ensembleVotes) ? (scan as any).ensembleVotes : [],
+      ensembleVotes: Array.isArray((scan as any).ensembleVotes)
+        ? (scan as any).ensembleVotes
+        : [],
       features:
-        mediaKind === 'image'
+        mediaKind === "image"
           ? {
               forensic: {
                 elaMean: Number(imageElaMean ?? 0),
@@ -360,7 +397,9 @@
                 edgeSharpnessMean: Number(imageEdgeSharpness ?? 0),
                 noiseMean: Number(imageNoiseMean ?? 0),
                 noiseUniformity: Number(imageNoiseUniformity ?? 0),
-                lightingInconsistencyScore: Number(imageLightingInconsistency ?? 0),
+                lightingInconsistencyScore: Number(
+                  imageLightingInconsistency ?? 0,
+                ),
                 edgePerfectionScore: Number(imageEdgePerfection ?? 0),
                 renderSignatureScore: Number(imageRenderSignature ?? 0),
                 roiFaceScore: Number(imageRoiFaceScore ?? 0),
@@ -374,49 +413,60 @@
                 frequencySynthetic: Boolean(imageFrequencySynthetic),
                 textureSynthetic: Boolean(imageTextureSynthetic),
                 edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic),
-                ...(imageLowLevelForensic ?? {})
-              }
+                ...(imageLowLevelForensic ?? {}),
+              },
             }
-          : mediaKind === 'video' && videoExportFeatures
+          : mediaKind === "video" && videoExportFeatures
             ? videoExportFeatures
-            : null
+            : null,
     };
     return payload;
   }
 
   $effect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     (window as any).__kronosGetExportPayload = __kronosGetExportPayload;
   });
 
   function isAutomationRun() {
-    return typeof window !== 'undefined' && Boolean((window as any).__kronosAutomation);
+    return (
+      typeof window !== "undefined" &&
+      Boolean((window as any).__kronosAutomation)
+    );
   }
 
   let animatedLogIndex = $derived(
-    scan.phase === 'ANALYZING'
+    scan.phase === "ANALYZING"
       ? Math.min(
           scan.logs.length,
-          Math.floor((displayMillis / ANALYSIS_DURATION_MS) * scan.logs.length) + 1
+          Math.floor(
+            (displayMillis / ANALYSIS_DURATION_MS) * scan.logs.length,
+          ) + 1,
         )
-      : scan.phase === 'COMPLETED'
+      : scan.phase === "COMPLETED"
         ? scan.logs.length
-        : Math.max(2, Math.min(3, scan.logs.length))
+        : Math.max(2, Math.min(3, scan.logs.length)),
   );
 
   let telemetry = $derived(scan.logs.slice(0, Math.max(2, animatedLogIndex)));
   let verdictClass = $derived(
-    scan.verdict === 'VERIFICADO' ? 'safe' : scan.verdict === 'SOSPECHOSO' ? 'warn' : scan.verdict === 'ALERTA ROJA' ? 'danger' : 'safe'
+    scan.verdict === "VERIFICADO"
+      ? "safe"
+      : scan.verdict === "SOSPECHOSO"
+        ? "warn"
+        : scan.verdict === "ALERTA ROJA"
+          ? "danger"
+          : "safe",
   );
   let badgeLabel = $derived(scan.verdict ?? scan.phase);
 
   const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
-  const MODEL_BASE_URL = '/models';
+  const MODEL_BASE_URL = "/models";
   let modelsReady = $state(false);
   let modelLoading = $state(false);
   let modelProgress = $state(0);
-  let modelStatusText = $state('Cargando Redes Neuronales...');
+  let modelStatusText = $state("Cargando Redes Neuronales...");
   let lastLandmarks = $state<{ x: number; y: number }[] | null>(null);
   let jitterSeries = $state<number[]>([]);
   let scoreSeries = $state<number[]>([]);
@@ -424,36 +474,64 @@
   let lastFrameJitter = $state<number>(0);
 
   // Métricas UI (estilo Linear): simples, legibles, no “demasiado técnicas”
-  let isAudioModeUi = $derived(mediaKind === 'audio');
-  let isVideoModeUi = $derived(mediaKind === 'video');
+  let isAudioModeUi = $derived(mediaKind === "audio");
+  let isVideoModeUi = $derived(mediaKind === "video");
 
   // Indicadores (siempre en inglés, look de “system report”)
-  let metric1Label = $derived(isAudioModeUi ? 'Continuity' : 'Liveness Pattern');
-  let metric2Label = $derived(isAudioModeUi ? 'Naturalness' : 'Neural Mesh');
-  let metric3Label = $derived('Hash Integrity');
+  let metric1Label = $derived(
+    isAudioModeUi ? "Continuity" : "Liveness Pattern",
+  );
+  let metric2Label = $derived(isAudioModeUi ? "Naturalness" : "Neural Mesh");
+  let metric3Label = $derived("Hash Integrity");
 
-  let metric1Ok = $derived(isAudioModeUi ? !scan.warnings?.includes('Posible edición por cortes (Audio Continuidad)') : !scan.warnings?.includes('Patrón de Parpadeo Sintético'));
-  let metric2Ok = $derived(isAudioModeUi ? !scan.warnings?.includes('Naturalidad acústica atípica (posible TTS)') : true);
+  let metric1Ok = $derived(
+    isAudioModeUi
+      ? !scan.warnings?.includes(
+          "Posible edición por cortes (Audio Continuidad)",
+        )
+      : !scan.warnings?.includes("Patrón de Parpadeo Sintético"),
+  );
+  let metric2Ok = $derived(
+    isAudioModeUi
+      ? !scan.warnings?.includes("Naturalidad acústica atípica (posible TTS)")
+      : true,
+  );
 
   let metric1ScoreUi = $derived(metric1Ok ? 0.9 : 0.35);
   let metric2ScoreUi = $derived(
-    isAudioModeUi ? (metric2Ok ? 0.88 : 0.42) : clamp01((isVideoModeUi ? lastFrameScore : 0.85) - (isVideoModeUi ? lastFrameJitter * 2.2 : 0.05))
+    isAudioModeUi
+      ? metric2Ok
+        ? 0.88
+        : 0.42
+      : clamp01(
+          (isVideoModeUi ? lastFrameScore : 0.85) -
+            (isVideoModeUi ? lastFrameJitter * 2.2 : 0.05),
+        ),
   );
 
   let dataScoreUi = $derived(
     clamp01(
       0.92 -
-        (scan.warnings?.includes('Origen Digital No Verificado') ? 0.28 : 0) -
-        (scan.warnings?.includes('Origen: Software de Terceros detectado. Integridad de Cámara: Comprometida') ? 0.24 : 0) -
-        (scan.warnings?.includes('Auditoría en segundo plano no disponible (hash)') ? 0.18 : 0)
-    )
+        (scan.warnings?.includes("Origen Digital No Verificado") ? 0.28 : 0) -
+        (scan.warnings?.includes(
+          "Origen: Software de Terceros detectado. Integridad de Cámara: Comprometida",
+        )
+          ? 0.24
+          : 0) -
+        (scan.warnings?.includes(
+          "Auditoría en segundo plano no disponible (hash)",
+        )
+          ? 0.18
+          : 0),
+    ),
   );
 
   // Cache para el overlay de bordes (solo se actualiza durante el escaneo)
   let edgeOverlayCanvas: HTMLCanvasElement | null = null;
   let neckEdgeCanvas: HTMLCanvasElement | null = null;
   let roiTmpCanvas: HTMLCanvasElement | null = null;
-  let edgeOverlayRect: { x: number; y: number; w: number; h: number } | null = null;
+  let edgeOverlayRect: { x: number; y: number; w: number; h: number } | null =
+    null;
   let lastMaskJitterScore = 0;
 
   // Overlay ELA para imagen (solo durante escaneo)
@@ -497,46 +575,59 @@
 
   let mediaInfoReady = $state(false);
   let mediaInfoLoading = $state(false);
-  let mediaInfoInstance: { analyzeData: Function; close: Function } | null = null;
+  let mediaInfoInstance: { analyzeData: Function; close: Function } | null =
+    null;
 
   function normalizeUrl(raw: string) {
-    const s = (raw ?? '').trim();
-    if (!s) return '';
+    const s = (raw ?? "").trim();
+    if (!s) return "";
     try {
       // Permitimos que peguen sin protocolo (ej: youtube.com/...)
       const hasProto = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(s);
       const u = new URL(hasProto ? s : `https://${s}`);
-      if (!/^https?:$/.test(u.protocol)) return '';
+      if (!/^https?:$/.test(u.protocol)) return "";
       return u.toString();
     } catch {
-      return '';
+      return "";
     }
   }
 
   function classifyLink(url: string) {
-    if (!url) return { type: 'EMPTY' as const, label: '-', host: '' };
-    let host = '';
-    let path = '';
+    if (!url) return { type: "EMPTY" as const, label: "-", host: "" };
+    let host = "";
+    let path = "";
     try {
       const u = new URL(url);
-      host = (u.hostname ?? '').toLowerCase();
-      path = (u.pathname ?? '').toLowerCase();
+      host = (u.hostname ?? "").toLowerCase();
+      path = (u.pathname ?? "").toLowerCase();
     } catch {
-      return { type: 'INVALID' as const, label: $t('scanner.link.invalidShort'), host: '' };
+      return {
+        type: "INVALID" as const,
+        label: $t("scanner.link.invalidShort"),
+        host: "",
+      };
     }
 
-    const isYouTube = /(^|\.)youtube\.com$/.test(host) || host === 'youtu.be';
-    const isTikTok = /(^|\.)tiktok\.com$/.test(host) || host === 'vm.tiktok.com';
-    const isVimeo = /(^|\.)vimeo\.com$/.test(host) || /(^|\.)player\.vimeo\.com$/.test(host);
-    const isDirectMedia = /\.(mp4|webm|mov|mkv|avi|m4v|3gp|mp3|wav|m4a|jpg|jpeg|png|webp|gif|bmp|tif|tiff)(\?|#|$)/i.test(
-      path
-    );
+    const isYouTube = /(^|\.)youtube\.com$/.test(host) || host === "youtu.be";
+    const isTikTok =
+      /(^|\.)tiktok\.com$/.test(host) || host === "vm.tiktok.com";
+    const isVimeo =
+      /(^|\.)vimeo\.com$/.test(host) || /(^|\.)player\.vimeo\.com$/.test(host);
+    const isDirectMedia =
+      /\.(mp4|webm|mov|mkv|avi|m4v|3gp|mp3|wav|m4a|jpg|jpeg|png|webp|gif|bmp|tif|tiff)(\?|#|$)/i.test(
+        path,
+      );
 
-    if (isYouTube) return { type: 'PLATFORM' as const, label: 'YouTube', host };
-    if (isTikTok) return { type: 'PLATFORM' as const, label: 'TikTok', host };
-    if (isVimeo) return { type: 'PLATFORM' as const, label: 'Vimeo', host };
-    if (isDirectMedia) return { type: 'DIRECT' as const, label: $t('scanner.link.directFile'), host };
-    return { type: 'GENERIC' as const, label: host || 'Enlace', host };
+    if (isYouTube) return { type: "PLATFORM" as const, label: "YouTube", host };
+    if (isTikTok) return { type: "PLATFORM" as const, label: "TikTok", host };
+    if (isVimeo) return { type: "PLATFORM" as const, label: "Vimeo", host };
+    if (isDirectMedia)
+      return {
+        type: "DIRECT" as const,
+        label: $t("scanner.link.directFile"),
+        host,
+      };
+    return { type: "GENERIC" as const, label: host || "Enlace", host };
   }
 
   function pushSeries(series: number[], next: number, max = 64) {
@@ -545,11 +636,18 @@
     return arr;
   }
 
-  async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  async function withTimeout<T>(
+    p: Promise<T>,
+    ms: number,
+    label: string,
+  ): Promise<T> {
     let t: ReturnType<typeof setTimeout> | null = null;
     try {
       const timeout = new Promise<never>((_, reject) => {
-        t = setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+        t = setTimeout(
+          () => reject(new Error(`${label} timeout after ${ms}ms`)),
+          ms,
+        );
       });
       return await Promise.race([p, timeout]);
     } finally {
@@ -557,7 +655,12 @@
     }
   }
 
-  async function smoothProgressUntil(done: Promise<unknown>, minMs: number, fromProgress = 22, toProgress = 86) {
+  async function smoothProgressUntil(
+    done: Promise<unknown>,
+    minMs: number,
+    fromProgress = 22,
+    toProgress = 86,
+  ) {
     const startedAt = performance.now();
     let last = 0;
     while (true) {
@@ -576,11 +679,21 @@
     await done;
   }
 
-  async function ensureMinimumPremiumTime(startedAt: number, minMs: number, fromProgress = 24, toProgress = 92) {
+  async function ensureMinimumPremiumTime(
+    startedAt: number,
+    minMs: number,
+    fromProgress = 24,
+    toProgress = 92,
+  ) {
     const elapsed = performance.now() - startedAt;
     const remaining = Math.max(0, Math.floor(minMs - elapsed));
     if (remaining <= 0) return;
-    await smoothProgressUntil(Promise.resolve(), remaining, fromProgress, toProgress);
+    await smoothProgressUntil(
+      Promise.resolve(),
+      remaining,
+      fromProgress,
+      toProgress,
+    );
   }
 
   function startTelemetryHeartbeat() {
@@ -590,7 +703,10 @@
       const elapsed = performance.now() - startedAt;
       // Solo necesitamos "movimiento" en UI mientras se resuelven tareas largas previas
       const cappedMillis = Math.min(ANALYSIS_DURATION_MS, elapsed);
-      const cappedProgress = Math.min(98, 15 + (cappedMillis / ANALYSIS_DURATION_MS) * 83);
+      const cappedProgress = Math.min(
+        98,
+        15 + (cappedMillis / ANALYSIS_DURATION_MS) * 83,
+      );
       tickScan(Math.floor(cappedMillis), cappedProgress);
     }, 220);
   }
@@ -604,27 +720,33 @@
 
   function ensureAuditWorker() {
     if (auditWorker) return auditWorker;
-    auditWorker = new Worker(new URL('$lib/workers/kronosAudit.worker.ts', import.meta.url), { type: 'module' });
+    auditWorker = new Worker(
+      new URL("$lib/workers/kronosAudit.worker.ts", import.meta.url),
+      { type: "module" },
+    );
     auditWorker.onmessage = (ev: MessageEvent<any>) => {
       const msg = ev.data;
       if (!msg?.id) return;
 
-      if (msg.type === 'progress') {
-        if (msg.stage === 'HASHING') appendLog('HASHING_EVIDENCE_SHA256...');
-        if (msg.stage === 'MEDIAINFO') appendLog('AUDITING_MEDIAINFO_WASM...');
-        if (msg.stage === 'DONE') appendLog('AUDIT_CHAIN_READY');
+      if (msg.type === "progress") {
+        if (msg.stage === "HASHING") appendLog("HASHING_EVIDENCE_SHA256...");
+        if (msg.stage === "MEDIAINFO") appendLog("AUDITING_MEDIAINFO_WASM...");
+        if (msg.stage === "DONE") appendLog("AUDIT_CHAIN_READY");
         return;
       }
 
       const pending = auditPending.get(msg.id);
       if (!pending) return;
 
-      if (msg.type === 'result') {
+      if (msg.type === "result") {
         auditPending.delete(msg.id);
-        pending.resolve({ hashHex: msg.hashHex ?? '', mi: msg.mi ?? { thirdParty: false, encoderHints: [] } });
-      } else if (msg.type === 'error') {
+        pending.resolve({
+          hashHex: msg.hashHex ?? "",
+          mi: msg.mi ?? { thirdParty: false, encoderHints: [] },
+        });
+      } else if (msg.type === "error") {
         auditPending.delete(msg.id);
-        pending.reject(new Error(msg.message ?? 'Worker audit error'));
+        pending.reject(new Error(msg.message ?? "Worker audit error"));
       }
     };
     auditWorker.onerror = (e) => {
@@ -637,15 +759,23 @@
   async function runWorkerAudit(file: File, doMediaInfo: boolean) {
     const w = ensureAuditWorker();
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const p = new Promise<{ hashHex: string; mi: { thirdParty: boolean; encoderHints: string[] } }>((resolve, reject) => {
+    const p = new Promise<{
+      hashHex: string;
+      mi: { thirdParty: boolean; encoderHints: string[] };
+    }>((resolve, reject) => {
       auditPending.set(id, { resolve, reject });
     });
-    w.postMessage({ type: 'audit', id, file, doMediaInfo });
+    w.postMessage({ type: "audit", id, file, doMediaInfo });
     return await p;
   }
 
-  function sparklinePoints(values: number[], w: number, h: number, clampMax: number) {
-    if (!values.length) return '';
+  function sparklinePoints(
+    values: number[],
+    w: number,
+    h: number,
+    clampMax: number,
+  ) {
+    if (!values.length) return "";
     const min = 0;
     const max = clampMax || Math.max(1e-6, ...values);
     const usable = values.slice(-64);
@@ -658,7 +788,7 @@
         const y = h - t * h;
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       })
-      .join(' ');
+      .join(" ");
   }
 
   async function ensureModelsLoaded() {
@@ -666,13 +796,16 @@
     modelLoading = true;
     modelProgress = 0;
     try {
-      modelStatusText = 'Cargando Redes Neuronales...';
+      modelStatusText = "Cargando Redes Neuronales...";
       // Empuja progreso/millis para que la Telemetría no se quede "congelada"
       // mientras se cargan modelos (client-side).
       tickScan(0, 15);
       await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_BASE_URL);
       modelProgress = 55;
-      tickScan(Math.floor((modelProgress / 100) * 9000), 15 + Math.floor(modelProgress * 0.24));
+      tickScan(
+        Math.floor((modelProgress / 100) * 9000),
+        15 + Math.floor(modelProgress * 0.24),
+      );
       await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_BASE_URL);
       modelProgress = 100;
       modelsReady = true;
@@ -682,7 +815,7 @@
     }
   }
 
-  let fileHashHex = $state<string>('');
+  let fileHashHex = $state<string>("");
 
   const yieldToUI = () =>
     new Promise<void>((resolve) => {
@@ -696,33 +829,35 @@
     await yieldToUI();
     const buffer = await file.arrayBuffer();
     await yieldToUI();
-    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const digest = await crypto.subtle.digest("SHA-256", buffer);
     await yieldToUI();
     const bytes = new Uint8Array(digest);
     return Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   function verdictLabel(v: typeof scan.verdict) {
-    if (v === 'ALERTA ROJA') return 'MANIPULADO';
-    if (v === 'SOSPECHOSO') return 'SOSPECHOSO';
-    if (v === 'VERIFICADO') return 'AUTÉNTICO';
-    return 'PENDIENTE';
+    if (v === "ALERTA ROJA") return "MANIPULADO";
+    if (v === "SOSPECHOSO") return "SOSPECHOSO";
+    if (v === "VERIFICADO") return "AUTÉNTICO";
+    return "PENDIENTE";
   }
 
   function verdictLabelUi(v: typeof scan.verdict) {
-    if (v === 'ALERTA ROJA') return 'ALERTA DE DEEPFAKE';
-    if (v === 'SOSPECHOSO') return 'SOSPECHOSO';
-    if (v === 'VERIFICADO') return 'VERIFICADO';
-    return '-';
+    if (v === "ALERTA ROJA") return "ALERTA DE DEEPFAKE";
+    if (v === "SOSPECHOSO") return "SOSPECHOSO";
+    if (v === "VERIFICADO") return "VERIFICADO";
+    return "-";
   }
 
-  function verdictFromScore(score0to100: number): 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' {
+  function verdictFromScore(
+    score0to100: number,
+  ): "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" {
     const s = Math.max(0, Math.min(100, score0to100));
-    if (s > 70) return 'ALERTA ROJA';
-    if (s >= 40) return 'SOSPECHOSO';
-    return 'VERIFICADO';
+    if (s > 70) return "ALERTA ROJA";
+    if (s >= 40) return "SOSPECHOSO";
+    return "VERIFICADO";
   }
 
   function confidenceFromScore(score0to100: number) {
@@ -737,7 +872,9 @@
   async function decodeAudioBufferFromFile(file: File) {
     // decodeAudioData soporta muchos formatos típicos según navegador (mp3/wav/aac/m4a/ogg).
     const arrayBuffer = await file.arrayBuffer();
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const ctx = new (
+      window.AudioContext || (window as any).webkitAudioContext
+    )();
     try {
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
       return audioBuffer;
@@ -805,7 +942,8 @@
     const hfMed = median(hf);
 
     // “Bandlimit/codec agresivo” proxy: muy poca alta frecuencia relativo a energía
-    const bandlimitScore = rmsMed > 0 ? Math.max(0, Math.min(1, 1 - hfMed / (rmsMed + 1e-6))) : 0;
+    const bandlimitScore =
+      rmsMed > 0 ? Math.max(0, Math.min(1, 1 - hfMed / (rmsMed + 1e-6))) : 0;
 
     // Discontinuidades (cortes/edición): saltos abruptos de RMS + proxy HF
     let cuts = 0;
@@ -881,30 +1019,38 @@
       editCuts: cuts,
       cutTimes,
       ttsLike,
-      digitalSilenceGaps: gapCount
+      digitalSilenceGaps: gapCount,
     };
   }
 
-  function auditStatus(label: string, status: 'OK' | 'ALERTA' | 'NA', detail: string) {
+  function auditStatus(
+    label: string,
+    status: "OK" | "ALERTA" | "NA",
+    detail: string,
+  ) {
     return { label, status, detail };
   }
 
   function buildAuditTable(warnings: string[]) {
     const w = warnings ?? [];
-    const isImageMode = mediaKind === 'image';
-    const isAudioMode = mediaKind === 'audio';
-    const isTextMode = mediaKind === 'text';
+    const isImageMode = mediaKind === "image";
+    const isAudioMode = mediaKind === "audio";
+    const isTextMode = mediaKind === "text";
 
     const biometriaOk =
-      !w.includes('Patrón de Parpadeo Sintético') &&
-      !w.includes('Inconsistencia de Bordes (Mask Jitter)') &&
-      !w.some((x) => x.toLowerCase().includes('confianza de deteccion facial'));
+      !w.includes("Patrón de Parpadeo Sintético") &&
+      !w.includes("Inconsistencia de Bordes (Mask Jitter)") &&
+      !w.some((x) => x.toLowerCase().includes("confianza de deteccion facial"));
 
-    const bordesOk = !w.includes('Inconsistencia de Bordes (Mask Jitter)');
+    const bordesOk = !w.includes("Inconsistencia de Bordes (Mask Jitter)");
 
-    const hasSyntheticGeneration = w.includes('Generada sintéticamente');
-    const hasEdgeSoftening = w.includes('Bordes Suavizados Artificialmente (Edge Softening)');
-    const hasLlmTextPattern = w.includes('Patrón de Conectores Lógicos Repetitivos (LLM)');
+    const hasSyntheticGeneration = w.includes("Generada sintéticamente");
+    const hasEdgeSoftening = w.includes(
+      "Bordes Suavizados Artificialmente (Edge Softening)",
+    );
+    const hasLlmTextPattern = w.includes(
+      "Patrón de Conectores Lógicos Repetitivos (LLM)",
+    );
 
     // Política anti-falsos-positivos:
     // - En vídeo/imagen/audio es normal que falten EXIF o que plataformas recorten metadatos.
@@ -912,8 +1058,12 @@
     //   o cuando el pipeline offthread falló.
     const metadatosOk = isTextMode
       ? !hasLlmTextPattern
-      : !w.includes('Origen: Software de Terceros detected. Integridad de Cámara: Comprometida') &&
-          !w.some((x) => x.startsWith('Auditoría en segundo plano no disponible'));
+      : !w.includes(
+          "Origen: Software de Terceros detected. Integridad de Cámara: Comprometida",
+        ) &&
+        !w.some((x) =>
+          x.startsWith("Auditoría en segundo plano no disponible"),
+        );
 
     // Coherencia lumínica:
     // - Video: reutiliza el proxy de bordes (Mask Jitter).
@@ -923,69 +1073,81 @@
       ? !hasSyntheticGeneration && !hasEdgeSoftening
       : isTextMode
         ? !hasLlmTextPattern
-        : !w.includes('Inconsistencia de Bordes (Mask Jitter)');
+        : !w.includes("Inconsistencia de Bordes (Mask Jitter)");
 
-    const biometriaStatus = isImageMode || isTextMode || isAudioMode ? 'NA' : biometriaOk ? 'OK' : 'ALERTA';
-    const bordesStatus = isImageMode || isTextMode || isAudioMode ? 'NA' : bordesOk ? 'OK' : 'ALERTA';
-    const luminicaStatus = luminicaOk ? 'OK' : 'ALERTA';
+    const biometriaStatus =
+      isImageMode || isTextMode || isAudioMode
+        ? "NA"
+        : biometriaOk
+          ? "OK"
+          : "ALERTA";
+    const bordesStatus =
+      isImageMode || isTextMode || isAudioMode
+        ? "NA"
+        : bordesOk
+          ? "OK"
+          : "ALERTA";
+    const luminicaStatus = luminicaOk ? "OK" : "ALERTA";
 
     return [
       auditStatus(
-        'Biometría',
+        "Biometría",
         biometriaStatus,
         isImageMode
-          ? 'No evaluado en modo imagen (EAR/landmarks no aplica)'
+          ? "No evaluado en modo imagen (EAR/landmarks no aplica)"
           : isAudioMode
-            ? 'No evaluado en modo audio (biometría facial no aplica)'
+            ? "No evaluado en modo audio (biometría facial no aplica)"
             : isTextMode
-              ? 'No evaluado en modo texto'
+              ? "No evaluado en modo texto"
               : biometriaOk
-                ? 'Landmarks/EAR estables'
-                : 'Señales biométricas anómalas'
+                ? "Landmarks/EAR estables"
+                : "Señales biométricas anómalas",
       ),
       auditStatus(
-        'Integridad de Bordes',
+        "Integridad de Bordes",
         bordesStatus,
         isImageMode
-          ? 'No evaluado en modo imagen (ELA/ruido)'
+          ? "No evaluado en modo imagen (ELA/ruido)"
           : isAudioMode
-            ? 'No evaluado en modo audio (bordes no aplica)'
-          : isTextMode
-            ? 'No evaluado en modo texto'
-            : bordesOk ? 'Sobel sin halos detectables' : 'Halo/ruido diferencial en mandíbula/frente'
+            ? "No evaluado en modo audio (bordes no aplica)"
+            : isTextMode
+              ? "No evaluado en modo texto"
+              : bordesOk
+                ? "Sobel sin halos detectables"
+                : "Halo/ruido diferencial en mandíbula/frente",
       ),
       auditStatus(
-        'Metadatos',
-        metadatosOk ? 'OK' : 'ALERTA',
+        "Metadatos",
+        metadatosOk ? "OK" : "ALERTA",
         isTextMode
           ? metadatosOk
-            ? 'Patrones discursivos no estereotipados'
-            : 'Se detectaron patrones LLM en conectores lógicos'
+            ? "Patrones discursivos no estereotipados"
+            : "Se detectaron patrones LLM en conectores lógicos"
           : isAudioMode
             ? metadatosOk
-              ? 'Codificación consistente'
-              : 'Rastros de software o metadatos incompletos'
-          : metadatosOk
-            ? 'Cámara consistente'
-            : 'Rastros de software o metadatos incompletos'
+              ? "Codificación consistente"
+              : "Rastros de software o metadatos incompletos"
+            : metadatosOk
+              ? "Cámara consistente"
+              : "Rastros de software o metadatos incompletos",
       ),
       auditStatus(
-        'Coherencia Lumínica',
+        "Coherencia Lumínica",
         luminicaStatus,
-        luminicaStatus === 'OK'
-          ? 'Gradiente consistente'
+        luminicaStatus === "OK"
+          ? "Gradiente consistente"
           : isTextMode
-            ? 'Estilo y estructura compatibles con redacción LLM'
+            ? "Estilo y estructura compatibles con redacción LLM"
             : isAudioMode
-              ? 'Señales de edición/compresión compatibles con síntesis o manipulación'
-            : 'Señales ELA/frecuencia/ruido compatibles con síntesis o bordes suavizados'
-      )
+              ? "Señales de edición/compresión compatibles con síntesis o manipulación"
+              : "Señales ELA/frecuencia/ruido compatibles con síntesis o bordes suavizados",
+      ),
     ];
   }
 
   function downloadForensicPdf() {
     if (!selectedFile) return;
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const margin = 48;
     let y = 56;
@@ -999,24 +1161,24 @@
 
     // Header
     doc.setFillColor(2, 2, 2);
-    doc.rect(0, 0, pageW, 90, 'F');
+    doc.rect(0, 0, pageW, 90, "F");
     doc.setTextColor(240, 240, 240);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.text('KRONOS', margin, 54);
+    doc.text("KRONOS", margin, 54);
     doc.setFontSize(11);
     doc.setTextColor(240, 240, 240);
-    doc.setFont('helvetica', 'normal');
-    doc.text('KRONOS Certificado de Validación de Integridad', margin, 74);
+    doc.setFont("helvetica", "normal");
+    doc.text("KRONOS Certificado de Validación de Integridad", margin, 74);
 
     // Seal (coloreado por veredicto)
     const vLabel = verdictLabel(scan.verdict);
     const seal =
-      vLabel === 'AUTÉNTICO'
+      vLabel === "AUTÉNTICO"
         ? { r: 34, g: 197, b: 94 }
-        : vLabel === 'SOSPECHOSO'
+        : vLabel === "SOSPECHOSO"
           ? { r: 245, g: 158, b: 11 }
-          : vLabel === 'MANIPULADO'
+          : vLabel === "MANIPULADO"
             ? { r: 230, g: 57, b: 70 }
             : { r: 0, g: 229, b: 255 };
 
@@ -1024,41 +1186,55 @@
     doc.setLineWidth(2);
     const sealCx = pageW - margin - 62;
     const sealCy = 50;
-    doc.circle(sealCx, sealCy, 28, 'S');
-    doc.setFont('helvetica', 'bold');
+    doc.circle(sealCx, sealCy, 28, "S");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(seal.r, seal.g, seal.b);
-    const sealTop = vLabel === 'MANIPULADO' ? 'ALERTA' : vLabel === 'SOSPECHOSO' ? 'SOSPECHA' : 'VALIDADO';
+    const sealTop =
+      vLabel === "MANIPULADO"
+        ? "ALERTA"
+        : vLabel === "SOSPECHOSO"
+          ? "SOSPECHA"
+          : "VALIDADO";
     // Centrado premium dentro del sello (horizontal + vertical)
-    doc.text(sealTop, sealCx, sealCy - 4, { align: 'center', baseline: 'middle' });
+    doc.text(sealTop, sealCx, sealCy - 4, {
+      align: "center",
+      baseline: "middle",
+    });
     doc.setFontSize(7);
-    doc.text('INTEGRIDAD', sealCx, sealCy + 8, { align: 'center', baseline: 'middle' });
+    doc.text("INTEGRIDAD", sealCx, sealCy + 8, {
+      align: "center",
+      baseline: "middle",
+    });
 
     y = 120;
     doc.setTextColor(20, 20, 20);
     doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Archivo', margin, y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont("helvetica", "bold");
+    doc.text("Archivo", margin, y);
+    doc.setFont("helvetica", "normal");
     {
-      const nameLines = doc.splitTextToSize(selectedFile.name, pageW - margin * 2 - 70);
+      const nameLines = doc.splitTextToSize(
+        selectedFile.name,
+        pageW - margin * 2 - 70,
+      );
       doc.text(nameLines, margin + 70, y);
       y += Math.max(0, (nameLines.length - 1) * 12);
     }
     y += 22;
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('SHA-256', margin, y);
-    doc.setFont('courier', 'normal');
+    doc.setFont("helvetica", "bold");
+    doc.text("SHA-256", margin, y);
+    doc.setFont("courier", "normal");
     doc.setFontSize(9);
-    const hash = fileHashHex || '-';
+    const hash = fileHashHex || "-";
     {
       const hashLines = doc.splitTextToSize(hash, pageW - margin * 2 - 70);
       doc.text(hashLines, margin + 70, y);
       y += Math.max(0, (hashLines.length - 1) * 10);
     }
     doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont("helvetica", "normal");
     y += 26;
 
     // Divider
@@ -1068,66 +1244,85 @@
 
     // Tipo de evidencia
     const evidenceType =
-      mediaKind === 'video'
-        ? 'VIDEO'
-        : mediaKind === 'image'
-          ? 'IMAGEN'
-          : mediaKind === 'audio'
-            ? 'AUDIO'
-            : mediaKind === 'text'
-              ? 'TEXTO'
-              : '-';
-    doc.setFont('helvetica', 'bold');
+      mediaKind === "video"
+        ? "VIDEO"
+        : mediaKind === "image"
+          ? "IMAGEN"
+          : mediaKind === "audio"
+            ? "AUDIO"
+            : mediaKind === "text"
+              ? "TEXTO"
+              : "-";
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text('Tipo de Evidencia', margin, y);
-    doc.setFont('helvetica', 'normal');
+    doc.text("Tipo de Evidencia", margin, y);
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     doc.text(evidenceType, margin + 150, y);
     y += 18;
 
     // Verdict
-    doc.setFont('helvetica', 'bold');
-    doc.text('Veredicto Final', margin, y);
+    doc.setFont("helvetica", "bold");
+    doc.text("Veredicto Final", margin, y);
     const badgeX = margin + 110;
     // Badge ajustado al texto (más premium, sin invadir líneas)
     doc.setFontSize(11);
     const badgeTextW = doc.getTextWidth(vLabel);
     const badgeW = Math.min(220, Math.max(112, badgeTextW + 28));
     const badgeH = 18;
-    if (vLabel === 'MANIPULADO') doc.setFillColor(230, 57, 70);
-    else if (vLabel === 'SOSPECHOSO') doc.setFillColor(245, 158, 11);
+    if (vLabel === "MANIPULADO") doc.setFillColor(230, 57, 70);
+    else if (vLabel === "SOSPECHOSO") doc.setFillColor(245, 158, 11);
     else doc.setFillColor(34, 197, 94);
     const badgeMidY = y - 4;
     const badgeY = badgeMidY - badgeH / 2;
-    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 9, 9, 'F');
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 9, 9, "F");
     doc.setTextColor(2, 2, 2);
-    doc.text(vLabel, badgeX + badgeW / 2, badgeMidY, { align: 'center', baseline: 'middle' });
+    doc.text(vLabel, badgeX + badgeW / 2, badgeMidY, {
+      align: "center",
+      baseline: "middle",
+    });
     doc.setTextColor(20, 20, 20);
     doc.setFontSize(12);
     y += 30;
 
     // Bloque de métricas (tipo-específico)
-    if (mediaKind === 'image') {
+    if (mediaKind === "image") {
       ensureSpace(120);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text('Métricas de Imagen', margin, y);
-      doc.setFont('courier', 'normal');
+      doc.text("Métricas de Imagen", margin, y);
+      doc.setFont("courier", "normal");
       doc.setFontSize(8.5);
       y += 14;
-      if ((scan.warnings ?? []).includes('Evidencia de edición o contenido gráfico (UI/CGI)')) {
-        doc.text('PROBABLE_TIPO: CONTENIDO_GRAFICO_UI_CGI', margin, y);
+      if (
+        (scan.warnings ?? []).includes(
+          "Evidencia de edición o contenido gráfico (UI/CGI)",
+        )
+      ) {
+        doc.text("PROBABLE_TIPO: CONTENIDO_GRAFICO_UI_CGI", margin, y);
         y += 12;
       }
-      if ((scan.warnings ?? []).includes('Posible edición local / composición (ELA por regiones)')) {
-        doc.text('PROBABLE_TIPO: EDICION_LOCAL_COMPOSITE', margin, y);
+      if (
+        (scan.warnings ?? []).includes(
+          "Posible edición local / composición (ELA por regiones)",
+        )
+      ) {
+        doc.text("PROBABLE_TIPO: EDICION_LOCAL_COMPOSITE", margin, y);
         y += 12;
       }
       doc.text(`ELA_MEAN: ${(imageElaMean * 100).toFixed(1)}`, margin, y);
       y += 12;
-      doc.text(`ELA_UNIFORMITY: ${(imageElaUniformity * 100).toFixed(1)}`, margin, y);
+      doc.text(
+        `ELA_UNIFORMITY: ${(imageElaUniformity * 100).toFixed(1)}`,
+        margin,
+        y,
+      );
       y += 12;
-      doc.text(`TEXTURE_REPEAT_SCORE: ${(imageTextureRepeatScore * 100).toFixed(1)}`, margin, y);
+      doc.text(
+        `TEXTURE_REPEAT_SCORE: ${(imageTextureRepeatScore * 100).toFixed(1)}`,
+        margin,
+        y,
+      );
       y += 12;
       doc.text(`FREQ_PEAKINESS: ${imageFreqPeakiness.toFixed(4)}`, margin, y);
       y += 12;
@@ -1137,20 +1332,32 @@
       y += 12;
       doc.text(`NOISE_MEAN: ${imageNoiseMean.toFixed(4)}`, margin, y);
       y += 12;
-      doc.text(`NOISE_UNIFORMITY: ${(imageNoiseUniformity * 100).toFixed(1)}`, margin, y);
+      doc.text(
+        `NOISE_UNIFORMITY: ${(imageNoiseUniformity * 100).toFixed(1)}`,
+        margin,
+        y,
+      );
       y += 12;
-      doc.text(`LIGHTING_INCONSISTENCY: ${imageLightingInconsistency.toFixed(3)}`, margin, y);
+      doc.text(
+        `LIGHTING_INCONSISTENCY: ${imageLightingInconsistency.toFixed(3)}`,
+        margin,
+        y,
+      );
       y += 12;
       doc.text(`EDGE_PERFECTION: ${imageEdgePerfection.toFixed(3)}`, margin, y);
       y += 12;
-      doc.text(`RENDER_SIGNATURE: ${imageRenderSignature.toFixed(3)}`, margin, y);
+      doc.text(
+        `RENDER_SIGNATURE: ${imageRenderSignature.toFixed(3)}`,
+        margin,
+        y,
+      );
       y += 18;
-    } else if (mediaKind === 'audio') {
+    } else if (mediaKind === "audio") {
       ensureSpace(120);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text('Métricas de Audio', margin, y);
-      doc.setFont('courier', 'normal');
+      doc.text("Métricas de Audio", margin, y);
+      doc.setFont("courier", "normal");
       doc.setFontSize(8.5);
       y += 14;
       doc.text(`DURATION_SEC: ${audioDurationSec.toFixed(2)}`, margin, y);
@@ -1165,19 +1372,22 @@
       y += 12;
       doc.text(`EDIT_CUTS: ${audioEditCuts}`, margin, y);
       y += 18;
-    } else if (mediaKind === 'text') {
+    } else if (mediaKind === "text") {
       ensureSpace(80);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text('Métricas de Texto', margin, y);
-      doc.setFont('courier', 'normal');
+      doc.text("Métricas de Texto", margin, y);
+      doc.setFont("courier", "normal");
       doc.setFontSize(8.5);
       y += 14;
       doc.text(`CONNECTOR_SCORE: ${textConnectorScore.toFixed(4)}`, margin, y);
       y += 12;
-      const preview = (textTopConnectors ?? []).slice(0, 6).join(' | ');
+      const preview = (textTopConnectors ?? []).slice(0, 6).join(" | ");
       const textW = pageW - margin * 2;
-      const connectorLines = doc.splitTextToSize(`TOP_CONNECTORS: ${preview || '-'}`, textW);
+      const connectorLines = doc.splitTextToSize(
+        `TOP_CONNECTORS: ${preview || "-"}`,
+        textW,
+      );
       doc.text(connectorLines, margin, y);
       y += Math.max(0, (connectorLines.length - 1) * 12);
       y += 18;
@@ -1185,8 +1395,8 @@
 
     // Table (4 niveles)
     ensureSpace(18 + 32 * 5 + 24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Niveles de Auditoría', margin, y);
+    doc.setFont("helvetica", "bold");
+    doc.text("Niveles de Auditoría", margin, y);
     y += 18;
 
     const tableX = margin;
@@ -1200,12 +1410,12 @@
     doc.setDrawColor(26, 26, 26);
     doc.setLineWidth(1);
     doc.setFillColor(10, 10, 10);
-    doc.rect(tableX, y, tableW, rowH, 'F');
+    doc.rect(tableX, y, tableW, rowH, "F");
     doc.setTextColor(240, 240, 240);
     doc.setFontSize(10);
-    doc.text('Área', tableX + 12, y + 20);
-    doc.text('Estado', tableX + col1 + 12, y + 20);
-    doc.text('Detalle', tableX + col1 + col2 + 12, y + 20);
+    doc.text("Área", tableX + 12, y + 20);
+    doc.text("Estado", tableX + col1 + 12, y + 20);
+    doc.text("Detalle", tableX + col1 + col2 + 12, y + 20);
     y += rowH;
 
     for (const r of rows) {
@@ -1213,23 +1423,25 @@
       const idx = rows.indexOf(r);
       if (idx % 2 === 0) {
         doc.setFillColor(248, 248, 248);
-        doc.rect(tableX, y, tableW, rowH, 'F');
+        doc.rect(tableX, y, tableW, rowH, "F");
       }
       doc.setDrawColor(230, 230, 230);
-      doc.rect(tableX, y, tableW, rowH, 'S');
+      doc.rect(tableX, y, tableW, rowH, "S");
       doc.setTextColor(20, 20, 20);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.text(r.label, tableX + 12, y + 20);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       const tableStatus = r.status;
-      if (tableStatus === 'OK') doc.setTextColor(20, 140, 60);
-      else if (tableStatus === 'ALERTA') doc.setTextColor(230, 57, 70);
+      if (tableStatus === "OK") doc.setTextColor(20, 140, 60);
+      else if (tableStatus === "ALERTA") doc.setTextColor(230, 57, 70);
       else doc.setTextColor(130, 130, 130);
       doc.text(r.status, tableX + col1 + 12, y + 20);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont("helvetica", "normal");
       doc.setTextColor(20, 20, 20);
       doc.setFontSize(9.5);
-      doc.text(r.detail, tableX + col1 + col2 + 12, y + 20, { maxWidth: col3 - 18 });
+      doc.text(r.detail, tableX + col1 + col2 + 12, y + 20, {
+        maxWidth: col3 - 18,
+      });
       doc.setFontSize(10);
       y += rowH;
     }
@@ -1237,13 +1449,15 @@
     // Warnings block
     y += 18;
     ensureSpace(80);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(20, 20, 20);
-    doc.text('Avisos', margin, y);
+    doc.text("Avisos", margin, y);
     y += 14;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const warn = (scan.warnings ?? []).length ? scan.warnings ?? [] : ['Ninguno'];
+    const warn = (scan.warnings ?? []).length
+      ? (scan.warnings ?? [])
+      : ["Ninguno"];
     for (const w of warn) {
       const lines = doc.splitTextToSize(`- ${w}`, tableW);
       doc.text(lines, margin, y);
@@ -1254,7 +1468,7 @@
     // Footer
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text('KRONOS v1.0 - Secured by Neural Encryption', margin, pageH - 28);
+    doc.text("KRONOS v1.0 - Secured by Neural Encryption", margin, pageH - 28);
 
     doc.save(`KRONOS-Forensic-Report-${Date.now()}.pdf`);
   }
@@ -1262,14 +1476,22 @@
   async function readCameraMetadata(file: File) {
     try {
       const meta = await exifr.parse(file as unknown as Blob);
-      const make = (meta?.Make ?? meta?.make ?? '').toString();
-      const model = (meta?.Model ?? meta?.model ?? '').toString();
+      const make = (meta?.Make ?? meta?.make ?? "").toString();
+      const model = (meta?.Model ?? meta?.model ?? "").toString();
       const iso = Number(meta?.ISO ?? meta?.iso ?? NaN);
-      const fNumber = Number(meta?.FNumber ?? meta?.fNumber ?? meta?.ApertureValue ?? NaN);
+      const fNumber = Number(
+        meta?.FNumber ?? meta?.fNumber ?? meta?.ApertureValue ?? NaN,
+      );
       const combined = `${make} ${model}`.trim();
-      return { make, model, combined, iso: Number.isFinite(iso) ? iso : null, fNumber: Number.isFinite(fNumber) ? fNumber : null };
+      return {
+        make,
+        model,
+        combined,
+        iso: Number.isFinite(iso) ? iso : null,
+        fNumber: Number.isFinite(fNumber) ? fNumber : null,
+      };
     } catch {
-      return { make: '', model: '', combined: '', iso: null, fNumber: null };
+      return { make: "", model: "", combined: "", iso: null, fNumber: null };
     }
   }
 
@@ -1282,10 +1504,10 @@
     mediaInfoLoading = true;
     try {
       mediaInfoInstance = (await mediaInfoFactory({
-        format: 'object',
+        format: "object",
         full: true,
         // Vite necesita que le indiquemos el URL real del WASM para evitar 404 en /node_modules/.vite/...
-        locateFile: () => mediaInfoWasmUrl
+        locateFile: () => mediaInfoWasmUrl,
       })) as unknown as { analyzeData: Function; close: Function };
       mediaInfoReady = true;
     } finally {
@@ -1295,17 +1517,18 @@
 
   function flattenStrings(input: unknown, out: string[] = []) {
     if (input == null) return out;
-    if (typeof input === 'string') {
+    if (typeof input === "string") {
       out.push(input);
       return out;
     }
-    if (typeof input === 'number' || typeof input === 'boolean') return out;
+    if (typeof input === "number" || typeof input === "boolean") return out;
     if (Array.isArray(input)) {
       for (const v of input) flattenStrings(v, out);
       return out;
     }
-    if (typeof input === 'object') {
-      for (const v of Object.values(input as Record<string, unknown>)) flattenStrings(v, out);
+    if (typeof input === "object") {
+      for (const v of Object.values(input as Record<string, unknown>))
+        flattenStrings(v, out);
     }
     return out;
   }
@@ -1324,30 +1547,33 @@
       if (visited++ > maxVisited) return;
       if (v == null) return;
 
-      if (typeof v === 'string') {
+      if (typeof v === "string") {
         const s = v.length > maxStringLen ? v.slice(0, maxStringLen) : v;
-        if (/lavf/i.test(s)) pushHint('Lavf');
-        if (/ffmpeg/i.test(s)) pushHint('FFmpeg');
-        if (/handbrake/i.test(s)) pushHint('HandBrake');
+        if (/lavf/i.test(s)) pushHint("Lavf");
+        if (/ffmpeg/i.test(s)) pushHint("FFmpeg");
+        if (/handbrake/i.test(s)) pushHint("HandBrake");
 
         if (
           /(encoded_?application|writing_?library|encoder)/i.test(s) &&
-          (/adobe|premiere|after effects|davinci|resolve|capcut|final cut|kinemaster|vlc/i.test(s) || encoderHints.length === 0)
+          (/adobe|premiere|after effects|davinci|resolve|capcut|final cut|kinemaster|vlc/i.test(
+            s,
+          ) ||
+            encoderHints.length === 0)
         ) {
-          pushHint('Editor');
+          pushHint("Editor");
         }
 
         return;
       }
 
-      if (typeof v === 'number' || typeof v === 'boolean') return;
+      if (typeof v === "number" || typeof v === "boolean") return;
 
       if (Array.isArray(v)) {
         for (const x of v) walk(x);
         return;
       }
 
-      if (typeof v === 'object') {
+      if (typeof v === "object") {
         for (const x of Object.values(v as Record<string, unknown>)) walk(x);
       }
     };
@@ -1362,19 +1588,27 @@
 
   async function auditMediaInfo(file: File) {
     await ensureMediaInfoLoaded();
-    if (!mediaInfoInstance) return { thirdParty: false, encoderHints: [] as string[] };
+    if (!mediaInfoInstance)
+      return { thirdParty: false, encoderHints: [] as string[] };
 
     const readChunk = async (chunkSize: number, offset: number) => {
       const buffer = await file.slice(offset, offset + chunkSize).arrayBuffer();
       return new Uint8Array(buffer);
     };
 
-    const result = await (mediaInfoInstance.analyzeData as any)(file.size, readChunk);
+    const result = await (mediaInfoInstance.analyzeData as any)(
+      file.size,
+      readChunk,
+    );
     // Evita `join()` masivo (puede congelar el hilo en resultados grandes)
     return await scanMediaInfoHints(result);
   }
 
-  function meanLandmarkJitter(prev: { x: number; y: number }[], next: { x: number; y: number }[], norm: number) {
+  function meanLandmarkJitter(
+    prev: { x: number; y: number }[],
+    next: { x: number; y: number }[],
+    norm: number,
+  ) {
     const n = Math.min(prev.length, next.length);
     if (!n || !norm) return 0;
     let sum = 0;
@@ -1383,7 +1617,7 @@
       const dy = next[i].y - prev[i].y;
       sum += Math.hypot(dx, dy);
     }
-    return (sum / n) / norm;
+    return sum / n / norm;
   }
 
   function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
@@ -1413,7 +1647,9 @@
   function std(values: number[]) {
     if (values.length < 2) return 0;
     const m = mean(values);
-    const v = values.reduce((acc, x) => acc + (x - m) * (x - m), 0) / (values.length - 1);
+    const v =
+      values.reduce((acc, x) => acc + (x - m) * (x - m), 0) /
+      (values.length - 1);
     return Math.sqrt(v);
   }
 
@@ -1421,17 +1657,25 @@
     gray: Float32Array,
     w: number,
     h: number,
-    box: { x: number; y: number; width: number; height: number }
+    box: { x: number; y: number; width: number; height: number },
   ) {
     const x0 = Math.max(1, Math.floor(box.x));
     const y0 = Math.max(1, Math.floor(box.y));
     const x1 = Math.min(w - 2, Math.floor(box.x + box.width));
     const y1 = Math.min(h - 2, Math.floor(box.y + box.height));
     if (x1 <= x0 + 6 || y1 <= y0 + 6) {
-      return { pts40: 0, pts20: 0, roiNoise: 0, bgNoise: 0, roiEdge: 0, bgEdge: 0 };
+      return {
+        pts40: 0,
+        pts20: 0,
+        roiNoise: 0,
+        bgNoise: 0,
+        roiEdge: 0,
+        bgEdge: 0,
+      };
     }
 
-    const isIn = (x: number, y: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    const isIn = (x: number, y: number) =>
+      x >= x0 && x <= x1 && y >= y0 && y <= y1;
     const idx = (x: number, y: number) => y * w + x;
 
     let roiNoiseSum = 0;
@@ -1449,7 +1693,9 @@
       for (let x = 1; x < w - 1; x += 2) {
         const i = idx(x, y);
         const c = gray[i];
-        const lap = Math.abs(-4 * c + gray[i - 1] + gray[i + 1] + gray[i - w] + gray[i + w]);
+        const lap = Math.abs(
+          -4 * c + gray[i - 1] + gray[i + 1] + gray[i - w] + gray[i + w],
+        );
 
         const tl = gray[idx(x - 1, y - 1)];
         const tc = gray[idx(x, y - 1)];
@@ -1483,24 +1729,35 @@
     const bgEdge = bgEdgeCount ? bgEdgeSum / bgEdgeCount : 0;
 
     const pts40 = roiNoise < bgNoise * 0.7 && roiEdge < bgEdge * 0.86 ? 40 : 0;
-    const rel = bgNoise > 1e-6 ? Math.abs(roiNoise - bgNoise) / bgNoise : Math.abs(roiNoise - bgNoise);
+    const rel =
+      bgNoise > 1e-6
+        ? Math.abs(roiNoise - bgNoise) / bgNoise
+        : Math.abs(roiNoise - bgNoise);
     const pts20 = rel > 0.35 ? 20 : 0;
 
     return { pts40, pts20, roiNoise, bgNoise, roiEdge, bgEdge };
   }
 
   async function seekTo(video: HTMLVideoElement, time: number) {
-    const t = Math.max(0, Math.min(time, Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.001) : time));
+    const t = Math.max(
+      0,
+      Math.min(
+        time,
+        Number.isFinite(video.duration)
+          ? Math.max(0, video.duration - 0.001)
+          : time,
+      ),
+    );
     if (Math.abs(video.currentTime - t) < 0.02) return;
     await new Promise<void>((resolve) => {
       const done = () => {
-        video.removeEventListener('seeked', done);
+        video.removeEventListener("seeked", done);
         resolve();
       };
-      video.addEventListener('seeked', done, { once: true });
+      video.addEventListener("seeked", done, { once: true });
       video.currentTime = t;
       setTimeout(() => {
-        video.removeEventListener('seeked', done);
+        video.removeEventListener("seeked", done);
         resolve();
       }, 800);
     });
@@ -1513,11 +1770,20 @@
     const thresholdElaHigh = 20; // diff típico (0..255)
     const emptyLowLevel = {
       prnuResidualRisk0to100: 0,
-      prnuResidualMetrics: { excessKurtosis: 0, lag1CorrAbs: 0, blockVarianceCv: 0, residualStd: 0 },
+      prnuResidualMetrics: {
+        excessKurtosis: 0,
+        lag1CorrAbs: 0,
+        blockVarianceCv: 0,
+        residualStd: 0,
+      },
       prnuResidualNotes: [] as string[],
       dctDoubleQuantRisk0to100: 0,
-      dctDoubleQuantMetrics: { acHistPeakRatio: 0, acHistAutocorrMax: 0, blocksSampled: 0 },
-      dctDoubleQuantNotes: [] as string[]
+      dctDoubleQuantMetrics: {
+        acHistPeakRatio: 0,
+        acHistAutocorrMax: 0,
+        blocksSampled: 0,
+      },
+      dctDoubleQuantNotes: [] as string[],
     };
 
     const objUrl = URL.createObjectURL(file);
@@ -1530,13 +1796,13 @@
           elaSynthetic: false,
           textureRepeatScore: 0,
           textureSynthetic: false,
-          ...emptyLowLevel
+          ...emptyLowLevel,
         };
       }
 
       // Cargar imagen
       const img = new Image();
-      img.decoding = 'async';
+      img.decoding = "async";
       img.src = objUrl;
       await img.decode();
 
@@ -1551,7 +1817,7 @@
           elaSynthetic: false,
           textureRepeatScore: 0,
           textureSynthetic: false,
-          ...emptyLowLevel
+          ...emptyLowLevel,
         };
       }
 
@@ -1562,10 +1828,10 @@
       tickScan(350, 38);
 
       // Dibujar a canvas para comparar con recomprensión JPEG
-      const work = document.createElement('canvas');
+      const work = document.createElement("canvas");
       work.width = w;
       work.height = h;
-      const workCtx = work.getContext('2d', { willReadFrequently: true });
+      const workCtx = work.getContext("2d", { willReadFrequently: true });
       if (!workCtx) {
         return {
           elaMean: 0,
@@ -1574,7 +1840,7 @@
           elaSynthetic: false,
           textureRepeatScore: 0,
           textureSynthetic: false,
-          ...emptyLowLevel
+          ...emptyLowLevel,
         };
       }
       workCtx.drawImage(img, 0, 0, w, h);
@@ -1582,16 +1848,16 @@
       // Recomprensión JPEG con calidad baja (sirve como "segundo término" de la ELA)
       // Nota: la ELA real requiere normalizar por el factor de re-compresión;
       // aquí hacemos un proxy robusto por uniformidad estadística.
-      const recompressedDataUrl = work.toDataURL('image/jpeg', 0.48);
+      const recompressedDataUrl = work.toDataURL("image/jpeg", 0.48);
       const reImg = new Image();
-      reImg.decoding = 'async';
+      reImg.decoding = "async";
       reImg.src = recompressedDataUrl;
       await reImg.decode();
 
-      const work2 = document.createElement('canvas');
+      const work2 = document.createElement("canvas");
       work2.width = w;
       work2.height = h;
-      const ctx2 = work2.getContext('2d', { willReadFrequently: true });
+      const ctx2 = work2.getContext("2d", { willReadFrequently: true });
       if (!ctx2) {
         return {
           elaMean: 0,
@@ -1600,7 +1866,7 @@
           elaSynthetic: false,
           textureRepeatScore: 0,
           textureSynthetic: false,
-          ...emptyLowLevel
+          ...emptyLowLevel,
         };
       }
       ctx2.drawImage(reImg, 0, 0, w, h);
@@ -1652,13 +1918,15 @@
       }
 
       const elaMeanRaw = sum / n;
-      const variance = n > 1 ? Math.max(0, (sumSq - (sum * sum) / n) / (n - 1)) : 0;
+      const variance =
+        n > 1 ? Math.max(0, (sumSq - (sum * sum) / n) / (n - 1)) : 0;
       const stdDev = Math.sqrt(variance);
       const uniformity = stdDev / (elaMeanRaw + 1e-6);
       const highRatio = highCount / n;
 
       // Proxy: "sintético" si el error es alto y bastante uniforme
-      const elaSynthetic = elaMeanRaw > 6 && highRatio > 0.22 && uniformity < 0.9;
+      const elaSynthetic =
+        elaMeanRaw > 6 && highRatio > 0.22 && uniformity < 0.9;
 
       // ELA por regiones (composite / edición local):
       // Si hay tiles con error significativamente mayor que el resto, suele indicar composición/inpainting.
@@ -1711,8 +1979,10 @@
           for (let tx = 0; tx < tilesN; tx++) {
             const x0 = tx * tW;
             const y0 = ty * tH;
-            const x1 = tx === tilesN - 1 ? w - 1 : Math.min(w - 1, (tx + 1) * tW);
-            const y1 = ty === tilesN - 1 ? h - 1 : Math.min(h - 1, (ty + 1) * tH);
+            const x1 =
+              tx === tilesN - 1 ? w - 1 : Math.min(w - 1, (tx + 1) * tW);
+            const y1 =
+              ty === tilesN - 1 ? h - 1 : Math.min(h - 1, (ty + 1) * tH);
             let s = 0;
             let c = 0;
             for (let yy = y0 + 1; yy < y1; yy += 2) {
@@ -1778,8 +2048,11 @@
       let roiEdgeFace = 0;
       let roiEdgeBg = 0;
       try {
-        await withTimeout(ensureModelsLoaded(), 12000, 'FACE_MODELS_IMG');
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.2 });
+        await withTimeout(ensureModelsLoaded(), 12000, "FACE_MODELS_IMG");
+        const options = new faceapi.TinyFaceDetectorOptions({
+          inputSize: 224,
+          scoreThreshold: 0.2,
+        });
         const det = await faceapi.detectSingleFace(work, options);
         const score = det?.score ?? 0;
         roiFaceScore = score;
@@ -1791,7 +2064,11 @@
             x: clamp(det.box.x - padX, 0, w - 1),
             y: clamp(det.box.y - padY, 0, h - 1),
             width: clamp(det.box.width + padX * 2, 12, w - (det.box.x - padX)),
-            height: clamp(det.box.height + padY * 2, 12, h - (det.box.y - padY))
+            height: clamp(
+              det.box.height + padY * 2,
+              12,
+              h - (det.box.y - padY),
+            ),
           };
           const roiRes = roiTextureContrastPointsFromGray(grayA, w, h, mapped);
           roiPerfectPts = roiRes.pts40;
@@ -1810,10 +2087,10 @@
       tickScan(600, 58);
 
       // Heatmap de ELA (overlay)
-      const heat = document.createElement('canvas');
+      const heat = document.createElement("canvas");
       heat.width = w;
       heat.height = h;
-      const heatCtx = heat.getContext('2d');
+      const heatCtx = heat.getContext("2d");
       if (heatCtx) {
         const heatImg = heatCtx.createImageData(w, h);
         const gold = { r: 212, g: 175, b: 55 };
@@ -1864,7 +2141,10 @@
               const v = (fy + 0.5) / featureSize;
               const sx = bx * blockW + u * blockW;
               const sy = by * blockH + v * blockH;
-              fv[fy * featureSize + fx] = grayAt(Math.floor(sx), Math.floor(sy));
+              fv[fy * featureSize + fx] = grayAt(
+                Math.floor(sx),
+                Math.floor(sy),
+              );
             }
           }
           features.push(fv);
@@ -1916,7 +2196,8 @@
         const fMean = fSum / (N * N);
         for (let i = 0; i < f.length; i++) f[i] -= fMean;
 
-        const alpha = (k: number) => (k === 0 ? Math.sqrt(1 / N) : Math.sqrt(2 / N));
+        const alpha = (k: number) =>
+          k === 0 ? Math.sqrt(1 / N) : Math.sqrt(2 / N);
 
         // Cos tablas para DCT separable
         const cosX = new Float32Array(N * N);
@@ -1948,7 +2229,9 @@
         let maxP = 0;
         let totalP = 0;
 
-        const maxRadius = Math.floor(Math.sqrt((N - 1) * (N - 1) + (N - 1) * (N - 1)));
+        const maxRadius = Math.floor(
+          Math.sqrt((N - 1) * (N - 1) + (N - 1) * (N - 1)),
+        );
 
         for (let u = 0; u < N; u++) {
           for (let v = 0; v < N; v++) {
@@ -1979,7 +2262,9 @@
         }
         if (energies.length > 2) {
           const m = energies.reduce((a, b) => a + b, 0) / energies.length;
-          const v = energies.reduce((acc, x) => acc + (x - m) * (x - m), 0) / (energies.length - 1);
+          const v =
+            energies.reduce((acc, x) => acc + (x - m) * (x - m), 0) /
+            (energies.length - 1);
           const s = Math.sqrt(v);
           freqRadialVar = s / (m + 1e-9);
         }
@@ -2000,10 +2285,12 @@
         const edgeW = Math.max(120, Math.min(200, Math.floor(w * 0.65)));
         const edgeH = Math.max(120, Math.min(200, Math.floor(h * 0.65)));
 
-        const edgeCanvas = document.createElement('canvas');
+        const edgeCanvas = document.createElement("canvas");
         edgeCanvas.width = edgeW;
         edgeCanvas.height = edgeH;
-        const edgeCtx = edgeCanvas.getContext('2d', { willReadFrequently: true });
+        const edgeCtx = edgeCanvas.getContext("2d", {
+          willReadFrequently: true,
+        });
         if (edgeCtx) {
           edgeCtx.drawImage(work, 0, 0, w, h, 0, 0, edgeW, edgeH);
           const edgeImg = edgeCtx.getImageData(0, 0, edgeW, edgeH);
@@ -2012,7 +2299,8 @@
           const ed = edgeImg.data;
           for (let i = 0; i < edgeW * edgeH; i++) {
             const j = i * 4;
-            edgeGray[i] = (0.299 * ed[j] + 0.587 * ed[j + 1] + 0.114 * ed[j + 2]) / 255;
+            edgeGray[i] =
+              (0.299 * ed[j] + 0.587 * ed[j + 1] + 0.114 * ed[j + 2]) / 255;
           }
 
           // Sobel (aprox por |Gx|+|Gy|)
@@ -2059,28 +2347,41 @@
               if ((x & 7) === 0 && (y & 7) === 0) {
                 const angle = Math.atan2(gy, gx); // -pi..pi
                 // bin 0..15
-                const bin = Math.floor(((angle + Math.PI) / (2 * Math.PI)) * 16) % 16;
+                const bin =
+                  Math.floor(((angle + Math.PI) / (2 * Math.PI)) * 16) % 16;
                 orientBuckets[bin] = (orientBuckets[bin] ?? 0) + 1;
               }
             }
           }
 
           edgeSharpnessMean = sumMag / (count + 1e-9);
-          const edgeStd = Math.sqrt(Math.max(0, sumSq / (count + 1e-9) - edgeSharpnessMean * edgeSharpnessMean));
+          const edgeStd = Math.sqrt(
+            Math.max(
+              0,
+              sumSq / (count + 1e-9) - edgeSharpnessMean * edgeSharpnessMean,
+            ),
+          );
 
           edgePerfectionScore = edgeCount ? perfectCount / edgeCount : 0;
           // Coherencia de iluminación (proxy): si no hay una dirección dominante de gradiente, sube inconsistencia.
           const totalO = orientBuckets.reduce((a, b) => a + (b ?? 0), 0);
-          const maxO = orientBuckets.length ? Math.max(...orientBuckets.map((x) => x ?? 0)) : 0;
+          const maxO = orientBuckets.length
+            ? Math.max(...orientBuckets.map((x) => x ?? 0))
+            : 0;
           const dominance = totalO ? maxO / totalO : 0; // 0..1
           lightingInconsistencyScore = 1 - dominance;
 
           // Proxy: imágenes sintéticas suelen ser menos "agudas" en bordes.
-          edgesSmoothedSynthetic = edgeSharpnessMean < 0.34 && (frequencySynthetic || elaSynthetic) && edgeStd < 0.22;
+          edgesSmoothedSynthetic =
+            edgeSharpnessMean < 0.34 &&
+            (frequencySynthetic || elaSynthetic) &&
+            edgeStd < 0.22;
 
           // Señal de "mockup/UI/CGI": paleta limitada + bordes muy nítidos + baja varianza de luminancia.
           const grayMean = grayCount ? graySum / grayCount : 0;
-          const grayVar = grayCount ? Math.max(0, graySumSq / grayCount - grayMean * grayMean) : 0;
+          const grayVar = grayCount
+            ? Math.max(0, graySumSq / grayCount - grayMean * grayMean)
+            : 0;
           const grayStd = Math.sqrt(grayVar);
           const palette = colorKeys.size;
           vectorGraphicLike =
@@ -2134,7 +2435,7 @@
         prnuResidualNotes: prnuRes.notes,
         dctDoubleQuantRisk0to100: dctRes.risk0to100,
         dctDoubleQuantMetrics: dctRes.metrics,
-        dctDoubleQuantNotes: dctRes.notes
+        dctDoubleQuantNotes: dctRes.notes,
       };
     } finally {
       URL.revokeObjectURL(objUrl);
@@ -2142,7 +2443,7 @@
   }
 
   function sampleVideoLowLevelForensic(video: HTMLVideoElement | null) {
-    if (!video || typeof document === 'undefined') return null;
+    if (!video || typeof document === "undefined") return null;
     const nw = video.videoWidth;
     const nh = video.videoHeight;
     if (!nw || !nh) return null;
@@ -2150,10 +2451,10 @@
     const scale = Math.min(1, maxDim / Math.max(nw, nh));
     const w = Math.max(96, Math.floor(nw * scale));
     const h = Math.max(96, Math.floor(nh * scale));
-    const c = document.createElement('canvas');
+    const c = document.createElement("canvas");
     c.width = w;
     c.height = h;
-    const ctx = c.getContext('2d', { willReadFrequently: true });
+    const ctx = c.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     try {
       ctx.drawImage(video, 0, 0, w, h);
@@ -2164,7 +2465,11 @@
     const grayA = new Float32Array(w * h);
     for (let i = 0; i < w * h; i++) {
       const j = i * 4;
-      grayA[i] = (0.299 * img.data[j] + 0.587 * img.data[j + 1] + 0.114 * img.data[j + 2]) / 255;
+      grayA[i] =
+        (0.299 * img.data[j] +
+          0.587 * img.data[j + 1] +
+          0.114 * img.data[j + 2]) /
+        255;
     }
     const prnuRes = analyzePrnuResidualProxy(grayA, w, h);
     const dctRes = analyzeDctDoubleQuantization(grayA, w, h);
@@ -2174,15 +2479,15 @@
       prnuResidualNotes: prnuRes.notes,
       dctDoubleQuantRisk0to100: dctRes.risk0to100,
       dctDoubleQuantMetrics: dctRes.metrics,
-      dctDoubleQuantNotes: dctRes.notes
+      dctDoubleQuantNotes: dctRes.notes,
     };
   }
 
   function normalizeTextForConnectors(input: string) {
     return input
       .toLowerCase()
-      .replace(/\s+/g, ' ')
-      .replace(/[“”"']/g, '')
+      .replace(/\s+/g, " ")
+      .replace(/[“”"']/g, "")
       .trim();
   }
 
@@ -2198,7 +2503,7 @@
   }
 
   async function analyzeTextLLM(text: string) {
-    const raw = text ?? '';
+    const raw = text ?? "";
     const clean = normalizeTextForConnectors(raw);
     const empty = clean.length < 20;
     const sentenceLens = (clean.match(/[^.!?]+[.!?]?/g) ?? [])
@@ -2207,10 +2512,16 @@
       .map((s) => s.split(/\s+/).filter(Boolean).length)
       .filter((n) => n > 0);
     const sentCount = sentenceLens.length;
-    const sentMean = sentCount ? sentenceLens.reduce((a, b) => a + b, 0) / sentCount : 0;
+    const sentMean = sentCount
+      ? sentenceLens.reduce((a, b) => a + b, 0) / sentCount
+      : 0;
     const sentVar =
       sentCount > 1
-        ? sentenceLens.reduce((acc, x) => acc + (x - sentMean) * (x - sentMean), 0) / (sentCount - 1)
+        ? sentenceLens.reduce(
+            (acc, x) => acc + (x - sentMean) * (x - sentMean),
+            0,
+          ) /
+          (sentCount - 1)
         : 0;
     const sentStd = Math.sqrt(Math.max(0, sentVar));
     const sentenceLenCv = sentMean > 0 ? sentStd / sentMean : 0;
@@ -2221,33 +2532,41 @@
         topConnectors: [] as string[],
         llmPattern: false,
         sentenceLenCv,
-        sentCount
+        sentCount,
       };
     }
 
     // Conectores lógicos típicos (con variantes sin acentos)
     const connectorCatalog: { label: string; variants: string[] }[] = [
-      { label: 'En conclusión', variants: ['en conclusión', 'en conclusion'] },
-      { label: 'Por otro lado', variants: ['por otro lado'] },
-      { label: 'Es importante destacar', variants: ['es importante destacar', 'importante destacar'] },
-      { label: 'Por consiguiente', variants: ['por consiguiente'] },
-      { label: 'En primer lugar', variants: ['en primer lugar'] },
-      { label: 'En segundo lugar', variants: ['en segundo lugar'] },
-      { label: 'Por último', variants: ['por último', 'por ultimo'] },
-      { label: 'Además', variants: ['ademas', 'además'] },
-      { label: 'Asimismo', variants: ['asimismo'] },
-      { label: 'Del mismo modo', variants: ['del mismo modo'] }
+      { label: "En conclusión", variants: ["en conclusión", "en conclusion"] },
+      { label: "Por otro lado", variants: ["por otro lado"] },
+      {
+        label: "Es importante destacar",
+        variants: ["es importante destacar", "importante destacar"],
+      },
+      { label: "Por consiguiente", variants: ["por consiguiente"] },
+      { label: "En primer lugar", variants: ["en primer lugar"] },
+      { label: "En segundo lugar", variants: ["en segundo lugar"] },
+      { label: "Por último", variants: ["por último", "por ultimo"] },
+      { label: "Además", variants: ["ademas", "además"] },
+      { label: "Asimismo", variants: ["asimismo"] },
+      { label: "Del mismo modo", variants: ["del mismo modo"] },
     ];
 
-    const sentenceCount = Math.max(1, clean.split(/[.!?]+/).filter((s) => s.trim().length).length);
+    const sentenceCount = Math.max(
+      1,
+      clean.split(/[.!?]+/).filter((s) => s.trim().length).length,
+    );
 
     const counts = new Map<string, number>();
     for (const c of connectorCatalog) counts.set(c.label, 0);
 
     for (const c of connectorCatalog) {
       for (const v of c.variants) {
-        const esc = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-        const rx = new RegExp(`${esc}`, 'gi');
+        const esc = v
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          .replace(/\s+/g, "\\s+");
+        const rx = new RegExp(`${esc}`, "gi");
         const add = countRegexOccurrences(clean, rx);
         if (add) counts.set(c.label, (counts.get(c.label) ?? 0) + add);
       }
@@ -2263,7 +2582,14 @@
     const repetitionBoost = maxHit >= 3 ? 1 : maxHit === 2 ? 0.5 : 0;
 
     // Score 0..~1.5 (proxy)
-    const connectorScore = Math.max(0, Math.min(1.6, connectorPerSentence * 10 * (0.4 + uniqueRatio) + repetitionBoost * 0.25));
+    const connectorScore = Math.max(
+      0,
+      Math.min(
+        1.6,
+        connectorPerSentence * 10 * (0.4 + uniqueRatio) +
+          repetitionBoost * 0.25,
+      ),
+    );
 
     const topConnectors = entries
       .filter(([, v]) => v > 0)
@@ -2271,16 +2597,31 @@
       .map(([k, v]) => `${k}(${v})`);
 
     // Heurística: LLM suele usar conectores con frecuencia y diversidad.
-    const llmPattern = connectorScore > 0.9 || (totalHits >= 6 && uniqueHits >= 3) || (maxHit >= 4);
+    const llmPattern =
+      connectorScore > 0.9 ||
+      (totalHits >= 6 && uniqueHits >= 3) ||
+      maxHit >= 4;
 
-    return { connectorScore, topConnectors, llmPattern, sentenceLenCv, sentCount };
+    return {
+      connectorScore,
+      topConnectors,
+      llmPattern,
+      sentenceLenCv,
+      sentCount,
+    };
   }
 
   function getVideoToCanvasTransform() {
     const preview = videoRef ?? imageRef;
     if (!preview || !canvasRef) return null;
-    const vw = 'videoWidth' in preview ? preview.videoWidth || 0 : preview.naturalWidth || 0;
-    const vh = 'videoHeight' in preview ? preview.videoHeight || 0 : preview.naturalHeight || 0;
+    const vw =
+      "videoWidth" in preview
+        ? preview.videoWidth || 0
+        : preview.naturalWidth || 0;
+    const vh =
+      "videoHeight" in preview
+        ? preview.videoHeight || 0
+        : preview.naturalHeight || 0;
     const cw = canvasRef.width || 0;
     const ch = canvasRef.height || 0;
     if (!vw || !vh || !cw || !ch) return null;
@@ -2302,7 +2643,7 @@
   function sobelFaceStatsAndMag2(
     imageData: ImageData,
     topBandFrac: number,
-    bottomBandFrac: number
+    bottomBandFrac: number,
   ) {
     const { data, width: w, height: h } = imageData;
     const gray = new Float32Array(w * h);
@@ -2376,7 +2717,7 @@
       boundaryMean: bMean,
       interiorMean: iMean,
       boundaryStd: Math.sqrt(Math.max(0, bVar)),
-      interiorStd: Math.sqrt(Math.max(0, iVar))
+      interiorStd: Math.sqrt(Math.max(0, iVar)),
     };
   }
 
@@ -2429,15 +2770,20 @@
     return {
       mean,
       std: Math.sqrt(Math.max(0, var_)),
-      maxMag2
+      maxMag2,
     };
   }
 
-  function analyzeMaskEdgesAndHalo(video: HTMLVideoElement, pts: { x: number; y: number }[]) {
-    if (!pts.length) return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
+  function analyzeMaskEdgesAndHalo(
+    video: HTMLVideoElement,
+    pts: { x: number; y: number }[],
+  ) {
+    if (!pts.length)
+      return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
     const vw = video.videoWidth || 0;
     const vh = video.videoHeight || 0;
-    if (!vw || !vh) return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
+    if (!vw || !vh)
+      return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
 
     let minX = Infinity;
     let minY = Infinity;
@@ -2470,17 +2816,26 @@
     const targetH = clamp(Math.floor((roiH / roiW) * targetW), 72, 140);
 
     const neckTargetW = targetW;
-    const neckTargetH = clamp(Math.floor((neckH / neckW) * neckTargetW), 56, 120);
+    const neckTargetH = clamp(
+      Math.floor((neckH / neckW) * neckTargetW),
+      56,
+      120,
+    );
 
     const edgeCanvas =
-      edgeOverlayCanvas ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
-    if (!edgeCanvas) return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
+      edgeOverlayCanvas ??
+      (typeof document !== "undefined"
+        ? document.createElement("canvas")
+        : null);
+    if (!edgeCanvas)
+      return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
 
     // Face ROI
     edgeCanvas.width = targetW;
     edgeCanvas.height = targetH;
-    const edgeCtx = edgeCanvas.getContext('2d', { willReadFrequently: true });
-    if (!edgeCtx) return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
+    const edgeCtx = edgeCanvas.getContext("2d", { willReadFrequently: true });
+    if (!edgeCtx)
+      return { halo: false, score: 0, boundaryMean: 0, neckMean: 0 };
     edgeCtx.clearRect(0, 0, targetW, targetH);
     edgeCtx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, targetW, targetH);
     const faceImg = edgeCtx.getImageData(0, 0, targetW, targetH);
@@ -2489,23 +2844,47 @@
 
     // Neck ROI (stats only)
     const neckCanvas =
-      neckEdgeCanvas ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+      neckEdgeCanvas ??
+      (typeof document !== "undefined"
+        ? document.createElement("canvas")
+        : null);
     if (!neckCanvas) {
-      return { halo: false, score: 0, boundaryMean: faceStats.boundaryMean, neckMean: 0 };
+      return {
+        halo: false,
+        score: 0,
+        boundaryMean: faceStats.boundaryMean,
+        neckMean: 0,
+      };
     }
     neckEdgeCanvas = neckCanvas;
     neckCanvas.width = neckTargetW;
     neckCanvas.height = neckTargetH;
-    const neckCtx = neckCanvas.getContext('2d', { willReadFrequently: true });
+    const neckCtx = neckCanvas.getContext("2d", { willReadFrequently: true });
     if (!neckCtx) {
-      return { halo: false, score: 0, boundaryMean: faceStats.boundaryMean, neckMean: 0 };
+      return {
+        halo: false,
+        score: 0,
+        boundaryMean: faceStats.boundaryMean,
+        neckMean: 0,
+      };
     }
-    neckCtx.drawImage(video, neckX, neckY, neckW, neckH, 0, 0, neckTargetW, neckTargetH);
+    neckCtx.drawImage(
+      video,
+      neckX,
+      neckY,
+      neckW,
+      neckH,
+      0,
+      0,
+      neckTargetW,
+      neckTargetH,
+    );
     const neckImg = neckCtx.getImageData(0, 0, neckTargetW, neckTargetH);
     const neckStats = sobelStatsOnly(neckImg);
 
     const eps = 1e-6;
-    const ratioFaceInterior = faceStats.boundaryMean / (faceStats.interiorMean + eps);
+    const ratioFaceInterior =
+      faceStats.boundaryMean / (faceStats.interiorMean + eps);
     const ratioFaceNeck = faceStats.boundaryMean / (neckStats.mean + eps);
     const ratioStd = faceStats.boundaryStd / (neckStats.std + eps);
 
@@ -2518,7 +2897,7 @@
     const score = ratioFaceNeck + ratioStd + ratioFaceInterior;
 
     // Visualización del filtro de bordes
-    const ctx = edgeCanvas.getContext('2d');
+    const ctx = edgeCanvas.getContext("2d");
     if (ctx) {
       const img = ctx.createImageData(targetW, targetH);
       const baseGold = { r: 212, g: 175, b: 55 };
@@ -2528,10 +2907,14 @@
       const max = faceStats.maxMag2 + eps;
       for (let i = 0; i < targetW * targetH; i++) {
         const y = Math.floor(i / targetW);
-        const isBoundary = y < Math.floor(targetH * 0.22) || y >= Math.floor(targetH * (1 - 0.18));
+        const isBoundary =
+          y < Math.floor(targetH * 0.22) ||
+          y >= Math.floor(targetH * (1 - 0.18));
 
         const v = faceStats.mag2[i] / max; // 0..1 aprox.
-        const intensity = isBoundary ? Math.min(1, v * 1.2) : Math.min(1, v * 0.35);
+        const intensity = isBoundary
+          ? Math.min(1, v * 1.2)
+          : Math.min(1, v * 0.35);
         const a = Math.floor(20 + intensity * 210 * (isBoundary ? 1 : 0.6));
         img.data[i * 4 + 0] = Math.floor(base.r * intensity);
         img.data[i * 4 + 1] = Math.floor(base.g * intensity);
@@ -2549,7 +2932,7 @@
       halo,
       score,
       boundaryMean: faceStats.boundaryMean,
-      neckMean: neckStats.mean
+      neckMean: neckStats.mean,
     };
   }
 
@@ -2566,16 +2949,18 @@
         maskJitterWarning: false,
         maskJitterMaxScore: 0,
         rppgGreenSamples: [] as number[],
-        rppgSampleRateHz: 0
+        rppgSampleRateHz: 0,
       };
 
     // Ajustes de rendimiento:
     // - Para clips cortos, reducimos inputSize + muestreamos más rápido para que el análisis termine pronto.
-    const duration = Number.isFinite(videoRef.duration) ? Math.max(0, videoRef.duration) : 0;
+    const duration = Number.isFinite(videoRef.duration)
+      ? Math.max(0, videoRef.duration)
+      : 0;
     const isShortClip = duration > 0 && duration <= 8;
     const options = new faceapi.TinyFaceDetectorOptions({
       inputSize: isShortClip ? 160 : 224,
-      scoreThreshold: 0.2
+      scoreThreshold: 0.2,
     });
 
     const start = performance.now();
@@ -2633,7 +3018,8 @@
     try {
       videoRef.muted = true;
       videoRef.loop = true;
-      (videoRef as HTMLVideoElement & { playsInline?: boolean }).playsInline = true;
+      (videoRef as HTMLVideoElement & { playsInline?: boolean }).playsInline =
+        true;
       // Reinicia desde el inicio para cubrir consistentemente los primeros 20s.
       videoRef.currentTime = 0;
       await seekTo(videoRef, 0);
@@ -2649,8 +3035,10 @@
       box: { x: number; y: number; width: number; height: number } | null;
     } = { ok: false, box: null };
     let rppgTimer: ReturnType<typeof setInterval> | null = null;
-    const rppgCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-    const rppgCtx2d = rppgCanvas?.getContext?.('2d', { willReadFrequently: true }) ?? null;
+    const rppgCanvas =
+      typeof document !== "undefined" ? document.createElement("canvas") : null;
+    const rppgCtx2d =
+      rppgCanvas?.getContext?.("2d", { willReadFrequently: true }) ?? null;
     if (rppgCanvas && rppgCtx2d && videoRef) {
       rppgTimer = setInterval(() => {
         try {
@@ -2666,7 +3054,12 @@
           const sx = tw / vw;
           const sy = th / vh;
           const b = rppgGate.box;
-          const mapped = { x: b.x * sx, y: b.y * sy, width: b.width * sx, height: b.height * sy };
+          const mapped = {
+            x: b.x * sx,
+            y: b.y * sy,
+            width: b.width * sx,
+            height: b.height * sy,
+          };
           const img = rppgCtx2d.getImageData(0, 0, tw, th);
           rppgGreenSamples.push(meanGreenCheekRoi(img, mapped));
         } catch {
@@ -2676,162 +3069,195 @@
     }
 
     try {
-    while (analyzedMs < windowMs && performance.now() - start < maxWallMs) {
-      const now = performance.now();
-      const dt = Math.max(0, Math.min(400, now - lastStepTs));
-      lastStepTs = now;
-      analyzedMs = Math.min(windowMs, analyzedMs + dt);
+      while (analyzedMs < windowMs && performance.now() - start < maxWallMs) {
+        const now = performance.now();
+        const dt = Math.max(0, Math.min(400, now - lastStepTs));
+        lastStepTs = now;
+        analyzedMs = Math.min(windowMs, analyzedMs + dt);
 
-      const progress = Math.min(98, 15 + (analyzedMs / windowMs) * 83);
-      uiMillis = Math.max(uiMillis, Math.floor(analyzedMs));
-      uiProgress = Math.max(uiProgress, progress);
-      tickScan(uiMillis, uiProgress);
+        const progress = Math.min(98, 15 + (analyzedMs / windowMs) * 83);
+        uiMillis = Math.max(uiMillis, Math.floor(analyzedMs));
+        uiProgress = Math.max(uiProgress, progress);
+        tickScan(uiMillis, uiProgress);
 
-      const result = await faceapi
-        .detectSingleFace(videoRef, options)
-        .withFaceLandmarks(true);
-      detectCount += 1;
+        const result = await faceapi
+          .detectSingleFace(videoRef, options)
+          .withFaceLandmarks(true);
+        detectCount += 1;
 
-      if (!result) {
-        rppgGate.ok = false;
-        suspiciousLowConfidence = true;
-        minScore = Math.min(minScore, 0);
-        lastFrameScore = 0;
-        lastFrameJitter = 0;
-        scoreSeries = pushSeries(scoreSeries, 0);
-        jitterSeries = pushSeries(jitterSeries, 0);
-      } else {
-        const score = result.detection.score ?? 0;
-        minScore = Math.min(minScore, score);
-        // Más conservador: si cae por debajo del 90% en cualquier frame, marcamos sospecha.
-        if (score < 0.9) suspiciousLowConfidence = true;
-        lastFrameScore = score;
-        scoreSeries = pushSeries(scoreSeries, score);
-
-        const box = result.detection.box;
-        const norm = Math.max(80, box.width);
-        const pts = result.landmarks.positions.map((p) => ({ x: p.x, y: p.y }));
-
-        // Fiabilidad de cara (anti-falsos positivos en vídeos sin cara humana clara).
-        const vw = videoRef.videoWidth || 0;
-        const vh = videoRef.videoHeight || 0;
-        const faceLargeEnough = vw ? box.width >= vw * 0.12 : box.width >= 90;
-        const reliableFace = score >= 0.9 && faceLargeEnough;
-        if (reliableFace && vw && vh) {
-          rppgGate.ok = true;
-          rppgGate.box = { x: box.x, y: box.y, width: box.width, height: box.height };
-        } else {
+        if (!result) {
           rppgGate.ok = false;
-        }
-        if (reliableFace) {
-          reliableFaceFrames += 1;
-          lastReliableFaceMs = analyzedMs;
+          suspiciousLowConfidence = true;
+          minScore = Math.min(minScore, 0);
+          lastFrameScore = 0;
+          lastFrameJitter = 0;
+          scoreSeries = pushSeries(scoreSeries, 0);
+          jitterSeries = pushSeries(jitterSeries, 0);
         } else {
-          // Evita “inventar” cierres/aberturas cuando el tracking es inestable.
-          blinkStartTs = null;
-          blinkMinEar = 1;
-        }
+          const score = result.detection.score ?? 0;
+          minScore = Math.min(minScore, score);
+          // Más conservador: si cae por debajo del 90% en cualquier frame, marcamos sospecha.
+          if (score < 0.9) suspiciousLowConfidence = true;
+          lastFrameScore = score;
+          scoreSeries = pushSeries(scoreSeries, score);
 
-        // ROI contraste de textura (cara vs fondo). Seguridad: solo si face-api está >= 90%.
-        if (reliableFace && detectCount % 3 === 0) {
-          if (vw && vh) {
-            const tmpCanvas =
-              roiTmpCanvas ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
-            if (tmpCanvas) {
-              roiTmpCanvas = tmpCanvas;
-              const targetW = 176;
-              const targetH = Math.max(96, Math.floor((vh / vw) * targetW));
-              tmpCanvas.width = targetW;
-              tmpCanvas.height = targetH;
-              const ctx = tmpCanvas.getContext('2d', { willReadFrequently: true });
-              if (ctx) {
-                ctx.drawImage(videoRef, 0, 0, targetW, targetH);
-                const img = ctx.getImageData(0, 0, targetW, targetH);
-                const gray = new Float32Array(targetW * targetH);
-                for (let i = 0; i < targetW * targetH; i++) {
-                  const r = img.data[i * 4 + 0];
-                  const g = img.data[i * 4 + 1];
-                  const b = img.data[i * 4 + 2];
-                  gray[i] = r * 0.299 + g * 0.587 + b * 0.114;
-                }
+          const box = result.detection.box;
+          const norm = Math.max(80, box.width);
+          const pts = result.landmarks.positions.map((p) => ({
+            x: p.x,
+            y: p.y,
+          }));
 
-                const sx = targetW / vw;
-                const sy = targetH / vh;
-                const mapped = {
-                  x: box.x * sx,
-                  y: box.y * sy,
-                  width: box.width * sx,
-                  height: box.height * sy
-                };
-                const roiRes = roiTextureContrastPointsFromGray(gray, targetW, targetH, mapped);
-                roiPerfectPts = Math.max(roiPerfectPts, roiRes.pts40);
-                roiNoiseMismatchPts = Math.max(roiNoiseMismatchPts, roiRes.pts20);
-                roiNoiseFace = roiRes.roiNoise;
-                roiNoiseBg = roiRes.bgNoise;
-                roiEdgeFace = roiRes.roiEdge;
-                roiEdgeBg = roiRes.bgEdge;
-              }
-            }
+          // Fiabilidad de cara (anti-falsos positivos en vídeos sin cara humana clara).
+          const vw = videoRef.videoWidth || 0;
+          const vh = videoRef.videoHeight || 0;
+          const faceLargeEnough = vw ? box.width >= vw * 0.12 : box.width >= 90;
+          const reliableFace = score >= 0.9 && faceLargeEnough;
+          if (reliableFace && vw && vh) {
+            rppgGate.ok = true;
+            rppgGate.box = {
+              x: box.x,
+              y: box.y,
+              width: box.width,
+              height: box.height,
+            };
+          } else {
+            rppgGate.ok = false;
           }
-        }
-
-        // Blink detection (EAR)
-        if (reliableFace) {
-          const leftEar = earForEye(pts, 36);
-          const rightEar = earForEye(pts, 42);
-          const ear = (leftEar + rightEar) / 2;
-          const blinkClosedThreshold = 0.21;
-          const blinkOpenThreshold = 0.25;
-
-          if (ear > 0 && ear < blinkClosedThreshold) {
-            if (blinkStartTs === null) blinkStartTs = performance.now();
-            blinkMinEar = Math.min(blinkMinEar, ear);
-          } else if (blinkStartTs !== null && ear > blinkOpenThreshold) {
-            const dur = performance.now() - blinkStartTs;
-            // filtros para evitar falsos positivos
-            if (dur >= 60 && dur <= 800) {
-              blinkCount += 1;
-              blinkDurationsMs.push(dur);
-              blinkDepths.push(1 - Math.max(0, Math.min(1, blinkMinEar)));
-            }
+          if (reliableFace) {
+            reliableFaceFrames += 1;
+            lastReliableFaceMs = analyzedMs;
+          } else {
+            // Evita “inventar” cierres/aberturas cuando el tracking es inestable.
             blinkStartTs = null;
             blinkMinEar = 1;
           }
-        }
 
-        if (prevPoints) {
-          const jitter = meanLandmarkJitter(prevPoints, pts, norm);
-          maxJitter = Math.max(maxJitter, jitter);
-          // Más conservador para deepfakes "limpios"
-          if (jitter > 0.02) suspiciousJitter = true;
-          lastFrameJitter = jitter;
-          jitterSeries = pushSeries(jitterSeries, jitter);
-        } else {
-          lastFrameJitter = 0;
-          jitterSeries = pushSeries(jitterSeries, 0);
-        }
+          // ROI contraste de textura (cara vs fondo). Seguridad: solo si face-api está >= 90%.
+          if (reliableFace && detectCount % 3 === 0) {
+            if (vw && vh) {
+              const tmpCanvas =
+                roiTmpCanvas ??
+                (typeof document !== "undefined"
+                  ? document.createElement("canvas")
+                  : null);
+              if (tmpCanvas) {
+                roiTmpCanvas = tmpCanvas;
+                const targetW = 176;
+                const targetH = Math.max(96, Math.floor((vh / vw) * targetW));
+                tmpCanvas.width = targetW;
+                tmpCanvas.height = targetH;
+                const ctx = tmpCanvas.getContext("2d", {
+                  willReadFrequently: true,
+                });
+                if (ctx) {
+                  ctx.drawImage(videoRef, 0, 0, targetW, targetH);
+                  const img = ctx.getImageData(0, 0, targetW, targetH);
+                  const gray = new Float32Array(targetW * targetH);
+                  for (let i = 0; i < targetW * targetH; i++) {
+                    const r = img.data[i * 4 + 0];
+                    const g = img.data[i * 4 + 1];
+                    const b = img.data[i * 4 + 2];
+                    gray[i] = r * 0.299 + g * 0.587 + b * 0.114;
+                  }
 
-        // Mask Jitter (bordes/halo entre cara y cuello)
-        if (detectCount % 2 === 0) {
-          const edgeRes = analyzeMaskEdgesAndHalo(videoRef, pts);
-          if (edgeRes.halo) {
-            maskJitterWarning = true;
-            maskJitterMaxScore = Math.max(maskJitterMaxScore, edgeRes.score);
+                  const sx = targetW / vw;
+                  const sy = targetH / vh;
+                  const mapped = {
+                    x: box.x * sx,
+                    y: box.y * sy,
+                    width: box.width * sx,
+                    height: box.height * sy,
+                  };
+                  const roiRes = roiTextureContrastPointsFromGray(
+                    gray,
+                    targetW,
+                    targetH,
+                    mapped,
+                  );
+                  roiPerfectPts = Math.max(roiPerfectPts, roiRes.pts40);
+                  roiNoiseMismatchPts = Math.max(
+                    roiNoiseMismatchPts,
+                    roiRes.pts20,
+                  );
+                  roiNoiseFace = roiRes.roiNoise;
+                  roiNoiseBg = roiRes.bgNoise;
+                  roiEdgeFace = roiRes.roiEdge;
+                  roiEdgeBg = roiRes.bgEdge;
+                }
+              }
+            }
           }
+
+          // Blink detection (EAR)
+          if (reliableFace) {
+            const leftEar = earForEye(pts, 36);
+            const rightEar = earForEye(pts, 42);
+            const ear = (leftEar + rightEar) / 2;
+            const blinkClosedThreshold = 0.21;
+            const blinkOpenThreshold = 0.25;
+
+            if (ear > 0 && ear < blinkClosedThreshold) {
+              if (blinkStartTs === null) blinkStartTs = performance.now();
+              blinkMinEar = Math.min(blinkMinEar, ear);
+            } else if (blinkStartTs !== null && ear > blinkOpenThreshold) {
+              const dur = performance.now() - blinkStartTs;
+              // filtros para evitar falsos positivos
+              if (dur >= 60 && dur <= 800) {
+                blinkCount += 1;
+                blinkDurationsMs.push(dur);
+                blinkDepths.push(1 - Math.max(0, Math.min(1, blinkMinEar)));
+              }
+              blinkStartTs = null;
+              blinkMinEar = 1;
+            }
+          }
+
+          if (prevPoints) {
+            const jitter = meanLandmarkJitter(prevPoints, pts, norm);
+            maxJitter = Math.max(maxJitter, jitter);
+            // Más conservador para deepfakes "limpios"
+            if (jitter > 0.02) suspiciousJitter = true;
+            lastFrameJitter = jitter;
+            jitterSeries = pushSeries(jitterSeries, jitter);
+          } else {
+            lastFrameJitter = 0;
+            jitterSeries = pushSeries(jitterSeries, 0);
+          }
+
+          // Mask Jitter (bordes/halo entre cara y cuello)
+          if (detectCount % 2 === 0) {
+            const edgeRes = analyzeMaskEdgesAndHalo(videoRef, pts);
+            if (edgeRes.halo) {
+              maskJitterWarning = true;
+              maskJitterMaxScore = Math.max(maskJitterMaxScore, edgeRes.score);
+            }
+          }
+
+          prevPoints = pts;
+          lastLandmarks = pts;
         }
 
-        prevPoints = pts;
-        lastLandmarks = pts;
+        // Actualización en “tiempo real” (provisional) de Score/Confianza mientras analizamos.
+        // Nota: el veredicto final sigue resolviéndose al terminar el pipeline.
+        const liveBlinkPts =
+          reliableFaceFrames >= 12 && analyzedMs > 10000 && blinkCount === 0
+            ? 30
+            : 0;
+        const liveScore = clamp(
+          roiPerfectPts + roiNoiseMismatchPts + liveBlinkPts,
+          0,
+          100,
+        );
+        setScores({
+          riskScore: liveScore,
+          confidence: confidenceFromScore(liveScore),
+        });
+
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, sampleDelayMs),
+        );
       }
-
-      // Actualización en “tiempo real” (provisional) de Score/Confianza mientras analizamos.
-      // Nota: el veredicto final sigue resolviéndose al terminar el pipeline.
-      const liveBlinkPts = reliableFaceFrames >= 12 && analyzedMs > 10000 && blinkCount === 0 ? 30 : 0;
-      const liveScore = clamp(roiPerfectPts + roiNoiseMismatchPts + liveBlinkPts, 0, 100);
-      setScores({ riskScore: liveScore, confidence: confidenceFromScore(liveScore) });
-
-      await new Promise<void>((resolve) => setTimeout(resolve, sampleDelayMs));
-    }
     } finally {
       if (rppgTimer) clearInterval(rppgTimer);
     }
@@ -2845,7 +3271,9 @@
     // Blink warnings:
     // - No blink in 20s
     // - Mechanically identical blink (muy baja variación)
-    const hasEnoughReliableFace = reliableFaceFrames >= 12 && lastReliableFaceMs >= Math.min(windowMs, 9000);
+    const hasEnoughReliableFace =
+      reliableFaceFrames >= 12 &&
+      lastReliableFaceMs >= Math.min(windowMs, 9000);
     if (hasEnoughReliableFace && blinkCount === 0) {
       blinkWarning = true;
     } else if (hasEnoughReliableFace && blinkCount >= 3) {
@@ -2879,7 +3307,7 @@
       roiEdgeBg,
       reliableFaceFrames,
       rppgGreenSamples,
-      rppgSampleRateHz
+      rppgSampleRateHz,
     };
   }
 
@@ -2917,16 +3345,18 @@
     // En modo enlace, el usuario aporta el archivo: auto-enrutamos a la pestaña correcta.
     const name = file.name.toLowerCase();
     const isImage =
-      file.type?.startsWith('image/') ||
+      file.type?.startsWith("image/") ||
       /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(name);
     const isVideo =
-      file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v|3gp)$/i.test(name);
+      file.type?.startsWith("video/") ||
+      /\.(mp4|webm|mov|mkv|avi|m4v|3gp)$/i.test(name);
     const isAudio =
-      file.type?.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|opus|flac)$/i.test(name);
+      file.type?.startsWith("audio/") ||
+      /\.(mp3|wav|m4a|aac|ogg|opus|flac)$/i.test(name);
 
-    if (isImage) activeTab = 'image';
-    else if (isVideo) activeTab = 'video';
-    else if (isAudio) activeTab = 'audio';
+    if (isImage) activeTab = "image";
+    else if (isVideo) activeTab = "video";
+    else if (isAudio) activeTab = "audio";
     else return;
 
     await loadFile(file);
@@ -2934,7 +3364,7 @@
 
   async function runTextAnalysis() {
     if (isBusy) return;
-    const text = textInput?.trim() ?? '';
+    const text = textInput?.trim() ?? "";
     if (!text) return;
 
     if (raf) {
@@ -2943,14 +3373,14 @@
     }
 
     // Texto se trata como "evidencia" serializada en un File temporal
-    const file = new File([text], 'texto.txt', { type: 'text/plain' });
+    const file = new File([text], "texto.txt", { type: "text/plain" });
     selectedFile = file;
-    mediaKind = 'text';
+    mediaKind = "text";
     textPreview = text.length > 420 ? `${text.slice(0, 420)}...` : text;
 
     showReport = false;
     resetScanner();
-    fileHashHex = '';
+    fileHashHex = "";
     elaOverlayCanvas = null;
     edgeOverlayCanvas = null;
     neckEdgeCanvas = null;
@@ -2992,12 +3422,12 @@
     isBusy = true;
     try {
       const premiumStart = performance.now();
-      beginScanKind(file, 'text');
+      beginScanKind(file, "text");
 
       try {
         fileHashHex = await sha256Hex(file);
       } catch {
-        fileHashHex = '';
+        fileHashHex = "";
       }
 
       setAnalyzing();
@@ -3016,31 +3446,43 @@
       const hardAlert = file.size > MAX_SCAN_SIZE_BYTES;
       // Ensemble (0..100)
       let lingScore = 0;
-      if ((result as any).sentCount >= 4 && (result as any).sentenceLenCv < 0.12) lingScore += 40;
+      if (
+        (result as any).sentCount >= 4 &&
+        (result as any).sentenceLenCv < 0.12
+      )
+        lingScore += 40;
       if (result.llmPattern) lingScore += 25;
       lingScore = Math.max(0, Math.min(100, lingScore));
 
       const ens = ensemble.evaluate({
-        kind: 'text',
-        linguistic: { score0to100: lingScore }
+        kind: "text",
+        linguistic: { score0to100: lingScore },
       });
       const score = Math.round(ens.finalFakeScore0to100);
 
-      let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = verdictFromScore(score);
-      if (hardAlert) verdict = 'ALERTA ROJA';
+      let verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" =
+        verdictFromScore(score);
+      if (hardAlert) verdict = "ALERTA ROJA";
 
       const confidence = confidenceFromScore(score);
       const riskScore = score;
       const warnings: string[] = [];
-      if (result.llmPattern) warnings.push('Patrón de Conectores Lógicos Repetitivos (LLM)');
-      if ((result as any).sentCount >= 4 && (result as any).sentenceLenCv < 0.12) warnings.push('Varianza de longitud de frases inusualmente baja (proxy)');
+      if (result.llmPattern)
+        warnings.push("Patrón de Conectores Lógicos Repetitivos (LLM)");
+      if (
+        (result as any).sentCount >= 4 &&
+        (result as any).sentenceLenCv < 0.12
+      )
+        warnings.push(
+          "Varianza de longitud de frases inusualmente baja (proxy)",
+        );
 
       const reason =
-        verdict === 'ALERTA ROJA'
-          ? 'El tamaño del texto supera el límite seguro de 150MB y requiere validación manual.'
-          : verdict === 'SOSPECHOSO'
-            ? 'Repetición y estereotipia de conectores lógicos compatibles con redacción de modelo de lenguaje.'
-            : 'La estructura discursiva no muestra patrones dominantes de conectores repetitivos.';
+        verdict === "ALERTA ROJA"
+          ? "El tamaño del texto supera el límite seguro de 150MB y requiere validación manual."
+          : verdict === "SOSPECHOSO"
+            ? "Repetición y estereotipia de conectores lógicos compatibles con redacción de modelo de lenguaje."
+            : "La estructura discursiva no muestra patrones dominantes de conectores repetitivos.";
 
       // Premium: mantenemos ANALYZING hasta el final visual
       await ensureMinimumPremiumTime(premiumStart, 15000, 35, 96);
@@ -3054,16 +3496,20 @@
         logsExtra: [
           ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
           `TEXT_CONNECTOR_SCORE: ${result.connectorScore.toFixed(4)}`,
-          `TEXT_TOP_CONNECTORS: ${(result.topConnectors ?? []).slice(0, 3).join(' | ') || 'NONE'}`,
+          `TEXT_TOP_CONNECTORS: ${(result.topConnectors ?? []).slice(0, 3).join(" | ") || "NONE"}`,
           `TEXT_SENTENCE_LEN_CV: ${Number((result as any).sentenceLenCv ?? 0).toFixed(3)}`,
-          `TEXT_SENT_COUNT: ${Number((result as any).sentCount ?? 0)}`
-        ]
+          `TEXT_SENT_COUNT: ${Number((result as any).sentCount ?? 0)}`,
+        ],
       });
       await new Promise((r) => setTimeout(r, 180));
       if (!isAutomationRun()) showReport = true;
     } catch (err) {
-      const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || NOMINAL_MANIPULATION_FILE_RE.test(file.name);
-      const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
+      const hardAlert =
+        file.size > MAX_SCAN_SIZE_BYTES ||
+        NOMINAL_MANIPULATION_FILE_RE.test(file.name);
+      const verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" = hardAlert
+        ? "ALERTA ROJA"
+        : "SOSPECHOSO";
 
       const premiumStartFail = performance.now();
       await ensureMinimumPremiumTime(premiumStartFail, 15000, 40, 96);
@@ -3071,9 +3517,14 @@
         verdict,
         confidence: hardAlert ? 62 : 50,
         riskScore: hardAlert ? 92 : 58,
-        reason: 'No se pudo completar la Auditoría de Integridad en el navegador (error general).',
-        warnings: ['Auditoría no completada en cliente. Revisa consola para el detalle técnico.'],
-        logsExtra: [`VIDEO_TEXT_IMAGE_ERROR: ${String((err as any)?.message ?? err)}`]
+        reason:
+          "No se pudo completar la Auditoría de Integridad en el navegador (error general).",
+        warnings: [
+          "Auditoría no completada en cliente. Revisa consola para el detalle técnico.",
+        ],
+        logsExtra: [
+          `VIDEO_TEXT_IMAGE_ERROR: ${String((err as any)?.message ?? err)}`,
+        ],
       });
       await new Promise((r) => setTimeout(r, 180));
       if (!isAutomationRun()) showReport = true;
@@ -3085,17 +3536,19 @@
   async function loadFile(file: File) {
     const name = file.name.toLowerCase();
     const isImage =
-      file.type?.startsWith('image/') ||
+      file.type?.startsWith("image/") ||
       /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(name);
     const isVideo =
-      file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v|3gp)$/i.test(name);
+      file.type?.startsWith("video/") ||
+      /\.(mp4|webm|mov|mkv|avi|m4v|3gp)$/i.test(name);
     const isAudio =
-      file.type?.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|opus|flac)$/i.test(name);
+      file.type?.startsWith("audio/") ||
+      /\.(mp3|wav|m4a|aac|ogg|opus|flac)$/i.test(name);
 
     if (!isImage && !isVideo && !isAudio) return;
-    if (activeTab === 'video' && (isImage || isAudio)) return;
-    if (activeTab === 'image' && (isVideo || isAudio)) return;
-    if (activeTab === 'audio' && isImage) return;
+    if (activeTab === "video" && (isImage || isAudio)) return;
+    if (activeTab === "image" && (isVideo || isAudio)) return;
+    if (activeTab === "audio" && isImage) return;
 
     if (raf) {
       cancelAnimationFrame(raf);
@@ -3103,14 +3556,14 @@
     }
 
     selectedFile = file;
-    mediaKind = activeTab === 'audio' ? 'audio' : isImage ? 'image' : 'video';
+    mediaKind = activeTab === "audio" ? "audio" : isImage ? "image" : "video";
     showReport = false;
     resetScanner();
     videoExportFeatures = null;
     imageLowLevelForensic = null;
-    fileHashHex = '';
+    fileHashHex = "";
     elaOverlayCanvas = null;
-    audioSummary = '';
+    audioSummary = "";
 
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl);
@@ -3119,75 +3572,95 @@
       URL.revokeObjectURL(imageUrl);
     }
 
-    if (mediaKind === 'video') {
+    if (mediaKind === "video") {
       videoUrl = URL.createObjectURL(file);
-    } else if (mediaKind === 'image') {
+    } else if (mediaKind === "image") {
       imageUrl = URL.createObjectURL(file);
     } else {
       // audio: sin preview de vídeo/imagen
-      videoUrl = '';
-      imageUrl = '';
+      videoUrl = "";
+      imageUrl = "";
     }
     isBusy = true;
 
     try {
       const premiumStart = performance.now();
-      beginScanKind(file, mediaKind ?? 'unknown');
+      beginScanKind(file, mediaKind ?? "unknown");
       // Desde aquí marcamos ANALYZING para que la Telemetría no se "quede congelada"
       // mientras se resuelven EXIF/MediaInfo/SHA/FS del lado cliente.
       setAnalyzing();
       tickScan(0, 15);
       startTelemetryHeartbeat();
-      appendLog('AUDIT_PIPELINE_OFFTHREAD_INIT...');
+      appendLog("AUDIT_PIPELINE_OFFTHREAD_INIT...");
       // Offload (Worker): SHA-256 + MediaInfo WASM para evitar bloqueos del hilo principal
-      let workerMi: { thirdParty: boolean; encoderHints: string[] } = { thirdParty: false, encoderHints: [] };
+      let workerMi: { thirdParty: boolean; encoderHints: string[] } = {
+        thirdParty: false,
+        encoderHints: [],
+      };
       try {
-        const workerAudit = await withTimeout(runWorkerAudit(file, true), 35000, 'WORKER_AUDIT');
+        const workerAudit = await withTimeout(
+          runWorkerAudit(file, true),
+          35000,
+          "WORKER_AUDIT",
+        );
         fileHashHex = workerAudit.hashHex;
         workerMi = workerAudit.mi;
       } catch (err) {
-        fileHashHex = '';
-        appendLog(`WORKER_AUDIT_FAILED: ${String((err as any)?.message ?? err)}`);
+        fileHashHex = "";
+        appendLog(
+          `WORKER_AUDIT_FAILED: ${String((err as any)?.message ?? err)}`,
+        );
       }
 
       const camera = await readCameraMetadata(file);
       const warnings: string[] = [];
       if (!camera.combined || !isKnownCamera(camera.combined)) {
-        warnings.push('Origen Digital No Verificado');
+        warnings.push("Origen Digital No Verificado");
       }
 
       // MediaInfo (WASM): no debe bloquear toda la auditoría si falla.
       // Ya viene del worker. No hacemos fallback on-thread para evitar freezes.
       const mi: { thirdParty: boolean; encoderHints: string[] } = workerMi;
-      if (!fileHashHex) warnings.push('Auditoría en segundo plano no disponible (hash)');
-      if (!mi) warnings.push('Auditoría en segundo plano no disponible (MediaInfo)');
+      if (!fileHashHex)
+        warnings.push("Auditoría en segundo plano no disponible (hash)");
+      if (!mi)
+        warnings.push("Auditoría en segundo plano no disponible (MediaInfo)");
       if (mi.thirdParty) {
-        warnings.push('Origen: Software de Terceros detected. Integridad de Cámara: Comprometida');
+        warnings.push(
+          "Origen: Software de Terceros detected. Integridad de Cámara: Comprometida",
+        );
       }
 
       const missingMobile: string[] = [];
-      if (!camera.make) missingMobile.push('Marca');
-      if (!camera.model) missingMobile.push('Modelo');
-      if (!camera.iso) missingMobile.push('ISO');
-      if (!camera.fNumber) missingMobile.push('Apertura');
+      if (!camera.make) missingMobile.push("Marca");
+      if (!camera.model) missingMobile.push("Modelo");
+      if (!camera.iso) missingMobile.push("ISO");
+      if (!camera.fNumber) missingMobile.push("Apertura");
       if (missingMobile.length) {
-        warnings.push(`Metadatos de Cámara Incompletos: ${missingMobile.join(', ')}`);
+        warnings.push(
+          `Metadatos de Cámara Incompletos: ${missingMobile.join(", ")}`,
+        );
       }
 
       const hardAlert =
         file.size > MAX_SCAN_SIZE_BYTES ||
         NOMINAL_MANIPULATION_FILE_RE.test(file.name) ||
-        ((mediaKind === 'video' || mediaKind === 'image') && KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name));
+        ((mediaKind === "video" || mediaKind === "image") &&
+          KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name));
       // Se detiene el "heartbeat" cuando entramos en la fase de análisis real.
       stopTelemetryHeartbeat();
 
-      if (mediaKind === 'audio') {
+      if (mediaKind === "audio") {
         try {
-          appendLog('AUDIO_DECODE_INIT...');
+          appendLog("AUDIO_DECODE_INIT...");
 
           // En pestaña AUDIO aceptamos audio/* o video/* (para extraer pista).
-          const audioBuffer = await withTimeout(decodeAudioBufferFromFile(file), 20000, 'AUDIO_DECODE');
-          appendLog('AUDIO_FEATURES_EXTRACT...');
+          const audioBuffer = await withTimeout(
+            decodeAudioBufferFromFile(file),
+            20000,
+            "AUDIO_DECODE",
+          );
+          appendLog("AUDIO_FEATURES_EXTRACT...");
           const res = analyzeAudioQuick(audioBuffer);
 
           audioDurationSec = res.durationSec;
@@ -3198,56 +3671,71 @@
           audioEditCuts = res.editCuts;
 
           const warningsAudio: string[] = [...warnings];
-          if (res.editCuts >= 2) warningsAudio.push('Posible edición por cortes (Audio Continuidad)');
-          if (res.clipRatio > 0.01) warningsAudio.push('Clipping detectado (Audio Saturación)');
-          if (res.bandlimitScore > 0.75) warningsAudio.push('Compresión o limitación de banda agresiva (Audio)');
-          if (res.ttsLike) warningsAudio.push('Naturalidad acústica atípica (posible TTS)');
-          if ((res as any).digitalSilenceGaps >= 2) warningsAudio.push('Silencio digital absoluto entre segmentos (proxy)');
+          if (res.editCuts >= 2)
+            warningsAudio.push(
+              "Posible edición por cortes (Audio Continuidad)",
+            );
+          if (res.clipRatio > 0.01)
+            warningsAudio.push("Clipping detectado (Audio Saturación)");
+          if (res.bandlimitScore > 0.75)
+            warningsAudio.push(
+              "Compresión o limitación de banda agresiva (Audio)",
+            );
+          if (res.ttsLike)
+            warningsAudio.push("Naturalidad acústica atípica (posible TTS)");
+          if ((res as any).digitalSilenceGaps >= 2)
+            warningsAudio.push(
+              "Silencio digital absoluto entre segmentos (proxy)",
+            );
 
-          const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || NOMINAL_MANIPULATION_FILE_RE.test(file.name);
+          const hardAlert =
+            file.size > MAX_SCAN_SIZE_BYTES ||
+            NOMINAL_MANIPULATION_FILE_RE.test(file.name);
           let acousticScore = 0;
           if ((res as any).digitalSilenceGaps >= 2) acousticScore += 40;
-          if (res.sampleRate >= 44100 && res.bandlimitScore > 0.78) acousticScore += 30;
+          if (res.sampleRate >= 44100 && res.bandlimitScore > 0.78)
+            acousticScore += 30;
           if (res.editCuts >= 2) acousticScore += 20;
           if (res.ttsLike) acousticScore += 15;
           acousticScore = Math.max(0, Math.min(100, acousticScore));
 
           const ens = ensemble.evaluate({
-            kind: 'audio',
+            kind: "audio",
             acoustic: { score0to100: acousticScore },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),
-              originNoVerify: warnings.includes('Origen Digital No Verificado'),
-              missingCameraMeta: missingMobile.length > 0
-            }
+              originNoVerify: warnings.includes("Origen Digital No Verificado"),
+              missingCameraMeta: missingMobile.length > 0,
+            },
           });
           const score = Math.round(ens.finalFakeScore0to100);
 
-          let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = verdictFromScore(score);
-          if (hardAlert) verdict = 'ALERTA ROJA';
+          let verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" =
+            verdictFromScore(score);
+          if (hardAlert) verdict = "ALERTA ROJA";
 
           const confidence = confidenceFromScore(score);
           const riskScore = score;
 
           audioSummary =
             (res as any).digitalSilenceGaps >= 2
-              ? 'Se detectaron tramos de silencio digital absoluto incompatibles con captación natural.'
+              ? "Se detectaron tramos de silencio digital absoluto incompatibles con captación natural."
               : res.sampleRate >= 44100 && res.bandlimitScore > 0.78
-                ? 'Se detectó ausencia atípica de altas frecuencias (>16kHz) compatible con síntesis/compresión agresiva.'
+                ? "Se detectó ausencia atípica de altas frecuencias (>16kHz) compatible con síntesis/compresión agresiva."
                 : res.editCuts >= 2
                   ? `Se detectaron ${res.editCuts} discontinuidades compatibles con edición.`
                   : res.ttsLike
-                    ? 'Se detectó naturalidad acústica atípica. Requiere verificación.'
-                    : 'Continuidad acústica estable. Sin señales fuertes de edición.';
+                    ? "Se detectó naturalidad acústica atípica. Requiere verificación."
+                    : "Continuidad acústica estable. Sin señales fuertes de edición.";
 
           const reason =
-            verdict === 'ALERTA ROJA'
+            verdict === "ALERTA ROJA"
               ? file.size > MAX_SCAN_SIZE_BYTES
-                ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
-                : 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
-              : verdict === 'SOSPECHOSO'
+                ? "El archivo supera el limite seguro de 150MB y requiere validacion manual."
+                : "Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal)."
+              : verdict === "SOSPECHOSO"
                 ? audioSummary
-                : 'Integridad de audio estable. No se detectaron señales fuertes de manipulación.';
+                : "Integridad de audio estable. No se detectaron señales fuertes de manipulación.";
 
           // Premium: mantenemos ANALYZING hasta el final visual
           await ensureMinimumPremiumTime(premiumStart, 15000, 28, 96);
@@ -3259,57 +3747,77 @@
             warnings: warningsAudio,
             ensembleVotes: toEnsembleVotesExport(ens.votes),
             logsExtra: [
-              ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
+              ...formatEnsembleVotes(ens.votes).map(
+                (s) => `ENSEMBLE_VOTE: ${s}`,
+              ),
               `AUDIO_DURATION_SEC: ${res.durationSec.toFixed(2)}`,
               `AUDIO_SR: ${res.sampleRate}`,
               `AUDIO_CHANNELS: ${res.channels}`,
               `AUDIO_CLIP_RATIO: ${(res.clipRatio * 100).toFixed(2)}%`,
               `AUDIO_BANDLIMIT_SCORE: ${res.bandlimitScore.toFixed(3)}`,
               `AUDIO_EDIT_CUTS: ${res.editCuts}`,
-              `AUDIO_CUT_TIMES: ${(res.cutTimes ?? []).map((t) => t.toFixed(2)).join(', ') || 'NONE'}`,
-              `AUDIO_DIGITAL_SILENCE_GAPS: ${Number((res as any).digitalSilenceGaps ?? 0)}`
-            ]
+              `AUDIO_CUT_TIMES: ${(res.cutTimes ?? []).map((t) => t.toFixed(2)).join(", ") || "NONE"}`,
+              `AUDIO_DIGITAL_SILENCE_GAPS: ${Number((res as any).digitalSilenceGaps ?? 0)}`,
+            ],
           });
           await new Promise((r) => setTimeout(r, 180));
           if (!isAutomationRun()) showReport = true;
         } catch (err) {
-          const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
+          const verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" = hardAlert
+            ? "ALERTA ROJA"
+            : "SOSPECHOSO";
           await ensureMinimumPremiumTime(premiumStart, 15000, 30, 92);
           completeScan({
             verdict,
             confidence: hardAlert ? 62 : 50,
             riskScore: hardAlert ? 92 : 58,
-            reason: 'No se pudo completar la Auditoría de Integridad de audio en el navegador.',
-            warnings: [...warnings, 'Auditoría no completada en cliente (audio). Revisa consola o intenta otro archivo.'],
-            logsExtra: [`AUDIO_ANALYSIS_ERROR: ${String((err as any)?.message ?? err)}`]
+            reason:
+              "No se pudo completar la Auditoría de Integridad de audio en el navegador.",
+            warnings: [
+              ...warnings,
+              "Auditoría no completada en cliente (audio). Revisa consola o intenta otro archivo.",
+            ],
+            logsExtra: [
+              `AUDIO_ANALYSIS_ERROR: ${String((err as any)?.message ?? err)}`,
+            ],
           });
           await new Promise((r) => setTimeout(r, 180));
           if (!isAutomationRun()) showReport = true;
         }
-      } else if (mediaKind === 'video') {
+      } else if (mediaKind === "video") {
         try {
-          await withTimeout(ensureModelsLoaded(), 20000, 'FACE_MODELS');
+          await withTimeout(ensureModelsLoaded(), 20000, "FACE_MODELS");
 
-          let containerPrecomputed: import('$lib/forensics/mp4BoxForensics').Mp4ForensicResult | null = null;
+          let containerPrecomputed:
+            | import("$lib/forensics/mp4BoxForensics").Mp4ForensicResult
+            | null = null;
           const isMp4Container =
             /\.mp4$/i.test(file.name) ||
-            (file.type || '').toLowerCase().includes('mp4') ||
-            (file.type || '').toLowerCase().includes('quicktime');
+            (file.type || "").toLowerCase().includes("mp4") ||
+            (file.type || "").toLowerCase().includes("quicktime");
           if (isMp4Container) {
             try {
-              const head = await file.slice(0, Math.min(file.size, 2 * 1024 * 1024)).arrayBuffer();
+              const head = await file
+                .slice(0, Math.min(file.size, 2 * 1024 * 1024))
+                .arrayBuffer();
               containerPrecomputed = scanMp4Container(head);
             } catch {
               containerPrecomputed = null;
             }
           }
 
-          const frameResult = await withTimeout(analyzeFramesReal(), 70000, 'VIDEO_ANALYSIS');
+          const frameResult = await withTimeout(
+            analyzeFramesReal(),
+            70000,
+            "VIDEO_ANALYSIS",
+          );
 
-          const rppgRate = Number((frameResult as any).rppgSampleRateHz ?? 1000 / 70);
+          const rppgRate = Number(
+            (frameResult as any).rppgSampleRateHz ?? 1000 / 70,
+          );
           const rppgAnalysis = analyzeRppgGreenSeries(
             (frameResult as any).rppgGreenSamples ?? [],
-            rppgRate
+            rppgRate,
           );
 
           const videoLowLevel = sampleVideoLowLevelForensic(videoRef);
@@ -3317,107 +3825,141 @@
           videoExportFeatures = buildVideoFeaturesForExport(frameResult, {
             rppgPrecomputed: rppgAnalysis,
             containerPrecomputed,
-            lowLevelForensic: videoLowLevel
+            lowLevelForensic: videoLowLevel,
           });
 
           const ens = ensemble.evaluate({
-            kind: 'video',
+            kind: "video",
             forensic: {
               roiPerfectPts: Number((frameResult as any).roiPerfectPts ?? 0),
-              roiNoiseMismatchPts: Number((frameResult as any).roiNoiseMismatchPts ?? 0),
+              roiNoiseMismatchPts: Number(
+                (frameResult as any).roiNoiseMismatchPts ?? 0,
+              ),
               roiNoiseFace: Number((frameResult as any).roiNoiseFace ?? 0),
               roiNoiseBg: Number((frameResult as any).roiNoiseBg ?? 0),
               roiEdgeFace: Number((frameResult as any).roiEdgeFace ?? 0),
               roiEdgeBg: Number((frameResult as any).roiEdgeBg ?? 0),
               videoPortraitSyntheticHint: Boolean(
-                videoExportFeatures?.forensic?.videoPortraitSyntheticHint ?? false
+                videoExportFeatures?.forensic?.videoPortraitSyntheticHint ??
+                false,
               ),
               videoPolishedRoiSyntheticHint: Boolean(
-                videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ?? false
+                videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ??
+                false,
               ),
               prnuResidualRisk0to100: videoLowLevel?.prnuResidualRisk0to100,
-              dctDoubleQuantRisk0to100: videoLowLevel?.dctDoubleQuantRisk0to100
+              dctDoubleQuantRisk0to100: videoLowLevel?.dctDoubleQuantRisk0to100,
             },
             biometric: {
               blinkWarning: Boolean(frameResult.blinkWarning),
               suspiciousJitter: Boolean(frameResult.suspiciousJitter),
-              suspiciousLowConfidence: Boolean(frameResult.suspiciousLowConfidence),
+              suspiciousLowConfidence: Boolean(
+                frameResult.suspiciousLowConfidence,
+              ),
               maskJitterWarning: Boolean(frameResult.maskJitterWarning),
-              reliableFaceFrames: Number((frameResult as any).reliableFaceFrames ?? 0),
+              reliableFaceFrames: Number(
+                (frameResult as any).reliableFaceFrames ?? 0,
+              ),
               minFaceConfidence: Number(frameResult.minScore ?? 0),
               maxLandmarkJitter: Number(frameResult.maxJitter ?? 0),
               blinkCount: Number(frameResult.blinkCount ?? 0),
               maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0),
               videoPolishedRoiSyntheticHint: Boolean(
-                videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ?? false
-              )
+                videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ??
+                false,
+              ),
             },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),
-              originNoVerify: warnings.includes('Origen Digital No Verificado'),
-              missingCameraMeta: missingMobile.length > 0
+              originNoVerify: warnings.includes("Origen Digital No Verificado"),
+              missingCameraMeta: missingMobile.length > 0,
             },
             advanced: {
               rppg: {
                 greenSamples: (frameResult as any).rppgGreenSamples ?? [],
-                sampleRateHz: rppgRate
+                sampleRateHz: rppgRate,
               },
-              ...(isMp4Container ? { container: { precomputed: containerPrecomputed ?? undefined } } : {})
-            }
+              ...(isMp4Container
+                ? {
+                    container: {
+                      precomputed: containerPrecomputed ?? undefined,
+                    },
+                  }
+                : {}),
+            },
           });
 
           const score = Math.round(ens.finalFakeScore0to100);
 
-          let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = verdictFromScore(score);
-          if (hardAlert) verdict = 'ALERTA ROJA';
+          let verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" =
+            verdictFromScore(score);
+          if (hardAlert) verdict = "ALERTA ROJA";
 
           const confidence = confidenceFromScore(score);
           const riskScore = score;
 
           if (KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)) {
             warnings.push(
-              'Nombre de archivo compatible con export de generador de vídeo (Kling, Sora, Runway, Veo, etc.).'
+              "Nombre de archivo compatible con export de generador de vídeo (Kling, Sora, Runway, Veo, etc.).",
             );
           }
-          if (frameResult.blinkWarning) warnings.push('Patrón de Parpadeo Sintético');
-          if (frameResult.maskJitterWarning) warnings.push('Inconsistencia de Bordes (Mask Jitter)');
+          if (frameResult.blinkWarning)
+            warnings.push("Patrón de Parpadeo Sintético");
+          if (frameResult.maskJitterWarning)
+            warnings.push("Inconsistencia de Bordes (Mask Jitter)");
           if (Number((frameResult as any).roiPerfectPts ?? 0) > 0)
-            warnings.push('Contraste de Textura (ROI): cara demasiado suave vs fondo (proxy)');
+            warnings.push(
+              "Contraste de Textura (ROI): cara demasiado suave vs fondo (proxy)",
+            );
           if (Number((frameResult as any).roiNoiseMismatchPts ?? 0) > 0)
-            warnings.push('Ruido de piel vs fondo no coincide (ROI proxy)');
-          if (!rppgAnalysis.rhythmicPulseLikely && rppgAnalysis.sampleCount >= 36) {
-            warnings.push('rPPG: sin pulso rítmico plausible en ROI (mejillas / verde)');
+            warnings.push("Ruido de piel vs fondo no coincide (ROI proxy)");
+          if (
+            !rppgAnalysis.rhythmicPulseLikely &&
+            rppgAnalysis.sampleCount >= 36
+          ) {
+            warnings.push(
+              "rPPG: sin pulso rítmico plausible en ROI (mejillas / verde)",
+            );
           }
-          if (containerPrecomputed && containerPrecomputed.fakeScore0to100 >= 40) {
-            warnings.push('Contenedor MP4: estructura ftyp/boxes atípica para captura móvil estándar');
+          if (
+            containerPrecomputed &&
+            containerPrecomputed.fakeScore0to100 >= 40
+          ) {
+            warnings.push(
+              "Contenedor MP4: estructura ftyp/boxes atípica para captura móvil estándar",
+            );
           }
           if (videoLowLevel && videoLowLevel.prnuResidualRisk0to100 >= 38) {
-            warnings.push('PRNU (proxy): ruido residual compatible con síntesis/filtro, poca textura de sensor.');
+            warnings.push(
+              "PRNU (proxy): ruido residual compatible con síntesis/filtro, poca textura de sensor.",
+            );
           }
           if (videoLowLevel && videoLowLevel.dctDoubleQuantRisk0to100 >= 38) {
-            warnings.push('DCT (proxy): indicios de doble compresión en bloques 8×8.');
+            warnings.push(
+              "DCT (proxy): indicios de doble compresión en bloques 8×8.",
+            );
           }
 
           const reason =
-            verdict === 'ALERTA ROJA'
+            verdict === "ALERTA ROJA"
               ? file.size > MAX_SCAN_SIZE_BYTES
-                ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
+                ? "El archivo supera el limite seguro de 150MB y requiere validacion manual."
                 : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
-                  ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
+                  ? "Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal)."
                   : KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)
-                    ? 'El nombre del archivo coincide con patrones típicos de export de generadores de vídeo (Kling, Sora, Runway, Veo, etc.).'
-                    : 'Indicios fuertes de manipulación o síntesis (varias señales alineadas en vídeo).'
-              : verdict === 'SOSPECHOSO'
+                    ? "El nombre del archivo coincide con patrones típicos de export de generadores de vídeo (Kling, Sora, Runway, Veo, etc.)."
+                    : "Indicios fuertes de manipulación o síntesis (varias señales alineadas en vídeo)."
+              : verdict === "SOSPECHOSO"
                 ? Number((frameResult as any).roiPerfectPts ?? 0) > 0
-                  ? 'La cara aparece anormalmente “perfecta/suave” en comparación con el fondo (análisis ROI).'
+                  ? "La cara aparece anormalmente “perfecta/suave” en comparación con el fondo (análisis ROI)."
                   : Number((frameResult as any).roiNoiseMismatchPts ?? 0) > 0
-                    ? 'El grano/ruido de la piel no coincide con el del fondo (análisis ROI).'
+                    ? "El grano/ruido de la piel no coincide con el del fondo (análisis ROI)."
                     : frameResult.blinkWarning
-                      ? 'Patrón de parpadeo sintético detectado (proxy).'
+                      ? "Patrón de parpadeo sintético detectado (proxy)."
                       : frameResult.maskJitterWarning
-                        ? 'Inconsistencia de bordes detectada entre cara y cuello (Mask Jitter).'
-                        : 'Se detectaron señales moderadas que requieren verificación adicional.'
-                : 'Coherencia biométrica estable. No se detectaron indicios fuertes de síntesis.';
+                        ? "Inconsistencia de bordes detectada entre cara y cuello (Mask Jitter)."
+                        : "Se detectaron señales moderadas que requieren verificación adicional."
+                : "Coherencia biométrica estable. No se detectaron indicios fuertes de síntesis.";
 
           // Premium: mantenemos ANALYZING hasta el final visual
           await ensureMinimumPremiumTime(premiumStart, 15000, 28, 96);
@@ -3429,52 +3971,68 @@
             warnings,
             ensembleVotes: toEnsembleVotesExport(ens.votes),
             logsExtra: [
-              ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
-              modelsReady ? 'FACE_MODELS: READY' : 'FACE_MODELS: OFFLINE',
+              ...formatEnsembleVotes(ens.votes).map(
+                (s) => `ENSEMBLE_VOTE: ${s}`,
+              ),
+              modelsReady ? "FACE_MODELS: READY" : "FACE_MODELS: OFFLINE",
               `MIN_FACE_CONFIDENCE: ${(frameResult.minScore * 100).toFixed(1)}%`,
               `MAX_LANDMARK_JITTER: ${(frameResult.maxJitter * 100).toFixed(2)}%`,
               `BLINK_COUNT_20S: ${frameResult.blinkCount}`,
-              frameResult.blinkWarning ? 'BLINK_PATTERN: SYNTHETIC' : 'BLINK_PATTERN: OK',
+              frameResult.blinkWarning
+                ? "BLINK_PATTERN: SYNTHETIC"
+                : "BLINK_PATTERN: OK",
               `MASK_JITTER_MAX_SCORE: ${frameResult.maskJitterMaxScore.toFixed(2)}`,
-              frameResult.maskJitterWarning ? 'MASK_JITTER: HALO_DETECTED' : 'MASK_JITTER: OK',
+              frameResult.maskJitterWarning
+                ? "MASK_JITTER: HALO_DETECTED"
+                : "MASK_JITTER: OK",
               `ROI_FACE_SMOOTH_PTS: ${Number((frameResult as any).roiPerfectPts ?? 0)}`,
               `ROI_NOISE_MISMATCH_PTS: ${Number((frameResult as any).roiNoiseMismatchPts ?? 0)}`,
               `ROI_NOISE_FACE: ${Number((frameResult as any).roiNoiseFace ?? 0).toFixed(4)}`,
               `ROI_NOISE_BG: ${Number((frameResult as any).roiNoiseBg ?? 0).toFixed(4)}`,
               `ROI_EDGE_FACE: ${Number((frameResult as any).roiEdgeFace ?? 0).toFixed(2)}`,
               `ROI_EDGE_BG: ${Number((frameResult as any).roiEdgeBg ?? 0).toFixed(2)}`,
-              mi.thirdParty ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(', ')}` : 'ENCODER_FOOTPRINT: NONE',
-              missingMobile.length ? `CAMERA_META_MISSING: ${missingMobile.join(', ')}` : 'CAMERA_META_MISSING: NONE',
+              mi.thirdParty
+                ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(", ")}`
+                : "ENCODER_FOOTPRINT: NONE",
+              missingMobile.length
+                ? `CAMERA_META_MISSING: ${missingMobile.join(", ")}`
+                : "CAMERA_META_MISSING: NONE",
               `RPPG_SAMPLES: ${rppgAnalysis.sampleCount}`,
               `RPPG_FS_HZ: ${rppgRate.toFixed(2)}`,
               `RPPG_PROMINENCE: ${rppgAnalysis.prominence.toFixed(3)}`,
-              `RPPG_RHYTHMIC: ${rppgAnalysis.rhythmicPulseLikely ? 'YES' : 'NO'}`,
-              rppgAnalysis.estimatedBpm != null ? `RPPG_BPM_EST: ${rppgAnalysis.estimatedBpm}` : 'RPPG_BPM_EST: NA',
+              `RPPG_RHYTHMIC: ${rppgAnalysis.rhythmicPulseLikely ? "YES" : "NO"}`,
+              rppgAnalysis.estimatedBpm != null
+                ? `RPPG_BPM_EST: ${rppgAnalysis.estimatedBpm}`
+                : "RPPG_BPM_EST: NA",
               containerPrecomputed
-                ? `MP4_FTYP: ${containerPrecomputed.ftypMajorBrand ?? 'NONE'} | MP4_CONTAINER_SCORE: ${containerPrecomputed.fakeScore0to100}`
-                : 'MP4_FTYP: N/A',
+                ? `MP4_FTYP: ${containerPrecomputed.ftypMajorBrand ?? "NONE"} | MP4_CONTAINER_SCORE: ${containerPrecomputed.fakeScore0to100}`
+                : "MP4_FTYP: N/A",
               videoLowLevel
                 ? `PRNU_RESIDUAL_RISK: ${videoLowLevel.prnuResidualRisk0to100} | DCT_DOUBLEQ_RISK: ${videoLowLevel.dctDoubleQuantRisk0to100}`
-                : 'PRNU_RESIDUAL_RISK: N/A | DCT_DOUBLEQ_RISK: N/A',
-              `VIDEO_POLISHED_ROI_HINT: ${videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ? 'YES' : 'NO'}`,
-              `AI_EXPORT_FILENAME_HEURISTIC: ${KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name) ? 'MATCH' : 'NO'}`
-            ]
+                : "PRNU_RESIDUAL_RISK: N/A | DCT_DOUBLEQ_RISK: N/A",
+              `VIDEO_POLISHED_ROI_HINT: ${videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ? "YES" : "NO"}`,
+              `AI_EXPORT_FILENAME_HEURISTIC: ${KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name) ? "MATCH" : "NO"}`,
+            ],
           });
           await new Promise((r) => setTimeout(r, 180));
           if (!isAutomationRun()) showReport = true;
         } catch (err) {
-          const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
+          const verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" = hardAlert
+            ? "ALERTA ROJA"
+            : "SOSPECHOSO";
           const reason = hardAlert
             ? file.size > MAX_SCAN_SIZE_BYTES
-              ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
+              ? "El archivo supera el limite seguro de 150MB y requiere validacion manual."
               : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
-                ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
+                ? "Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal)."
                 : KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)
-                  ? 'El nombre del archivo coincide con patrones típicos de export de generadores de vídeo (Kling, Sora, Runway, Veo, etc.).'
-                  : 'Patrón en el nombre del archivo sugiere revisión prioritaria.'
-            : 'No se pudo completar la Auditoría de Integridad del vídeo en el navegador (error durante el análisis).';
+                  ? "El nombre del archivo coincide con patrones típicos de export de generadores de vídeo (Kling, Sora, Runway, Veo, etc.)."
+                  : "Patrón en el nombre del archivo sugiere revisión prioritaria."
+            : "No se pudo completar la Auditoría de Integridad del vídeo en el navegador (error durante el análisis).";
 
-          warnings.push('Auditoría no completada en cliente (video). Revisa consola o intenta otro archivo.');
+          warnings.push(
+            "Auditoría no completada en cliente (video). Revisa consola o intenta otro archivo.",
+          );
           await ensureMinimumPremiumTime(premiumStart, 15000, 30, 92);
           completeScan({
             verdict,
@@ -3482,7 +4040,9 @@
             riskScore: hardAlert ? 92 : 58,
             reason,
             warnings,
-            logsExtra: [`VIDEO_ANALYSIS_ERROR: ${String((err as any)?.message ?? err)}`]
+            logsExtra: [
+              `VIDEO_ANALYSIS_ERROR: ${String((err as any)?.message ?? err)}`,
+            ],
           });
           await new Promise((r) => setTimeout(r, 180));
           if (!isAutomationRun()) showReport = true;
@@ -3492,10 +4052,10 @@
         const imgMinMs = 15000;
         const imgPromise = analyzeImageElaAndTexture(file);
         // Corre análisis real y animación en paralelo; esperamos ambos para UX consistente.
-        const [imgResult] = (await Promise.all([imgPromise, smoothProgressUntil(imgPromise, imgMinMs)])) as [
-          Awaited<typeof imgPromise>,
-          unknown
-        ];
+        const [imgResult] = (await Promise.all([
+          imgPromise,
+          smoothProgressUntil(imgPromise, imgMinMs),
+        ])) as [Awaited<typeof imgPromise>, unknown];
 
         imageElaMean = imgResult.elaMean;
         imageElaUniformity = imgResult.elaUniformity;
@@ -3505,14 +4065,24 @@
         imageEdgeSharpness = imgResult.edgeSharpnessMean ?? 0;
         imageNoiseMean = Number((imgResult as any).noiseMean ?? 0);
         imageNoiseUniformity = Number((imgResult as any).noiseUniformity ?? 0);
-        imageLightingInconsistency = Number((imgResult as any).lightingInconsistencyScore ?? 0);
-        imageEdgePerfection = Number((imgResult as any).edgePerfectionScore ?? 0);
-        imageRenderSignature = Number((imgResult as any).renderSignatureScore ?? 0);
+        imageLightingInconsistency = Number(
+          (imgResult as any).lightingInconsistencyScore ?? 0,
+        );
+        imageEdgePerfection = Number(
+          (imgResult as any).edgePerfectionScore ?? 0,
+        );
+        imageRenderSignature = Number(
+          (imgResult as any).renderSignatureScore ?? 0,
+        );
         imageRoiFaceScore = Number((imgResult as any).roiFaceScore ?? 0);
         imageRoiPerfectPts = Number((imgResult as any).roiPerfectPts ?? 0);
-        imageRoiNoiseMismatchPts = Number((imgResult as any).roiNoiseMismatchPts ?? 0);
+        imageRoiNoiseMismatchPts = Number(
+          (imgResult as any).roiNoiseMismatchPts ?? 0,
+        );
         imageLocalElaCv = Number((imgResult as any).localElaCv ?? 0);
-        imageLocalElaPeakRatio = Number((imgResult as any).localElaPeakRatio ?? 0);
+        imageLocalElaPeakRatio = Number(
+          (imgResult as any).localElaPeakRatio ?? 0,
+        );
         imageLocalEditLikely = Boolean((imgResult as any).localEditLikely);
         imageVectorGraphicLike = Boolean((imgResult as any).vectorGraphicLike);
         imageElaSynthetic = Boolean(imgResult.elaSynthetic);
@@ -3521,78 +4091,108 @@
         imageEdgesSmoothedSynthetic = Boolean(imgResult.edgesSmoothedSynthetic);
 
         imageLowLevelForensic = {
-          prnuResidualRisk0to100: Number((imgResult as any).prnuResidualRisk0to100 ?? 0),
+          prnuResidualRisk0to100: Number(
+            (imgResult as any).prnuResidualRisk0to100 ?? 0,
+          ),
           prnuResidualMetrics: (imgResult as any).prnuResidualMetrics ?? null,
           prnuResidualNotes: Array.isArray((imgResult as any).prnuResidualNotes)
             ? (imgResult as any).prnuResidualNotes.map(String)
             : [],
-          dctDoubleQuantRisk0to100: Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0),
-          dctDoubleQuantMetrics: (imgResult as any).dctDoubleQuantMetrics ?? null,
-          dctDoubleQuantNotes: Array.isArray((imgResult as any).dctDoubleQuantNotes)
+          dctDoubleQuantRisk0to100: Number(
+            (imgResult as any).dctDoubleQuantRisk0to100 ?? 0,
+          ),
+          dctDoubleQuantMetrics:
+            (imgResult as any).dctDoubleQuantMetrics ?? null,
+          dctDoubleQuantNotes: Array.isArray(
+            (imgResult as any).dctDoubleQuantNotes,
+          )
             ? (imgResult as any).dctDoubleQuantNotes.map(String)
-            : []
+            : [],
         };
 
-        let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = 'VERIFICADO';
+        let verdict: "VERIFICADO" | "SOSPECHOSO" | "ALERTA ROJA" = "VERIFICADO";
         let imageEnsVotes: any[] = [];
         if (hardAlert) {
-          verdict = 'ALERTA ROJA';
+          verdict = "ALERTA ROJA";
         } else {
           const ens = ensemble.evaluate({
-            kind: 'image',
+            kind: "image",
             forensic: {
               roiPerfectPts:
-                Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 ? Number((imgResult as any).roiPerfectPts ?? 0) : 0,
+                Number((imgResult as any).roiFaceScore ?? 0) >= 0.9
+                  ? Number((imgResult as any).roiPerfectPts ?? 0)
+                  : 0,
               roiNoiseMismatchPts:
-                Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 ? Number((imgResult as any).roiNoiseMismatchPts ?? 0) : 0,
+                Number((imgResult as any).roiFaceScore ?? 0) >= 0.9
+                  ? Number((imgResult as any).roiNoiseMismatchPts ?? 0)
+                  : 0,
               elaSynthetic: Boolean(imgResult.elaSynthetic),
               elaUniformity: Number((imgResult as any).elaUniformity ?? 0),
               frequencySynthetic: Boolean(imgResult.frequencySynthetic),
               freqPeakiness: Number((imgResult as any).freqPeakiness ?? 0),
               freqRadialVar: Number((imgResult as any).freqRadialVar ?? 0),
               textureSynthetic: Boolean(imgResult.textureSynthetic),
-              textureRepeatScore: Number((imgResult as any).textureRepeatScore ?? 0),
+              textureRepeatScore: Number(
+                (imgResult as any).textureRepeatScore ?? 0,
+              ),
               edgesSmoothedSynthetic: Boolean(imgResult.edgesSmoothedSynthetic),
               localEditLikely: Boolean((imgResult as any).localEditLikely),
               vectorGraphicLike: Boolean((imgResult as any).vectorGraphicLike),
               noiseMean: Number((imgResult as any).noiseMean ?? 0),
               noiseUniformity: Number((imgResult as any).noiseUniformity ?? 0),
-              edgePerfectionScore: Number((imgResult as any).edgePerfectionScore ?? 0),
-              edgeSharpnessMean: Number((imgResult as any).edgeSharpnessMean ?? 0),
-              renderSignatureScore: Number((imgResult as any).renderSignatureScore ?? 0),
-              lightingInconsistencyScore: Number((imgResult as any).lightingInconsistencyScore ?? 0),
+              edgePerfectionScore: Number(
+                (imgResult as any).edgePerfectionScore ?? 0,
+              ),
+              edgeSharpnessMean: Number(
+                (imgResult as any).edgeSharpnessMean ?? 0,
+              ),
+              renderSignatureScore: Number(
+                (imgResult as any).renderSignatureScore ?? 0,
+              ),
+              lightingInconsistencyScore: Number(
+                (imgResult as any).lightingInconsistencyScore ?? 0,
+              ),
               localElaCv: Number((imgResult as any).localElaCv ?? 0),
-              localElaPeakRatio: Number((imgResult as any).localElaPeakRatio ?? 0),
-              prnuResidualRisk0to100: Number((imgResult as any).prnuResidualRisk0to100 ?? 0),
-              dctDoubleQuantRisk0to100: Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0)
+              localElaPeakRatio: Number(
+                (imgResult as any).localElaPeakRatio ?? 0,
+              ),
+              prnuResidualRisk0to100: Number(
+                (imgResult as any).prnuResidualRisk0to100 ?? 0,
+              ),
+              dctDoubleQuantRisk0to100: Number(
+                (imgResult as any).dctDoubleQuantRisk0to100 ?? 0,
+              ),
             },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),
-              originNoVerify: warnings.includes('Origen Digital No Verificado'),
-              missingCameraMeta: missingMobile.length > 0
-            }
+              originNoVerify: warnings.includes("Origen Digital No Verificado"),
+              missingCameraMeta: missingMobile.length > 0,
+            },
           });
 
           const imgScore = Math.round(ens.finalFakeScore0to100);
           verdict = verdictFromScore(imgScore);
           (imgResult as any).__kronosScore = imgScore;
           imageEnsVotes = ens.votes as any[];
-          (imgResult as any).__kronosEnsembleVotes = formatEnsembleVotes(ens.votes);
+          (imgResult as any).__kronosEnsembleVotes = formatEnsembleVotes(
+            ens.votes,
+          );
         }
 
         const imgScore = Number((imgResult as any).__kronosScore ?? 0);
 
         const originOnly =
-          verdict === 'VERIFICADO' &&
+          verdict === "VERIFICADO" &&
           [
             imgResult.elaSynthetic,
             imgResult.frequencySynthetic,
             imgResult.textureSynthetic,
             imgResult.edgesSmoothedSynthetic,
             (imgResult as any).vectorGraphicLike,
-            (imgResult as any).localEditLikely
+            (imgResult as any).localEditLikely,
           ].filter(Boolean).length === 0 &&
-          (warnings.includes('Origen Digital No Verificado') || (missingMobile?.length ?? 0) > 0);
+          (warnings.includes("Origen Digital No Verificado") ||
+            (missingMobile?.length ?? 0) > 0);
 
         const confidence = confidenceFromScore(imgScore);
         const riskScore = imgScore;
@@ -3603,7 +4203,8 @@
         // - "Generada sintéticamente" solo para combinación fuerte.
         // - La recomprensión es común (WhatsApp/IG/X/iCloud, HDR, reducción de ruido). Si el veredicto es VERIFICADO
         //   y no hay señales fuertes (edición local / múltiples módulos), NO lo mostramos como aviso al usuario.
-        const weakEditHint = imgResult.elaSynthetic || imgResult.frequencySynthetic;
+        const weakEditHint =
+          imgResult.elaSynthetic || imgResult.frequencySynthetic;
         const hasLocalEdit = Boolean((imgResult as any).localEditLikely);
         const hasMultiSignals =
           [
@@ -3612,66 +4213,99 @@
             imgResult.textureSynthetic,
             imgResult.edgesSmoothedSynthetic,
             (imgResult as any).vectorGraphicLike,
-            (imgResult as any).localEditLikely
+            (imgResult as any).localEditLikely,
           ].filter(Boolean).length >= 2;
 
         if (imgResult.elaSynthetic && imgResult.frequencySynthetic) {
-          warnings.push('Generada sintéticamente');
+          warnings.push("Generada sintéticamente");
         } else if (weakEditHint) {
-          if (verdict !== 'VERIFICADO' || hasLocalEdit || hasMultiSignals) {
-            warnings.push('Posible recomprensión/edición detectada (ELA/Frecuencia)');
+          if (verdict !== "VERIFICADO" || hasLocalEdit || hasMultiSignals) {
+            warnings.push(
+              "Posible recomprensión/edición detectada (ELA/Frecuencia)",
+            );
           } else {
             // Se deja en logsExtra para trazabilidad sin asustar a usuarios con fotos reales recomprimidas.
             // (se añadirá abajo en logsExtra)
           }
         }
-        if (imgResult.textureSynthetic) warnings.push('Patrones Repetitivos en Texturas (Stable Diffusion)');
-        if (imgResult.edgesSmoothedSynthetic) warnings.push('Bordes Suavizados Artificialmente (Edge Softening)');
-        if (imageNoiseMean > 0 && imageNoiseMean < 0.018 && imageNoiseUniformity > 0.72) warnings.push('Anomalía de Ruido de Fondo (imagen demasiado limpia)');
-        if (imageEdgePerfection > 0.74 && imageEdgeSharpness > 0.55 && imageNoiseMean < 0.025)
-          warnings.push('Generación Sintética Probable (bordes de alta frecuencia demasiado perfectos)');
-        if (imageRenderSignature > 0.78 && imageNoiseMean < 0.022) warnings.push('Firma de Renderizado (progresión demasiado suave)');
-        if (imageLightingInconsistency > 0.86 && imageNoiseMean < 0.03) warnings.push('Coherencia de Iluminación Atípica (proxy)');
-        if ((imgResult as any).vectorGraphicLike) warnings.push('Evidencia de edición o contenido gráfico (UI/CGI)');
-        if ((imgResult as any).localEditLikely) warnings.push('Posible edición local / composición (ELA por regiones)');
-        if (Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 && Number((imgResult as any).roiPerfectPts ?? 0) > 0)
-          warnings.push('Contraste de Textura (ROI): cara demasiado suave vs fondo (proxy)');
-        if (Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 && Number((imgResult as any).roiNoiseMismatchPts ?? 0) > 0)
-          warnings.push('Ruido de piel vs fondo no coincide (ROI proxy)');
+        if (imgResult.textureSynthetic)
+          warnings.push("Patrones Repetitivos en Texturas (Stable Diffusion)");
+        if (imgResult.edgesSmoothedSynthetic)
+          warnings.push("Bordes Suavizados Artificialmente (Edge Softening)");
+        if (
+          imageNoiseMean > 0 &&
+          imageNoiseMean < 0.018 &&
+          imageNoiseUniformity > 0.72
+        )
+          warnings.push("Anomalía de Ruido de Fondo (imagen demasiado limpia)");
+        if (
+          imageEdgePerfection > 0.74 &&
+          imageEdgeSharpness > 0.55 &&
+          imageNoiseMean < 0.025
+        )
+          warnings.push(
+            "Generación Sintética Probable (bordes de alta frecuencia demasiado perfectos)",
+          );
+        if (imageRenderSignature > 0.78 && imageNoiseMean < 0.022)
+          warnings.push("Firma de Renderizado (progresión demasiado suave)");
+        if (imageLightingInconsistency > 0.86 && imageNoiseMean < 0.03)
+          warnings.push("Coherencia de Iluminación Atípica (proxy)");
+        if ((imgResult as any).vectorGraphicLike)
+          warnings.push("Evidencia de edición o contenido gráfico (UI/CGI)");
+        if ((imgResult as any).localEditLikely)
+          warnings.push(
+            "Posible edición local / composición (ELA por regiones)",
+          );
+        if (
+          Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 &&
+          Number((imgResult as any).roiPerfectPts ?? 0) > 0
+        )
+          warnings.push(
+            "Contraste de Textura (ROI): cara demasiado suave vs fondo (proxy)",
+          );
+        if (
+          Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 &&
+          Number((imgResult as any).roiNoiseMismatchPts ?? 0) > 0
+        )
+          warnings.push("Ruido de piel vs fondo no coincide (ROI proxy)");
         if (Number((imgResult as any).prnuResidualRisk0to100 ?? 0) >= 38) {
-          warnings.push('PRNU (proxy): ruido residual compatible con síntesis/filtro, poca textura de sensor.');
+          warnings.push(
+            "PRNU (proxy): ruido residual compatible con síntesis/filtro, poca textura de sensor.",
+          );
         }
         if (Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0) >= 38) {
-          warnings.push('DCT (proxy): indicios de doble compresión en bloques 8×8.');
+          warnings.push(
+            "DCT (proxy): indicios de doble compresión en bloques 8×8.",
+          );
         }
         if (KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)) {
           warnings.push(
-            'Nombre de archivo compatible con export de generador de vídeo/imagen (Kling, Sora, Runway, Veo, etc.).'
+            "Nombre de archivo compatible con export de generador de vídeo/imagen (Kling, Sora, Runway, Veo, etc.).",
           );
         }
 
         const reason =
-          verdict === 'ALERTA ROJA'
+          verdict === "ALERTA ROJA"
             ? file.size > MAX_SCAN_SIZE_BYTES
-              ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
+              ? "El archivo supera el limite seguro de 150MB y requiere validacion manual."
               : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
-                ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
+                ? "Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal)."
                 : KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)
-                  ? 'El nombre del archivo coincide con patrones típicos de export de generadores (Kling, Sora, Runway, Veo, etc.).'
-                  : 'Riesgo de integridad visual elevado (ensemble forense). Se recomienda verificación adicional.'
-            : verdict === 'SOSPECHOSO'
+                  ? "El nombre del archivo coincide con patrones típicos de export de generadores (Kling, Sora, Runway, Veo, etc.)."
+                  : "Riesgo de integridad visual elevado (ensemble forense). Se recomienda verificación adicional."
+            : verdict === "SOSPECHOSO"
               ? imgResult.elaSynthetic || imgResult.frequencySynthetic
-                ? 'Se detectaron señales de síntesis compatibles: ELA y/o periodicidad en dominio frecuencia.'
+                ? "Se detectaron señales de síntesis compatibles: ELA y/o periodicidad en dominio frecuencia."
                 : imgResult.edgesSmoothedSynthetic
-                  ? 'Se detectaron bordes demasiado suavizados (edge softening) compatibles con cuantización/manipulación sintética.'
+                  ? "Se detectaron bordes demasiado suavizados (edge softening) compatibles con cuantización/manipulación sintética."
                   : imgResult.textureSynthetic
-                    ? 'Se detectaron patrones repetitivos en texturas compatibles con generación por IA.'
+                    ? "Se detectaron patrones repetitivos en texturas compatibles con generación por IA."
                     : imageRenderSignature > 0.78
-                      ? 'Se detectó una firma de renderizado (progresión de color demasiado suave) compatible con generación sintética.'
-                      : 'Se detectaron múltiples señales visuales compatibles con generación o manipulación.'
+                      ? "Se detectó una firma de renderizado (progresión de color demasiado suave) compatible con generación sintética."
+                      : "Se detectaron múltiples señales visuales compatibles con generación o manipulación."
               : originOnly
-                ? 'La integridad visual no muestra señales fuertes de edición/IA. El origen de cámara no es verificable por metadatos.'
-                : 'La integridad visual y la consistencia de metadatos no muestran indicios claros de IA.';
+                ? "La integridad visual no muestra señales fuertes de edición/IA. El origen de cámara no es verificable por metadatos."
+                : "La integridad visual y la consistencia de metadatos no muestran indicios claros de IA.";
 
         completeScan({
           verdict,
@@ -3681,14 +4315,24 @@
           warnings,
           ensembleVotes: toEnsembleVotesExport(imageEnsVotes),
           logsExtra: [
-            ...(((imgResult as any).__kronosEnsembleVotes as string[] | undefined) ?? []).map((s) => `ENSEMBLE_VOTE: ${s}`),
-            `IMAGE_SHA_STATE: ${fileHashHex ? 'SET' : 'N/A'}`,
+            ...(
+              ((imgResult as any).__kronosEnsembleVotes as
+                | string[]
+                | undefined) ?? []
+            ).map((s) => `ENSEMBLE_VOTE: ${s}`),
+            `IMAGE_SHA_STATE: ${fileHashHex ? "SET" : "N/A"}`,
             `ELA_MEAN: ${(imgResult.elaMean * 100).toFixed(1)}`,
             `ELA_UNIFORMITY: ${(imgResult.elaUniformity * 100).toFixed(1)}`,
             `TEXTURE_REPEAT_SCORE: ${(imgResult.textureRepeatScore * 100).toFixed(1)}`,
-            imgResult.elaSynthetic ? 'ELA_VERDICT: SYNTHETIC' : 'ELA_VERDICT: OK',
-            imgResult.textureSynthetic ? 'TEXTURE_VERDICT: SYNTHETIC' : 'TEXTURE_VERDICT: OK',
-            imgResult.frequencySynthetic ? 'FREQ_VERDICT: SYNTHETIC' : 'FREQ_VERDICT: OK',
+            imgResult.elaSynthetic
+              ? "ELA_VERDICT: SYNTHETIC"
+              : "ELA_VERDICT: OK",
+            imgResult.textureSynthetic
+              ? "TEXTURE_VERDICT: SYNTHETIC"
+              : "TEXTURE_VERDICT: OK",
+            imgResult.frequencySynthetic
+              ? "FREQ_VERDICT: SYNTHETIC"
+              : "FREQ_VERDICT: OK",
             `FREQ_PEAKINESS: ${(imgResult.freqPeakiness ?? 0).toFixed(4)}`,
             `FREQ_RADIAL_VAR: ${(imgResult.freqRadialVar ?? 0).toFixed(4)}`,
             `EDGE_SHARPNESS: ${(imgResult.edgeSharpnessMean ?? 0).toFixed(4)}`,
@@ -3697,17 +4341,24 @@
             `LIGHTING_INCONSISTENCY: ${Number((imgResult as any).lightingInconsistencyScore ?? 0).toFixed(3)}`,
             `EDGE_PERFECTION: ${Number((imgResult as any).edgePerfectionScore ?? 0).toFixed(3)}`,
             `RENDER_SIGNATURE: ${Number((imgResult as any).renderSignatureScore ?? 0).toFixed(3)}`,
-            imgResult.edgesSmoothedSynthetic ? 'EDGE_SOFTENING: DETECTED' : 'EDGE_SOFTENING: OK',
+            imgResult.edgesSmoothedSynthetic
+              ? "EDGE_SOFTENING: DETECTED"
+              : "EDGE_SOFTENING: OK",
             `LOCAL_ELA_CV: ${Number((imgResult as any).localElaCv ?? 0).toFixed(3)}`,
             `LOCAL_ELA_PEAK_RATIO: ${Number((imgResult as any).localElaPeakRatio ?? 0).toFixed(3)}`,
-            (imgResult as any).localEditLikely ? 'LOCAL_EDIT: LIKELY' : 'LOCAL_EDIT: NO_STRONG_SIGNAL',
-            (imgResult.elaSynthetic || imgResult.frequencySynthetic) && verdict === 'VERIFICADO'
-              ? 'WEAK_EDIT_HINT: PRESENT_BUT_SUPPRESSED_IN_UI'
-              : 'WEAK_EDIT_HINT: -',
-            mi.thirdParty ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(', ')}` : 'ENCODER_FOOTPRINT: NONE',
+            (imgResult as any).localEditLikely
+              ? "LOCAL_EDIT: LIKELY"
+              : "LOCAL_EDIT: NO_STRONG_SIGNAL",
+            (imgResult.elaSynthetic || imgResult.frequencySynthetic) &&
+            verdict === "VERIFICADO"
+              ? "WEAK_EDIT_HINT: PRESENT_BUT_SUPPRESSED_IN_UI"
+              : "WEAK_EDIT_HINT: -",
+            mi.thirdParty
+              ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(", ")}`
+              : "ENCODER_FOOTPRINT: NONE",
             `PRNU_RESIDUAL_RISK: ${Number((imgResult as any).prnuResidualRisk0to100 ?? 0)}`,
-            `DCT_DOUBLEQ_RISK: ${Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0)}`
-          ]
+            `DCT_DOUBLEQ_RISK: ${Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0)}`,
+          ],
         });
         await new Promise((r) => setTimeout(r, 180));
         if (!isAutomationRun()) showReport = true;
@@ -3727,9 +4378,9 @@
     }
 
     if (videoUrl) URL.revokeObjectURL(videoUrl);
-    videoUrl = '';
+    videoUrl = "";
     if (imageUrl) URL.revokeObjectURL(imageUrl);
-    imageUrl = '';
+    imageUrl = "";
     selectedFile = null;
     showReport = false;
     resetScanner();
@@ -3751,7 +4402,7 @@
     imageFreqRadialVar = 0;
     imageEdgeSharpness = 0;
 
-    audioSummary = '';
+    audioSummary = "";
     audioDurationSec = 0;
     audioSampleRate = 0;
     audioChannels = 0;
@@ -3759,8 +4410,8 @@
     audioBandlimitScore = 0;
     audioEditCuts = 0;
 
-    textInput = '';
-    textPreview = '';
+    textInput = "";
+    textPreview = "";
     textConnectorScore = 0;
     textTopConnectors = [];
     videoExportFeatures = null;
@@ -3782,7 +4433,7 @@
 
   function drawOverlay() {
     if (!canvasRef) return;
-    const ctx = canvasRef.getContext('2d');
+    const ctx = canvasRef.getContext("2d");
     if (!ctx) return;
 
     const { width, height } = canvasRef;
@@ -3794,10 +4445,10 @@
     const t = performance.now();
 
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = 'rgba(8, 8, 8, 0.12)';
+    ctx.fillStyle = "rgba(8, 8, 8, 0.12)";
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.11)';
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.11)";
     ctx.lineWidth = 1;
     for (let y = 0; y < height; y += 28) {
       ctx.beginPath();
@@ -3810,19 +4461,25 @@
     const markerX = width * (0.2 + pulse * 0.6);
     const markerY = height * (0.35 + Math.cos(t / 520) * 0.15);
     ctx.strokeStyle =
-      scan.verdict === 'ALERTA ROJA' ? 'rgba(230, 57, 70, 0.7)' : 'rgba(0, 229, 255, 0.7)';
+      scan.verdict === "ALERTA ROJA"
+        ? "rgba(230, 57, 70, 0.7)"
+        : "rgba(0, 229, 255, 0.7)";
     ctx.strokeRect(markerX - 20, markerY - 20, 40, 40);
 
     // ELA overlay (solo durante escaneo de imagen)
-    if (scan.phase === 'ANALYZING' && mediaKind === 'image' && elaOverlayCanvas) {
+    if (
+      scan.phase === "ANALYZING" &&
+      mediaKind === "image" &&
+      elaOverlayCanvas
+    ) {
       ctx.save();
       ctx.globalAlpha = 0.78;
       ctx.drawImage(elaOverlayCanvas, 0, 0, width, height);
       ctx.globalAlpha = 1;
 
       // HUD
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.65)';
-      ctx.strokeStyle = 'rgba(0, 229, 255, 0.22)';
+      ctx.fillStyle = "rgba(10, 10, 10, 0.65)";
+      ctx.strokeStyle = "rgba(0, 229, 255, 0.22)";
       ctx.lineWidth = 1;
       const pad = 10;
       const boxW = 210;
@@ -3831,15 +4488,19 @@
       ctx.roundRect(pad, pad, boxW, boxH, 10);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.82)';
-      ctx.font = '12px Consolas, Monaco, monospace';
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.font = "12px Consolas, Monaco, monospace";
       // Mostrar que la IA está trabajando (valores aproximados en UI)
-      ctx.fillText('ELA_ANALYSIS: ACTIVE', pad + 12, pad + 24);
+      ctx.fillText("ELA_ANALYSIS: ACTIVE", pad + 12, pad + 24);
       ctx.restore();
     }
 
     // Landmarks (solo durante el escaneo)
-    if (scan.phase === 'ANALYZING' && mediaKind === 'video' && lastLandmarks?.length) {
+    if (
+      scan.phase === "ANALYZING" &&
+      mediaKind === "video" &&
+      lastLandmarks?.length
+    ) {
       const tr = getVideoToCanvasTransform();
       if (!tr) {
         raf = requestAnimationFrame(drawOverlay);
@@ -3847,14 +4508,14 @@
       }
 
       const tone =
-        scan.verdict === 'ALERTA ROJA'
-          ? 'rgba(230, 57, 70, 0.95)'
-          : scan.verdict === 'SOSPECHOSO'
-            ? 'rgba(242, 214, 126, 0.95)'
-            : 'rgba(0, 229, 255, 0.95)';
+        scan.verdict === "ALERTA ROJA"
+          ? "rgba(230, 57, 70, 0.95)"
+          : scan.verdict === "SOSPECHOSO"
+            ? "rgba(242, 214, 126, 0.95)"
+            : "rgba(0, 229, 255, 0.95)";
 
       ctx.save();
-      ctx.globalCompositeOperation = 'screen';
+      ctx.globalCompositeOperation = "screen";
 
       // Filtro de bordes (Mask Jitter) - dibuja el mapa de edges sobre la ROI facial
       if (edgeOverlayCanvas && edgeOverlayRect) {
@@ -3908,8 +4569,8 @@
 
       // HUD pequeño: score/jitter en la esquina
       ctx.globalAlpha = 1;
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.65)';
-      ctx.strokeStyle = 'rgba(0, 229, 255, 0.22)';
+      ctx.fillStyle = "rgba(10, 10, 10, 0.65)";
+      ctx.strokeStyle = "rgba(0, 229, 255, 0.22)";
       ctx.lineWidth = 1;
       const pad = 10;
       const boxW = 190;
@@ -3919,11 +4580,19 @@
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(255,255,255,0.82)';
-      ctx.font = '12px Consolas, Monaco, monospace';
-      ctx.fillText(`FACE_SCORE: ${(lastFrameScore * 100).toFixed(1)}%`, pad + 12, pad + 22);
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.font = "12px Consolas, Monaco, monospace";
+      ctx.fillText(
+        `FACE_SCORE: ${(lastFrameScore * 100).toFixed(1)}%`,
+        pad + 12,
+        pad + 22,
+      );
       ctx.fillStyle = tone;
-      ctx.fillText(`JITTER: ${(lastFrameJitter * 100).toFixed(2)}%`, pad + 12, pad + 40);
+      ctx.fillText(
+        `JITTER: ${(lastFrameJitter * 100).toFixed(2)}%`,
+        pad + 12,
+        pad + 40,
+      );
 
       ctx.restore();
     }
@@ -3964,24 +4633,24 @@
   <div class="main-card">
     <header>
       <div>
-        <p class="chip">{$t('scanner.chip')}</p>
+        <p class="chip">{$t("scanner.chip")}</p>
         <h2>
-          {activeTab === 'video'
-            ? $t('scanner.titles.video')
-            : activeTab === 'image'
-              ? $t('scanner.titles.image')
-              : activeTab === 'audio'
-                ? $t('scanner.titles.audio')
-              : activeTab === 'text'
-                ? $t('scanner.titles.text')
-                : $t('scanner.titles.link')}
+          {activeTab === "video"
+            ? $t("scanner.titles.video")
+            : activeTab === "image"
+              ? $t("scanner.titles.image")
+              : activeTab === "audio"
+                ? $t("scanner.titles.audio")
+                : activeTab === "text"
+                  ? $t("scanner.titles.text")
+                  : $t("scanner.titles.link")}
         </h2>
       </div>
       <span
         class="status"
-        class:warn={scan.verdict === 'SOSPECHOSO'}
-        class:danger={scan.verdict === 'ALERTA ROJA'}
-        class:safe={scan.verdict === 'VERIFICADO'}
+        class:warn={scan.verdict === "SOSPECHOSO"}
+        class:danger={scan.verdict === "ALERTA ROJA"}
+        class:safe={scan.verdict === "VERIFICADO"}
         data-testid="kronos-badge"
       >
         {badgeLabel}
@@ -3992,134 +4661,156 @@
     <nav class="tabs" aria-label="Tabs de análisis">
       <button
         type="button"
-        class:active={activeTab === 'video'}
+        class:active={activeTab === "video"}
         data-testid="kronos-tab-video"
-        on:click={() => {
+        onclick={() => {
           if (isBusy) return;
-          activeTab = 'video';
+          activeTab = "video";
           clearSession();
         }}
       >
-        {$t('scanner.tabs.video')}
+        {$t("scanner.tabs.video")}
       </button>
       <button
         type="button"
-        class:active={activeTab === 'image'}
+        class:active={activeTab === "image"}
         data-testid="kronos-tab-image"
-        on:click={() => {
+        onclick={() => {
           if (isBusy) return;
-          activeTab = 'image';
+          activeTab = "image";
           clearSession();
         }}
       >
-        {$t('scanner.tabs.image')}
+        {$t("scanner.tabs.image")}
       </button>
       <button
         type="button"
-        class:active={activeTab === 'audio'}
+        class:active={activeTab === "audio"}
         data-testid="kronos-tab-audio"
-        on:click={() => {
+        onclick={() => {
           if (isBusy) return;
-          activeTab = 'audio';
+          activeTab = "audio";
           clearSession();
         }}
       >
-        {$t('scanner.tabs.audio')}
+        {$t("scanner.tabs.audio")}
       </button>
       <button
         type="button"
-        class:active={activeTab === 'text'}
+        class:active={activeTab === "text"}
         data-testid="kronos-tab-text"
-        on:click={() => {
+        onclick={() => {
           if (isBusy) return;
-          activeTab = 'text';
+          activeTab = "text";
           clearSession();
         }}
       >
-        {$t('scanner.tabs.text')}
+        {$t("scanner.tabs.text")}
       </button>
       <button
         type="button"
-        class:active={activeTab === 'link'}
+        class:active={activeTab === "link"}
         data-testid="kronos-tab-link"
-        on:click={() => {
+        onclick={() => {
           if (isBusy) return;
-          activeTab = 'link';
+          activeTab = "link";
           clearSession();
         }}
       >
-        {$t('scanner.tabs.link')}
+        {$t("scanner.tabs.link")}
       </button>
     </nav>
 
-    {#if activeTab === 'video' || activeTab === 'image' || activeTab === 'audio'}
+    {#if activeTab === "video" || activeTab === "image" || activeTab === "audio"}
       <div
         class="dropzone"
         class:dragging={isDragActive}
         role="button"
         tabindex="0"
-        aria-label={activeTab === 'video' ? 'Zona de carga de video' : activeTab === 'image' ? 'Zona de carga de imagen' : 'Zona de carga de audio'}
-        on:dragover={onDragOver}
-        on:dragleave={onDragLeave}
-        on:drop={onDrop}
+        aria-label={activeTab === "video"
+          ? "Zona de carga de video"
+          : activeTab === "image"
+            ? "Zona de carga de imagen"
+            : "Zona de carga de audio"}
+        ondragover={onDragOver}
+        ondragleave={onDragLeave}
+        ondrop={onDrop}
       >
         <input
           id="video-input"
           type="file"
-          accept={activeTab === 'video' ? 'video/*' : activeTab === 'image' ? 'image/*' : 'audio/*,video/*'}
-          on:change={onFileInput}
+          accept={activeTab === "video"
+            ? "video/*"
+            : activeTab === "image"
+              ? "image/*"
+              : "audio/*,video/*"}
+          onchange={onFileInput}
           data-testid="kronos-file-input"
         />
         <label for="video-input">
           <strong
-            >{activeTab === 'video'
-              ? $t('scanner.dropzone.strongVideo')
-              : activeTab === 'image'
-                ? $t('scanner.dropzone.strongImage')
-                : $t('scanner.dropzone.strongAudio')}</strong
+            >{activeTab === "video"
+              ? $t("scanner.dropzone.strongVideo")
+              : activeTab === "image"
+                ? $t("scanner.dropzone.strongImage")
+                : $t("scanner.dropzone.strongAudio")}</strong
           >
           <span>
-            {activeTab === 'video'
-              ? $t('scanner.dropzone.formatsVideo')
-              : activeTab === 'image'
-                ? $t('scanner.dropzone.formatsImage')
-                : $t('scanner.dropzone.formatsAudio')}
+            {activeTab === "video"
+              ? $t("scanner.dropzone.formatsVideo")
+              : activeTab === "image"
+                ? $t("scanner.dropzone.formatsImage")
+                : $t("scanner.dropzone.formatsAudio")}
           </span>
         </label>
 
         {#if modelLoading}
-          <div class="model-loader" in:fade={{ duration: 120 }} out:fade={{ duration: 120 }}>
+          <div
+            class="model-loader"
+            in:fade={{ duration: 120 }}
+            out:fade={{ duration: 120 }}
+          >
             <div class="model-loader-inner">
               <p>{modelStatusText}</p>
               <div class="model-bar" aria-label="Cargando Redes Neuronales">
-                <div class="model-bar-fill" style={`width:${modelProgress}%;`}></div>
+                <div
+                  class="model-bar-fill"
+                  style={`width:${modelProgress}%;`}
+                ></div>
               </div>
               <span>{modelProgress}%</span>
             </div>
           </div>
         {/if}
       </div>
-    {:else if activeTab === 'text'}
+    {:else if activeTab === "text"}
       <div class="text-panel">
         <div class="text-head">
           <p class="chip">TEXTUAL INTEGRITY</p>
-          <p class="text-sub">Auditoria de estilo: conectores lógicos repetitivos de modelos.</p>
+          <p class="text-sub">
+            Auditoria de estilo: conectores lógicos repetitivos de modelos.
+          </p>
         </div>
         <textarea
           class="text-area"
           bind:value={textInput}
           placeholder="Pega aquí un texto para analizar...&#10;Ejemplo: En conclusión, ... Por otro lado, ... Es importante destacar..."
         ></textarea>
-        <button type="button" class="text-analyze" on:click={runTextAnalysis} disabled={!textInput.trim() || isBusy}>
-          {$t('scanner.text.analyze')}
+        <button
+          type="button"
+          class="text-analyze"
+          onclick={runTextAnalysis}
+          disabled={!textInput.trim() || isBusy}
+        >
+          {$t("scanner.text.analyze")}
         </button>
       </div>
     {:else}
       <div class="link-panel">
         <div class="link-head">
-          <p class="chip">{$t('scanner.link.chip')}</p>
+          <p class="chip">{$t("scanner.link.chip")}</p>
           <p class="link-sub">
-            {$t('scanner.link.body')}
+            {$t("scanner.link.body")}
           </p>
         </div>
 
@@ -4138,9 +4829,12 @@
             <p class="link-error">{linkError}</p>
           {:else if linkNormalized}
             <p class="link-hint">
-              Detectado: <strong>{linkKind.label}</strong>{linkKind.host ? ` · ${linkKind.host}` : ''}
-              {#if linkKind.type === 'DIRECT'}
-                · Parece un archivo directo (aun así, para compliance no lo descargamos automáticamente).
+              Detectado: <strong>{linkKind.label}</strong>{linkKind.host
+                ? ` · ${linkKind.host}`
+                : ""}
+              {#if linkKind.type === "DIRECT"}
+                · Parece un archivo directo (aun así, para compliance no lo
+                descargamos automáticamente).
               {/if}
             </p>
           {/if}
@@ -4150,9 +4844,9 @@
               type="button"
               class="link-open"
               disabled={!linkNormalized || isBusy}
-              on:click={() => {
+              onclick={() => {
                 if (!linkNormalized) return;
-                window.open(linkNormalized, '_blank', 'noopener,noreferrer');
+                window.open(linkNormalized, "_blank", "noopener,noreferrer");
               }}
             >
               Abrir enlace
@@ -4163,9 +4857,11 @@
                 id="link-file-input"
                 type="file"
                 accept="video/*,image/*,audio/*"
-                on:change={onLinkFileInput}
+                onchange={onLinkFileInput}
               />
-              <label class="link-upload-btn" for="link-file-input">Subir archivo para analizar</label>
+              <label class="link-upload-btn" for="link-file-input"
+                >Subir archivo para analizar</label
+              >
             </div>
           </div>
         </div>
@@ -4173,64 +4869,116 @@
         <div class="link-guidance">
           <p><strong>Cómo proceder</strong></p>
           <ul>
-            <li>Si eres el propietario, <strong>exporta el archivo original</strong> (cámara/editor) y súbelo aquí.</li>
-            <li>Si la plataforma ofrece descarga oficial (según permisos/plan), descarga el archivo y súbelo.</li>
-            <li>Si solo tienes un enlace público, KRONOS puede registrar el enlace como referencia, pero la auditoría profunda requiere el archivo.</li>
+            <li>
+              Si eres el propietario, <strong
+                >exporta el archivo original</strong
+              > (cámara/editor) y súbelo aquí.
+            </li>
+            <li>
+              Si la plataforma ofrece descarga oficial (según permisos/plan),
+              descarga el archivo y súbelo.
+            </li>
+            <li>
+              Si solo tienes un enlace público, KRONOS puede registrar el enlace
+              como referencia, pero la auditoría profunda requiere el archivo.
+            </li>
           </ul>
         </div>
       </div>
     {/if}
 
-    <div class="viewport" class:danger={verdictClass === 'danger'} class:warn={verdictClass === 'warn'}>
-      {#if activeTab === 'video' && mediaKind === 'video' && hasVideo}
-        <video bind:this={videoRef} src={videoUrl} controls on:loadedmetadata={ensureCanvasSize}></video>
+    <div
+      class="viewport"
+      class:danger={verdictClass === "danger"}
+      class:warn={verdictClass === "warn"}
+    >
+      {#if activeTab === "video" && mediaKind === "video" && hasVideo}
+        <video
+          bind:this={videoRef}
+          src={videoUrl}
+          controls
+          onloadedmetadata={ensureCanvasSize}
+        >
+          <track kind="captions" />
+        </video>
         <canvas bind:this={canvasRef} aria-hidden="true"></canvas>
 
-        {#if scan.phase === 'ANALYZING' && mediaKind === 'video'}
-          <div class="laser-wrap" in:fade={{ duration: 120 }} out:fade={{ duration: 120 }}>
+        {#if scan.phase === "ANALYZING" && mediaKind === "video"}
+          <div
+            class="laser-wrap"
+            in:fade={{ duration: 120 }}
+            out:fade={{ duration: 120 }}
+          >
             <div class="laser" style={`top:${laserProgress}%;`}></div>
           </div>
         {/if}
-      {:else if activeTab === 'image' && mediaKind === 'image' && hasImage}
-        <img bind:this={imageRef} class="media-img" src={imageUrl} alt="Evidencia subida" on:load={ensureCanvasSize} />
+      {:else if activeTab === "image" && mediaKind === "image" && hasImage}
+        <img
+          bind:this={imageRef}
+          class="media-img"
+          src={imageUrl}
+          alt="Evidencia subida"
+          onload={ensureCanvasSize}
+        />
         <canvas bind:this={canvasRef} aria-hidden="true"></canvas>
-      {:else if activeTab === 'text' && mediaKind === 'text'}
+      {:else if activeTab === "text" && mediaKind === "text"}
         <div class="text-preview">
-          <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
+          <Radar
+            active={scan.phase === "ANALYZING"}
+            progress={scan.progress}
+            verdict={scan.verdict}
+          />
           <p class="text-preview-label">Texto analizado</p>
-          <pre class="text-pre">{textPreview || '-'}</pre>
+          <pre class="text-pre">{textPreview || "-"}</pre>
         </div>
-      {:else if activeTab === 'audio' && mediaKind === 'audio'}
+      {:else if activeTab === "audio" && mediaKind === "audio"}
         <div class="text-preview">
-          <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
+          <Radar
+            active={scan.phase === "ANALYZING"}
+            progress={scan.progress}
+            verdict={scan.verdict}
+          />
           <p class="text-preview-label">Audio</p>
-          <pre class="text-pre">{audioSummary || 'Listo para auditoría acústica.'}</pre>
+          <pre class="text-pre">{audioSummary ||
+              "Listo para auditoría acústica."}</pre>
         </div>
-      {:else if activeTab === 'text'}
+      {:else if activeTab === "text"}
         <div class="empty-state">
-          <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
-          <p>{$t('scanner.text.hint')}</p>
+          <Radar
+            active={scan.phase === "ANALYZING"}
+            progress={scan.progress}
+            verdict={scan.verdict}
+          />
+          <p>{$t("scanner.text.hint")}</p>
         </div>
-      {:else if activeTab === 'audio'}
+      {:else if activeTab === "audio"}
         <div class="empty-state">
-          <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
-          <p>{$t('scanner.empty.audio')}</p>
+          <Radar
+            active={scan.phase === "ANALYZING"}
+            progress={scan.progress}
+            verdict={scan.verdict}
+          />
+          <p>{$t("scanner.empty.audio")}</p>
         </div>
       {:else}
         <div class="empty-state">
-          <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
-          <p>{$t('scanner.empty.image')}</p>
+          <Radar
+            active={scan.phase === "ANALYZING"}
+            progress={scan.progress}
+            verdict={scan.verdict}
+          />
+          <p>{$t("scanner.empty.image")}</p>
         </div>
       {/if}
     </div>
 
     <footer>
-      <div class="meter" class:indeterminate={scan.phase === 'ANALYZING'}>
+      <div class="meter" class:indeterminate={scan.phase === "ANALYZING"}>
         <div class="fill" style={`width:${scan.progress}%;`}></div>
       </div>
-      <p class={scan.phase === 'ANALYZING' ? 'status status-live' : 'status'}>
-        {#if scan.phase === 'ANALYZING'}
-          {$t('scanner.status.scanning')}
+      <p class={scan.phase === "ANALYZING" ? "status status-live" : "status"}>
+        {#if scan.phase === "ANALYZING"}
+          {$t("scanner.status.scanning")}
           <span class="dots" aria-hidden="true">
             <span>.</span><span>.</span><span>.</span>
           </span>
@@ -4238,13 +4986,18 @@
           {displayMillis}ms · {Math.round(scan.progress)}%
         {/if}
       </p>
-      <button type="button" class="btn-ghost" on:click={clearSession} disabled={isBusy}>{$t('scanner.buttons.reset')}</button>
+      <button
+        type="button"
+        class="btn-ghost"
+        onclick={clearSession}
+        disabled={isBusy}>{$t("scanner.buttons.reset")}</button
+      >
     </footer>
   </div>
 
   <aside class="telemetry" in:fly={{ x: 20, duration: 250 }}>
-    <h3>{$t('scanner.telemetry.title')}</h3>
-    <p class="sub">{$t('scanner.telemetry.sub')}</p>
+    <h3>{$t("scanner.telemetry.title")}</h3>
+    <p class="sub">{$t("scanner.telemetry.sub")}</p>
 
     <div class="stream">
       {#each telemetry as line, index (line + index)}
@@ -4260,36 +5013,65 @@
           <div class="val-top">
             <span class="val-ico" aria-hidden="true">◌</span>
             <span class="val-label">{metric1Label}</span>
-            <strong class={metric1Ok ? 'ok' : 'bad'}>{metric1Ok ? 'OK' : 'ALERTA'}</strong>
+            <strong class={metric1Ok ? "ok" : "bad"}
+              >{metric1Ok ? "OK" : "ALERTA"}</strong
+            >
           </div>
-          <div class="val-bar"><div class="val-fill" class:loading={scan.phase === 'ANALYZING'} style={`width:${Math.round(metric1ScoreUi * 100)}%;`}></div></div>
+          <div class="val-bar">
+            <div
+              class="val-fill"
+              class:loading={scan.phase === "ANALYZING"}
+              style={`width:${Math.round(metric1ScoreUi * 100)}%;`}
+            ></div>
+          </div>
         </div>
 
         <div class="val-item">
           <div class="val-top">
             <span class="val-ico" aria-hidden="true">◌</span>
             <span class="val-label">{metric2Label}</span>
-            <strong class={metric2ScoreUi > 0.74 ? 'ok' : 'bad'}>{metric2ScoreUi > 0.74 ? 'OK' : 'ALERTA'}</strong>
+            <strong class={metric2ScoreUi > 0.74 ? "ok" : "bad"}
+              >{metric2ScoreUi > 0.74 ? "OK" : "ALERTA"}</strong
+            >
           </div>
-          <div class="val-bar"><div class="val-fill" class:loading={scan.phase === 'ANALYZING'} style={`width:${Math.round(metric2ScoreUi * 100)}%;`}></div></div>
+          <div class="val-bar">
+            <div
+              class="val-fill"
+              class:loading={scan.phase === "ANALYZING"}
+              style={`width:${Math.round(metric2ScoreUi * 100)}%;`}
+            ></div>
+          </div>
         </div>
 
         <div class="val-item">
           <div class="val-top">
             <span class="val-ico" aria-hidden="true">◌</span>
             <span class="val-label">{metric3Label}</span>
-            <strong class={dataScoreUi > 0.7 ? 'ok' : 'bad'}>{dataScoreUi > 0.7 ? 'OK' : 'ALERTA'}</strong>
+            <strong class={dataScoreUi > 0.7 ? "ok" : "bad"}
+              >{dataScoreUi > 0.7 ? "OK" : "ALERTA"}</strong
+            >
           </div>
-          <div class="val-bar"><div class="val-fill" class:loading={scan.phase === 'ANALYZING'} style={`width:${Math.round(dataScoreUi * 100)}%;`}></div></div>
+          <div class="val-bar">
+            <div
+              class="val-fill"
+              class:loading={scan.phase === "ANALYZING"}
+              style={`width:${Math.round(dataScoreUi * 100)}%;`}
+            ></div>
+          </div>
         </div>
       </div>
 
       <div class="val-rows">
-        <p><span>{$t('scanner.details.state')}</span> <strong class={verdictClass}>{verdictLabelUi(scan.verdict)}</strong></p>
+        <p>
+          <span>{$t("scanner.details.state")}</span>
+          <strong class={verdictClass}>{verdictLabelUi(scan.verdict)}</strong>
+        </p>
         <p class="row-conf">
-          <span>{$t('scanner.details.confidence')}</span>
+          <span>{$t("scanner.details.confidence")}</span>
           <strong class="conf-wrap">
-            <span class="conf-num">{scan.confidence ? `${confidenceSmooth.toFixed(1)}%` : '-'}</span>
+            <span class="conf-num"
+              >{scan.confidence ? `${confidenceSmooth.toFixed(1)}%` : "-"}</span
+            >
             <span class="conf-bar" aria-hidden="true">
               <span
                 class={`conf-bar-fill ${confidenceBarTone}`}
@@ -4298,17 +5080,32 @@
             </span>
           </strong>
         </p>
-        <p><span>{$t('scanner.details.score')}</span> <strong class="mono">{scan.riskScore ? `${Math.round(riskScoreSmooth)}` : '-'}</strong></p>
-        <p class="row-file"><span>{$t('scanner.details.file')}</span> <strong class="mono file-val">{selectedFile?.name ?? '—'}</strong></p>
-        <p><span>{$t('scanner.details.weight')}</span> <strong class="mono">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : '—'}</strong></p>
+        <p>
+          <span>{$t("scanner.details.score")}</span>
+          <strong class="mono"
+            >{scan.riskScore ? `${Math.round(riskScoreSmooth)}` : "-"}</strong
+          >
+        </p>
+        <p class="row-file">
+          <span>{$t("scanner.details.file")}</span>
+          <strong class="mono file-val">{selectedFile?.name ?? "—"}</strong>
+        </p>
+        <p>
+          <span>{$t("scanner.details.weight")}</span>
+          <strong class="mono"
+            >{selectedFile
+              ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
+              : "—"}</strong
+          >
+        </p>
         <div class="val-actions">
           <button
             type="button"
             class="btn-mini"
-            on:click={exportAnalysisJson}
-            disabled={!selectedFile || scan.phase !== 'COMPLETED'}
+            onclick={exportAnalysisJson}
+            disabled={!selectedFile || scan.phase !== "COMPLETED"}
           >
-            {$t('scanner.buttons.exportJson')}
+            {$t("scanner.buttons.exportJson")}
           </button>
         </div>
       </div>
@@ -4321,10 +5118,10 @@
   verdict={scan.verdict}
   confidence={scan.confidence}
   riskScore={scan.riskScore}
-  fileName={selectedFile?.name ?? ''}
+  fileName={selectedFile?.name ?? ""}
   reason={scan.reason}
   warnings={scan.warnings}
-  completedAt={scan.completedAt ?? ''}
+  completedAt={scan.completedAt ?? ""}
   on:close={closeReport}
   on:download={downloadCertificate}
 />
@@ -4415,7 +5212,10 @@
     background: rgba(10, 10, 10, 0.35);
     position: relative;
     margin-bottom: 0.85rem;
-    transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+    transition:
+      border-color 200ms ease,
+      background-color 200ms ease,
+      transform 200ms ease;
   }
 
   .model-loader {
@@ -4456,7 +5256,11 @@
   .model-bar-fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, rgba(0, 229, 255, 0.28), rgba(0, 229, 255, 0.92));
+    background: linear-gradient(
+      90deg,
+      rgba(0, 229, 255, 0.28),
+      rgba(0, 229, 255, 0.92)
+    );
     box-shadow: 0 0 14px rgba(0, 229, 255, 0.28);
     transition: width 180ms ease;
   }
@@ -4475,7 +5279,7 @@
     transform: translateY(-1px);
   }
 
-  .dropzone input[type='file'] {
+  .dropzone input[type="file"] {
     position: absolute;
     inset: 0;
     opacity: 0;
@@ -4533,7 +5337,9 @@
     color: rgba(255, 255, 255, 0.92);
     padding: 0.65rem 0.75rem;
     outline: none;
-    transition: border-color 160ms ease, box-shadow 160ms ease;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
   }
 
   .link-input:focus {
@@ -4566,7 +5372,10 @@
     color: rgba(255, 255, 255, 0.86);
     padding: 0.6rem 0.75rem;
     font-size: 0.9rem;
-    transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      background-color 160ms ease;
   }
 
   .link-open:disabled {
@@ -4585,7 +5394,7 @@
     display: inline-flex;
   }
 
-  .link-upload input[type='file'] {
+  .link-upload input[type="file"] {
     position: absolute;
     inset: 0;
     opacity: 0;
@@ -4628,7 +5437,11 @@
     min-height: 360px;
     border-radius: 22px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background: radial-gradient(circle at 18% 12%, rgba(0, 229, 255, 0.05), rgba(0, 0, 0, 0.35) 60%);
+    background: radial-gradient(
+      circle at 18% 12%,
+      rgba(0, 229, 255, 0.05),
+      rgba(0, 0, 0, 0.35) 60%
+    );
     overflow: hidden;
   }
 
@@ -4675,7 +5488,12 @@
     left: 0;
     width: 100%;
     height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.92), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 229, 255, 0.92),
+      transparent
+    );
     box-shadow:
       0 0 20px rgba(0, 229, 255, 0.42),
       0 0 35px rgba(0, 229, 255, 0.16);
@@ -4684,14 +5502,24 @@
   }
 
   .viewport.danger .laser {
-    background: linear-gradient(90deg, transparent, rgba(230, 57, 70, 0.96), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(230, 57, 70, 0.96),
+      transparent
+    );
     box-shadow:
       0 0 20px rgba(230, 57, 70, 0.62),
       0 0 35px rgba(230, 57, 70, 0.25);
   }
 
   .viewport.warn .laser {
-    background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.96), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(245, 158, 11, 0.96),
+      transparent
+    );
     box-shadow:
       0 0 20px rgba(245, 158, 11, 0.58),
       0 0 35px rgba(245, 158, 11, 0.22);
@@ -4728,7 +5556,11 @@
 
   .fill {
     height: 100%;
-    background: linear-gradient(90deg, rgba(0, 229, 255, 0.35), rgba(0, 229, 255, 0.95));
+    background: linear-gradient(
+      90deg,
+      rgba(0, 229, 255, 0.35),
+      rgba(0, 229, 255, 0.95)
+    );
     box-shadow: 0 0 14px rgba(0, 229, 255, 0.28);
     transition: width 120ms linear;
   }
@@ -4807,7 +5639,11 @@
     color: rgba(255, 255, 255, 0.75);
     padding: 0.5rem 0.75rem;
     cursor: pointer;
-    transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease, transform 160ms ease;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      background-color 160ms ease,
+      transform 160ms ease;
   }
 
   .btn-ghost:hover:not(:disabled) {
@@ -4916,7 +5752,9 @@
     align-items: center;
     gap: 0.5rem;
     font-size: 0.82rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
     letter-spacing: 0.02em;
   }
 
@@ -4948,7 +5786,11 @@
     height: 100%;
     width: 0%;
     border-radius: 999px;
-    background: linear-gradient(90deg, rgba(0, 229, 255, 0.22), rgba(0, 229, 255, 0.9));
+    background: linear-gradient(
+      90deg,
+      rgba(0, 229, 255, 0.22),
+      rgba(0, 229, 255, 0.9)
+    );
     /* Movimiento gradual “premium” */
     transition: width 780ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: width;
@@ -4997,8 +5839,14 @@
     border: 1px solid rgba(255, 255, 255, 0.09);
     background: rgba(10, 10, 10, 0.25);
     color: rgba(255, 255, 255, 0.76);
-    transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, transform 180ms ease;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease,
+      transform 180ms ease;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
   }
 
   .btn-mini:hover:enabled {
@@ -5038,7 +5886,9 @@
   }
 
   .conf-num {
-    transition: opacity 220ms ease, transform 220ms ease;
+    transition:
+      opacity 220ms ease,
+      transform 220ms ease;
     will-change: transform;
   }
 
@@ -5056,7 +5906,9 @@
     height: 100%;
     width: 0%;
     border-radius: 999px;
-    transition: width 520ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms ease;
+    transition:
+      width 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 320ms ease;
   }
 
   .conf-bar-fill.safe {
@@ -5083,7 +5935,9 @@
   }
 
   .mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
   }
 
   .val-rows strong.safe {
@@ -5131,7 +5985,10 @@
     font-weight: 650;
     letter-spacing: 0.06em;
     cursor: pointer;
-    transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease;
   }
 
   .tabs button.active {
@@ -5185,7 +6042,10 @@
     font-weight: 700;
     padding: 0.72rem;
     cursor: pointer;
-    transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      opacity 180ms ease;
   }
 
   .text-analyze:disabled {

@@ -1,36 +1,46 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { locale, setLocale } from '$lib/i18n/index.js';
+  import { onDestroy, onMount } from "svelte";
+  import { locale, setLocale } from "$lib/i18n/index.js";
 
   const options = [
-    { code: 'en', label: 'EN', flag: 'gb' },
-    { code: 'es', label: 'ES', flag: 'es' },
-    { code: 'zh', label: 'ZH', flag: 'cn' },
-    { code: 'de', label: 'DE', flag: 'de' },
-    { code: 'pt', label: 'PT', flag: 'pt' },
-    { code: 'fr', label: 'FR', flag: 'fr' },
-    { code: 'ru', label: 'RU', flag: 'ru' },
-    { code: 'ar', label: 'AR', flag: 'sa' },
-    { code: 'hi', label: 'HI', flag: 'in' }
+    { code: "en", label: "EN", flag: "gb" },
+    { code: "es", label: "ES", flag: "es" },
+    { code: "zh", label: "ZH", flag: "cn" },
+    { code: "de", label: "DE", flag: "de" },
+    { code: "pt", label: "PT", flag: "pt" },
+    { code: "fr", label: "FR", flag: "fr" },
+    { code: "ru", label: "RU", flag: "ru" },
+    { code: "ar", label: "AR", flag: "sa" },
+    { code: "hi", label: "HI", flag: "in" },
   ] as const;
 
   let open = $state(false);
   function localeCode(input: string | null | undefined) {
-    const v = String(input ?? '').trim().toLowerCase();
-    if (!v) return 'en';
-    if (v.includes('-')) return v.split('-')[0] || 'en';
-    if (v.includes('_')) return v.split('_')[0] || 'en';
+    const v = String(input ?? "")
+      .trim()
+      .toLowerCase();
+    if (!v) return "en";
+    if (v.includes("-")) return v.split("-")[0] || "en";
+    if (v.includes("_")) return v.split("_")[0] || "en";
     return v;
   }
-  let uiLocale = $state('en');
-  const current = $derived(options.find((o) => o.code === uiLocale) ?? { code: 'en', label: 'EN', flag: 'gb' });
+  let uiLocale = $state("en");
+  const current = $derived(
+    options.find((o) => o.code === uiLocale) ?? {
+      code: "en",
+      label: "EN",
+      flag: "gb",
+    },
+  );
   let rootEl: HTMLDivElement | null = $state(null);
 
   onMount(() => {
     // Evita desajuste SSR/hidratacion: usa primero el idioma real del documento/localStorage.
-    const fromDoc = typeof document !== 'undefined' ? document.documentElement.lang : '';
-    const fromStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('lang') : '';
-    const initial = localeCode(fromDoc || fromStorage || '');
+    const fromDoc =
+      typeof document !== "undefined" ? document.documentElement.lang : "";
+    const fromStorage =
+      typeof localStorage !== "undefined" ? localStorage.getItem("lang") : "";
+    const initial = localeCode(fromDoc || fromStorage || "");
     if (initial) uiLocale = initial;
   });
 
@@ -54,24 +64,47 @@
     close();
   }
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener('pointerdown', onDocPointerDown, { capture: true });
+  if (typeof document !== "undefined") {
+    document.addEventListener("pointerdown", onDocPointerDown, {
+      capture: true,
+    });
   }
 
   onDestroy(() => {
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as any);
+    if (typeof document !== "undefined") {
+      document.removeEventListener("pointerdown", onDocPointerDown, {
+        capture: true,
+      } as any);
     }
   });
 </script>
 
 <div class="lang" bind:this={rootEl}>
-  <button type="button" class="lang-btn" aria-label="Language" aria-haspopup="listbox" aria-expanded={open} onclick={toggle}>
-    <img class="lang-flag-icon" src={`https://flagcdn.com/w40/${current.flag}.png`} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+  <button
+    type="button"
+    class="lang-btn"
+    aria-label="Language"
+    aria-haspopup="listbox"
+    aria-expanded={open}
+    onclick={toggle}
+  >
+    <img
+      class="lang-flag-icon"
+      src={`https://flagcdn.com/w40/${current.flag}.png`}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+    />
     <span class="sr-only">{current.label}</span>
   </button>
   {#if open}
-    <div class="lang-menu" role="listbox" aria-label="Select language" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="lang-menu"
+      role="listbox"
+      aria-label="Select language"
+      tabindex="0"
+    >
       {#each options as opt (opt.code)}
         <button
           type="button"
@@ -84,7 +117,14 @@
             close();
           }}
         >
-          <img class="lang-flag-icon" src={`https://flagcdn.com/w40/${opt.flag}.png`} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+          <img
+            class="lang-flag-icon"
+            src={`https://flagcdn.com/w40/${opt.flag}.png`}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+          />
           <span>{opt.label}</span>
         </button>
       {/each}
@@ -110,12 +150,17 @@
     color: rgba(255, 255, 255, 0.72);
     font-size: 12px;
     letter-spacing: 0.16em;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
+    transition:
+      border-color 180ms ease,
+      color 180ms ease,
+      background-color 180ms ease;
   }
 
   .lang-btn:hover {
@@ -149,13 +194,17 @@
     color: rgba(255, 255, 255, 0.68);
     font-size: 12px;
     letter-spacing: 0.16em;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
     text-transform: uppercase;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
   }
 
   .lang-opt:hover {
@@ -188,4 +237,3 @@
     border: 0;
   }
 </style>
-
