@@ -4,7 +4,6 @@
 
 ScanIt is a web app for auditing whether a PDF, Word document, image, or screenshot shows technical signs of manipulation, synthetic generation, or inconsistent origin metadata. It is designed as a practical product prototype: a recruiter can open it, understand the workflow, inspect the code, and see a complete frontend/backend pipeline rather than a static landing page.
 
-[View repository](https://github.com/moisesvalero/ScanIt)
 
 ![SvelteKit](https://img.shields.io/badge/SvelteKit-2.x-ff3e00?logo=svelte&logoColor=white)
 ![Svelte 5](https://img.shields.io/badge/Svelte-5.x-ff3e00?logo=svelte&logoColor=white)
