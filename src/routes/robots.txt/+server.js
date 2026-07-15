@@ -1,6 +1,6 @@
 import { env } from "$env/dynamic/public";
 
-const DEFAULT_SITE_URL = "http://localhost:5173";
+const DEFAULT_SITE_URL = "https://scanit.moisesvalero.es";
 
 /** @param {string | undefined} url */
 const normalizeBaseUrl = (url) => {
