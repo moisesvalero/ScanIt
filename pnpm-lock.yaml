@@ -65,8 +65,8 @@ importers:
         specifier: ^25.9.1
         version: 25.9.1
       playwright:
-        specifier: ^1.58.2
-        version: 1.60.0
+        specifier: ^1.62.0
+        version: 1.62.0
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
@@ -4048,14 +4048,14 @@ packages:
   player.style@0.3.4:
     resolution: {integrity: sha512-5O9bkbq0APQIkhptyZwp0gUgheCeImGPFo4hvPF2M5xBmgsUYzsUPHCfMye2xyeRE1zvQBKtziaC3jPgnHE1tw==}
 
-  playwright-core@1.60.0:
-    resolution: {integrity: sha512-9bW6zvX/m0lEbgTKJ6YppOKx8H3VOPBMOCFh2irXFOT4BbHgrx5hPjwJYLT40Lu+4qtD36qKc/Hn56StUW57IA==}
-    engines: {node: '>=18'}
+  playwright-core@1.62.0:
+    resolution: {integrity: sha512-nsNRyq0r2zsG8AcRHWknc9QRA5XCueC7gWMrs+Gx2tlZn9hcl8zudfh00lhJPY1DE7NmZ6bDsT9g2yey8mXljA==}
+    engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.60.0:
-    resolution: {integrity: sha512-hheHdokM8cdqCb0lcE3s+zT4t4W+vvjpGxsZlDnikarzx8tSzMebh3UiFtgqwFwnTnjYQcsyMF8ei2mCO/tpeA==}
-    engines: {node: '>=18'}
+  playwright@1.62.0:
+    resolution: {integrity: sha512-Z14dG305dgaLu6foB1TXQagFiW8JfSUIUaUuPaKQ6NtBPKF1P/qXcqfh6c6K/icPqdy37JmjbiBXf6JNg6Sylw==}
+    engines: {node: '>=20'}
     hasBin: true
 
   pluralize-esm@9.0.5:
@@ -9274,11 +9274,11 @@ snapshots:
     transitivePeerDependencies:
       - react
 
-  playwright-core@1.60.0: {}
+  playwright-core@1.62.0: {}
 
-  playwright@1.60.0:
+  playwright@1.62.0:
     dependencies:
-      playwright-core: 1.60.0
+      playwright-core: 1.62.0
     optionalDependencies:
       fsevents: 2.3.2
 
