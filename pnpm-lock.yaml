@@ -28,8 +28,8 @@ importers:
         specifier: ^0.22.2
         version: 0.22.2
       groq-sdk:
-        specifier: ^1.1.2
-        version: 1.2.1
+        specifier: ^1.4.0
+        version: 1.4.0
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
@@ -3235,8 +3235,8 @@ packages:
     resolution: {integrity: sha512-FqF7NNzBxya6Oq4VkTl9lg3W5Gjd3Cjwc6Et2OeAcTdmHOClwcYeAZkWR6wIm+KPtvESSYtzP59aj/+9egOKZQ==}
     engines: {node: '>= 14'}
 
-  groq-sdk@1.2.1:
-    resolution: {integrity: sha512-dsDSWJRJf+n2dPiCv7zU3IsJbrh7jfSPqi6vc1q0TTK1oUF6bn+wv4P2VFdynkHpuJ0TTJ57vlpT87judPgVPA==}
+  groq-sdk@1.4.0:
+    resolution: {integrity: sha512-4EAmBWlt5SNVyhKWqVPns9marmWYbtYO4kkE0u34NW3+GlVQ5d/JJ0sJRg/rOsqmVispCD3bK/EykH3zC1AeUQ==}
     hasBin: true
 
   groq@3.88.1-typegen-experimental.0:
@@ -8484,7 +8484,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  groq-sdk@1.2.1: {}
+  groq-sdk@1.4.0: {}
 
   groq@3.88.1-typegen-experimental.0: {}
 
