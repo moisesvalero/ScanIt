@@ -48,7 +48,7 @@
     "jspdf": "^4.2.1",
     "jszip": "^3.10.2",
     "mammoth": "^1.13.0",
-    "mediainfo.js": "^0.3.7",
+    "mediainfo.js": "^0.3.8",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "5.5.207",
     "tesseract.js": "^7.0.0"
