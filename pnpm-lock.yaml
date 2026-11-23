@@ -40,8 +40,8 @@ importers:
         specifier: ^1.13.0
         version: 1.13.0
       mediainfo.js:
-        specifier: ^0.3.8
-        version: 0.3.8
+        specifier: ^0.3.9
+        version: 0.3.9
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -2344,8 +2344,8 @@ packages:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
 
-  ansi-regex@6.4.0:
-    resolution: {integrity: sha512-KzTVk2tCWAHtYrvvvaP8bJKJq2pVinhLcGEQdtLIYPbmNGNyYe8QwNaTUYQp2J7/vIsUKt5QCqAfUkYyG9DkOw==}
+  ansi-regex@6.6.0:
+    resolution: {integrity: sha512-XZ5apbzreCbXSKwPjJstu8R0zOi247w3XYwWxtwBXgpZrCyc1Ka7p9/xY0A9/diMewmHbEKz+FIraWaEWjlN5g==}
     engines: {node: '>=12'}
 
   ansi-styles@4.3.0:
@@ -2720,6 +2720,9 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  csstype@3.2.4:
+    resolution: {integrity: sha512-PoKaoPzQapnEoqUSnHx1u6W6ku8CVEgKsnpmmzU3m1nwkidpPBQ8V/Zq2+bWNrsOKoKLwTGdbx6xF7BXP1zLVQ==}
 
   custom-media-element@1.4.6:
     resolution: {integrity: sha512-/HRYqJOa1ob5ik4q7FIJVYxTJCFs/FL3+cQPAJjUf2uiqrDEzbTgB315gQ2rG8oK3w094W9m5tcB8S5Qah+caA==}
@@ -3589,8 +3592,8 @@ packages:
   media-tracks@0.3.5:
     resolution: {integrity: sha512-l54rkKXlLBt3ob3zOLWHcnjvwUmX5bNEZ70igyapOZZC9imzqBmq1oz8p2roiV04KhjblFIi2hetLPF1oYVLRA==}
 
-  mediainfo.js@0.3.8:
-    resolution: {integrity: sha512-34ruGC47ytdp5IE9lXx4Yj8XMxESbzqLxDGfnYXimnokxH+aavC/YqubakOKm0vwrC5ZisL55WMmud6R6TmjBw==}
+  mediainfo.js@0.3.9:
+    resolution: {integrity: sha512-nmpBtH7i7y1XPlwusxlBGecuAVQioLIZCjvA3D2l9xqL1oCUzcbh/SKUZdoNTQ45wZjQbd6TBSSqyRBpmwnOag==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -7438,7 +7441,7 @@ snapshots:
 
   '@types/react@19.2.16':
     dependencies:
-      csstype: 3.2.3
+      csstype: 3.2.4
 
   '@types/seedrandom@2.4.27': {}
 
@@ -7513,7 +7516,7 @@ snapshots:
 
   ansi-regex@5.0.1: {}
 
-  ansi-regex@6.4.0: {}
+  ansi-regex@6.6.0: {}
 
   ansi-styles@4.3.0:
     dependencies:
@@ -7871,6 +7874,8 @@ snapshots:
       lru-cache: 11.5.1
 
   csstype@3.2.3: {}
+
+  csstype@3.2.4: {}
 
   custom-media-element@1.4.6: {}
 
@@ -8774,7 +8779,7 @@ snapshots:
 
   media-tracks@0.3.5: {}
 
-  mediainfo.js@0.3.8:
+  mediainfo.js@0.3.9:
     dependencies:
       yargs: 18.2.0
 
@@ -9633,7 +9638,7 @@ snapshots:
 
   strip-ansi@7.2.0:
     dependencies:
-      ansi-regex: 6.4.0
+      ansi-regex: 6.6.0
 
   strip-bom@3.0.0: {}
 
